@@ -15,11 +15,11 @@
     "binding": "ASSETS"
   },
 
-  // Custom domain — uncomment once weplaytogether.online is added to Cloudflare DNS
-  // "routes": [
-  //   { "pattern": "weplaytogether.online/*", "zone_name": "weplaytogether.online" },
-  //   { "pattern": "www.weplaytogether.online/*", "zone_name": "weplaytogether.online" }
-  // ],
+  // Custom domain routing
+  "routes": [
+    { "pattern": "weplaytogether.online/*", "zone_name": "weplaytogether.online" },
+    { "pattern": "www.weplaytogether.online/*", "zone_name": "weplaytogether.online" }
+  ],
 
   // KV namespace for cache (optional — enable when needed)
   // "kv_namespaces": [
