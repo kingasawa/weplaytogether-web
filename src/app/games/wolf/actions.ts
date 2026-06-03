@@ -225,12 +225,12 @@ function normalizeRoomCode(roomCode: string) {
 
 function normalizePlayerName(playerName?: string) {
   const normalized = playerName?.trim().slice(0, 32);
-  return normalized || `NgÆ°á»i chÆ¡i ${Math.floor(1000 + Math.random() * 9000)}`;
+  return normalized || `Người chơi ${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 function getDatabaseErrorMessage(errorCode?: string) {
   if (errorCode === "PGRST205" || errorCode === "42P01") {
-    return "Database chÆ°a Ä‘Æ°á»£c khá»Ÿi táº¡o báº£ng phĂ²ng chÆ¡i. Cáº§n cháº¡y migration Supabase trÆ°á»›c.";
+    return "Database chưa được khởi tạo bảng phòng chơi. Cần chạy migration Supabase trước.";
   }
 
   return null;
@@ -321,11 +321,11 @@ function getPlayerCard(cards: CardRow[], playerId: string) {
 }
 
 function getPlayerName(players: PlayerRow[], playerId: string | null) {
-  return players.find((player) => player.id === playerId)?.name ?? "khĂ´ng rĂµ";
+  return players.find((player) => player.id === playerId)?.name ?? "không rõ";
 }
 
 function getRoleReviewLabel(role?: WolfRole | null) {
-  return role ? WOLF_ROLE_LABELS[role] : "khĂ´ng rĂµ";
+  return role ? WOLF_ROLE_LABELS[role] : "không rõ";
 }
 
 function getCenterCard(cards: CardRow[], centerIndex: number) {
@@ -347,7 +347,7 @@ function buildNightReviewMessages(
   }
 
   if (!action) {
-    return ["Báº¡n chÆ°a gá»­i hĂ nh Ä‘á»™ng ban Ä‘Ăªm."];
+    return ["Bạn chưa gửi hành động ban đêm."];
   }
 
   if (action.action_type === "seer") {
@@ -355,7 +355,7 @@ function buildNightReviewMessages(
       const targetCard = getPlayerCard(cards, action.target_player_id);
 
       return [
-        `Báº¡n Ä‘Ă£ soi ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
+        `Bạn đã soi ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
           targetCard?.original_role
         )}.`,
       ];
@@ -367,10 +367,10 @@ function buildNightReviewMessages(
     const revealedCards = centerIndexes.map((centerIndex) => {
       const centerCard = getCenterCard(cards, centerIndex);
 
-      return `LĂ¡ giá»¯a ${centerIndex + 1}: ${getRoleReviewLabel(centerCard?.original_role)}`;
+      return `Lá giữa ${centerIndex + 1}: ${getRoleReviewLabel(centerCard?.original_role)}`;
     });
 
-    return revealedCards.length > 0 ? [`Báº¡n Ä‘Ă£ soi ${revealedCards.join(", ")}.`] : ["Báº¡n chÆ°a chá»n lĂ¡ Ä‘á»ƒ soi."];
+    return revealedCards.length > 0 ? [`Bạn đã soi ${revealedCards.join(", ")}.`] : ["Bạn chưa chọn lá để soi."];
   }
 
   if (action.action_type === "werewolf") {
@@ -378,20 +378,20 @@ function buildNightReviewMessages(
       const centerCard = getCenterCard(cards, action.target_center_index as number);
 
       return [
-        `Báº¡n Ä‘Ă£ xem lĂ¡ giá»¯a ${(action.target_center_index as number) + 1}: ${getRoleReviewLabel(
+        `Bạn đã xem lá giữa ${(action.target_center_index as number) + 1}: ${getRoleReviewLabel(
           centerCard?.original_role
         )}.`,
       ];
     }
 
-    return ["Báº¡n Ä‘Ă£ hoĂ n táº¥t lÆ°á»£t Ma SĂ³i mĂ  khĂ´ng xem lĂ¡ giá»¯a bĂ n."];
+    return ["Bạn đã hoàn tất lượt Ma Sói mà không xem lá giữa bàn."];
   }
 
   if (action.action_type === "robber") {
     const myCard = getPlayerCard(cards, currentPlayer.id);
 
     return [
-      `Báº¡n Ä‘Ă£ Ä‘á»•i bĂ i vá»›i ${getPlayerName(players, action.target_player_id)}. BĂ i hiá»‡n táº¡i cá»§a báº¡n lĂ  ${getRoleReviewLabel(
+      `Bạn đã đổi bài với ${getPlayerName(players, action.target_player_id)}. Bài hiện tại của bạn là ${getRoleReviewLabel(
         myCard?.current_role
       )}.`,
     ];
@@ -399,28 +399,28 @@ function buildNightReviewMessages(
 
   if (action.action_type === "troublemaker") {
     return [
-      `Báº¡n Ä‘Ă£ Ä‘á»•i bĂ i cá»§a ${getPlayerName(players, action.target_player_id)} vĂ  ${getPlayerName(
+      `Bạn đã đổi bài của ${getPlayerName(players, action.target_player_id)} và ${getPlayerName(
         players,
         action.target_player_id_2
-      )}. Báº¡n khĂ´ng Ä‘Æ°á»£c xem hai lĂ¡ Ä‘Ă³.`,
+      )}. Bạn không được xem hai lá đó.`,
     ];
   }
 
   if (action.action_type === "drunk") {
     return [
       validateCenterIndex(action.target_center_index)
-        ? `Báº¡n Ä‘Ă£ Ä‘á»•i bĂ i vá»›i lĂ¡ giá»¯a ${(action.target_center_index as number) + 1}. Báº¡n khĂ´ng Ä‘Æ°á»£c xem lĂ¡ má»›i.`
-        : "Báº¡n Ä‘Ă£ hoĂ n táº¥t lÆ°á»£t Say RÆ°á»£u.",
+        ? `Bạn đã đổi bài với lá giữa ${(action.target_center_index as number) + 1}. Bạn không được xem lá mới.`
+        : "Bạn đã hoàn tất lượt Say Rượu.",
     ];
   }
 
   if (action.action_type === "insomniac") {
     const myCard = getPlayerCard(cards, currentPlayer.id);
 
-    return [`Sau ban Ä‘Ăªm, bĂ i hiá»‡n táº¡i cá»§a báº¡n lĂ  ${getRoleReviewLabel(myCard?.current_role)}.`];
+    return [`Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(myCard?.current_role)}.`];
   }
 
-  return ["Báº¡n khĂ´ng cĂ³ chá»©c nÄƒng ban Ä‘Ăªm. HĂ£y chá» chuyá»ƒn sang tháº£o luáº­n."];
+  return ["Vai trò của bạn không có quyền xem thêm kết quả ban đêm."];
 }
 
 function isConfirmablePhase(phase: WolfGamePhase) {
@@ -572,8 +572,8 @@ function buildGameResult(players: PlayerRow[], cards: CardRow[], votes: VoteRow[
       eliminatedPlayerIds,
       winnerTeam: villagersWin ? "villagers" : "werewolves",
       winnerText: villagersWin
-        ? "KhĂ´ng cĂ³ Ma SĂ³i vĂ  khĂ´ng ai bá»‹ treo. DĂ¢n lĂ ng tháº¯ng."
-        : "KhĂ´ng cĂ³ Ma SĂ³i nhÆ°ng cĂ³ ngÆ°á»i bá»‹ treo. DĂ¢n lĂ ng thua.",
+        ? "Không có Ma Sói và không ai bị treo. Dân làng thắng."
+        : "Không có Ma Sói nhưng có người bị treo. Dân làng thua.",
       voteCounts,
     };
   }
@@ -582,8 +582,8 @@ function buildGameResult(players: PlayerRow[], cards: CardRow[], votes: VoteRow[
     eliminatedPlayerIds,
     winnerTeam: eliminatedWerewolf ? "villagers" : "werewolves",
     winnerText: eliminatedWerewolf
-      ? "CĂ³ Ma SĂ³i bá»‹ treo. DĂ¢n lĂ ng tháº¯ng."
-      : "KhĂ´ng cĂ³ Ma SĂ³i nĂ o bá»‹ treo. Ma SĂ³i tháº¯ng.",
+      ? "Có Ma Sói bị treo. Dân làng thắng."
+      : "Không có Ma Sói nào bị treo. Ma Sói thắng.",
     voteCounts,
   };
 }
@@ -668,7 +668,7 @@ export async function createWolfRoom(playerName?: string): Promise<WolfActionRes
 
       return {
         ok: false,
-        error: getDatabaseErrorMessage(roomError.code) ?? "KhĂ´ng thá»ƒ táº¡o phĂ²ng. Vui lĂ²ng thá»­ láº¡i.",
+        error: getDatabaseErrorMessage(roomError.code) ?? "Không thể tạo phòng. Vui lòng thử lại.",
       };
     }
 
@@ -686,7 +686,7 @@ export async function createWolfRoom(playerName?: string): Promise<WolfActionRes
 
     if (playerError) {
       await supabase.from("wolf_rooms").delete().eq("id", room.id);
-      return { ok: false, error: "KhĂ´ng thá»ƒ thĂªm ngÆ°á»i chÆ¡i vĂ o phĂ²ng." };
+      return { ok: false, error: "Không thể thêm người chơi vào phòng." };
     }
 
     await supabase
@@ -697,7 +697,7 @@ export async function createWolfRoom(playerName?: string): Promise<WolfActionRes
     return { ok: true, roomCode: room.code, playerId: hostPlayer.id };
   }
 
-  return { ok: false, error: "KhĂ´ng thá»ƒ sinh mĂ£ phĂ²ng má»›i. Vui lĂ²ng thá»­ láº¡i." };
+  return { ok: false, error: "Không thể sinh mã phòng mới. Vui lòng thử lại." };
 }
 
 export async function joinWolfRoom(
@@ -707,7 +707,7 @@ export async function joinWolfRoom(
   const code = normalizeRoomCode(roomCode);
 
   if (!ROOM_CODE_PATTERN.test(code)) {
-    return { ok: false, error: "MĂ£ phĂ²ng pháº£i gá»“m Ä‘Ăºng 4 chá»¯ cĂ¡i tá»« a Ä‘áº¿n z." };
+    return { ok: false, error: "Mã phòng phải gồm đúng 4 chữ cái từ a đến z." };
   }
 
   const supabase = createSupabaseAdminClient();
@@ -724,12 +724,12 @@ export async function joinWolfRoom(
     return {
       ok: false,
       error:
-        getDatabaseErrorMessage(roomError?.code) ?? "KhĂ´ng tĂ¬m tháº¥y phĂ²ng vá»›i mĂ£ nĂ y.",
+        getDatabaseErrorMessage(roomError?.code) ?? "Không tìm thấy phòng với mã này.",
     };
   }
 
   if (room.status !== "waiting") {
-    return { ok: false, error: "PhĂ²ng nĂ y Ä‘Ă£ báº¯t Ä‘áº§u hoáº·c Ä‘Ă£ káº¿t thĂºc." };
+    return { ok: false, error: "Phòng này đã bắt đầu hoặc đã kết thúc." };
   }
 
   const { data: existingPlayer } = await supabase
@@ -754,7 +754,7 @@ export async function joinWolfRoom(
     .eq("room_id", room.id);
 
   if ((activePlayerCount ?? 0) >= MAX_PLAYERS) {
-    return { ok: false, error: "PhĂ²ng Ä‘Ă£ Ä‘á»§ ngÆ°á»i." };
+    return { ok: false, error: "Phòng đã đủ người." };
   }
 
   const { data: player, error: playerError } = await supabase
@@ -768,7 +768,7 @@ export async function joinWolfRoom(
     .single();
 
   if (playerError || !player) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ vĂ o phĂ²ng. Vui lĂ²ng thá»­ láº¡i." };
+    return { ok: false, error: "Không thể vào phòng. Vui lòng thử lại." };
   }
 
   return { ok: true, roomCode: room.code, playerId: player.id };
@@ -851,7 +851,7 @@ export async function kickWolfPlayer(
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!sessionId || !room) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y phĂ²ng." };
+    return { ok: false, error: "Không tìm thấy phòng." };
   }
 
   const players = await getActivePlayers(supabase, room);
@@ -859,19 +859,19 @@ export async function kickWolfPlayer(
   const targetPlayer = players.find((player) => player.id === targetPlayerId) ?? null;
 
   if (!isHost(currentPlayer, room)) {
-    return { ok: false, error: "Chá»‰ chá»§ phĂ²ng má»›i Ä‘Æ°á»£c kick ngÆ°á»i chÆ¡i." };
+    return { ok: false, error: "Chỉ chủ phòng mới được kick người chơi." };
   }
 
   if (room.status !== "waiting") {
-    return { ok: false, error: "Chá»‰ cĂ³ thá»ƒ kick khi phĂ²ng Ä‘ang chá»." };
+    return { ok: false, error: "Chỉ có thể kick khi phòng đang chờ." };
   }
 
   if (!targetPlayer) {
-    return { ok: false, error: "NgÆ°á»i chÆ¡i khĂ´ng cĂ²n trong phĂ²ng." };
+    return { ok: false, error: "Người chơi không còn trong phòng." };
   }
 
   if (targetPlayer.id === currentPlayer?.id || targetPlayer.is_host) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ kick chá»§ phĂ²ng." };
+    return { ok: false, error: "Không thể kick chủ phòng." };
   }
 
   const { error } = await supabase
@@ -881,7 +881,7 @@ export async function kickWolfPlayer(
     .eq("room_id", room.id);
 
   if (error) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ kick ngÆ°á»i chÆ¡i. Vui lĂ²ng thá»­ láº¡i." };
+    return { ok: false, error: "Không thể kick người chơi. Vui lòng thử lại." };
   }
 
   return { ok: true };
@@ -964,7 +964,7 @@ export async function startWolfGame(roomCode: string): Promise<WolfStartGameResu
   const sessionId = await getPlayerSessionId();
 
   if (!ROOM_CODE_PATTERN.test(code) || !sessionId) {
-    return { ok: false, error: "KhĂ´ng xĂ¡c Ä‘á»‹nh Ä‘Æ°á»£c phĂ²ng hoáº·c ngÆ°á»i chÆ¡i." };
+    return { ok: false, error: "Không xác định được phòng hoặc người chơi." };
   }
 
   const { supabase, room, error } = await getRoomByCode(code);
@@ -972,7 +972,7 @@ export async function startWolfGame(roomCode: string): Promise<WolfStartGameResu
   if (error || !room) {
     return {
       ok: false,
-      error: getDatabaseErrorMessage(error?.code) ?? "KhĂ´ng tĂ¬m tháº¥y phĂ²ng.",
+      error: getDatabaseErrorMessage(error?.code) ?? "Không tìm thấy phòng.",
     };
   }
 
@@ -981,24 +981,24 @@ export async function startWolfGame(roomCode: string): Promise<WolfStartGameResu
   }
 
   if (room.status !== "waiting") {
-    return { ok: false, error: "PhĂ²ng khĂ´ng cĂ²n á»Ÿ tráº¡ng thĂ¡i chá»." };
+    return { ok: false, error: "Phòng không còn ở trạng thái chờ." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!isHost(currentPlayer, room)) {
-    return { ok: false, error: "Chá»‰ chá»§ phĂ²ng má»›i Ä‘Æ°á»£c báº¯t Ä‘áº§u vĂ¡n." };
+    return { ok: false, error: "Chỉ chủ phòng mới được bắt đầu ván." };
   }
 
   if (players.length < 3) {
-    return { ok: false, error: "Cáº§n Ă­t nháº¥t 3 ngÆ°á»i chÆ¡i Ä‘á»ƒ báº¯t Ä‘áº§u." };
+    return { ok: false, error: "Cần ít nhất 3 người chơi để bắt đầu." };
   }
 
   const unreadyPlayer = players.find((player) => !player.is_host && !player.is_ready);
 
   if (unreadyPlayer) {
-    return { ok: false, error: "CĂ²n ngÆ°á»i chÆ¡i chÆ°a sáºµn sĂ ng." };
+    return { ok: false, error: "Còn người chơi chưa sẵn sàng." };
   }
 
   const { data: game, error: gameError } = await supabase
@@ -1010,7 +1010,7 @@ export async function startWolfGame(roomCode: string): Promise<WolfStartGameResu
   if (gameError || !game) {
     return {
       ok: false,
-      error: getDatabaseErrorMessage(gameError?.code) ?? "KhĂ´ng thá»ƒ táº¡o vĂ¡n má»›i. Cáº§n cháº¡y migration gameplay.",
+      error: getDatabaseErrorMessage(gameError?.code) ?? "Không thể tạo ván mới. Cần chạy migration gameplay.",
     };
   }
 
@@ -1034,7 +1034,7 @@ export async function startWolfGame(roomCode: string): Promise<WolfStartGameResu
 
   if (cardError) {
     await supabase.from("wolf_game_sessions").delete().eq("id", game.id);
-    return { ok: false, error: "KhĂ´ng thá»ƒ chia bĂ i cho vĂ¡n má»›i." };
+    return { ok: false, error: "Không thể chia bài cho ván mới." };
   }
 
   await supabase
@@ -1109,12 +1109,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       .map((card) => [card.player_id as string, card])
   );
   const shouldRevealAll = game.phase === "result";
-  const isRoleAfterNightVisible =
-    myCard?.original_role === "insomniac" ||
-    myCard?.original_role === "robber" ||
-    game.phase === "result";
-  const shouldRevealMyCurrentRole =
-    shouldRevealAll || (game.phase !== "card_reveal" && game.phase !== "night" && isRoleAfterNightVisible);
+  const shouldRevealMyCurrentRole = shouldRevealAll;
   const revealedCenterIndexes = new Set<number>();
 
   if (myAction?.action_type === "seer") {
@@ -1196,24 +1191,24 @@ export async function submitWolfNightAction(
   const sessionId = await getPlayerSessionId();
 
   if (!state || !sessionId) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   if (state.game.phase !== "night") {
-    return { ok: false, error: "KhĂ´ng cĂ²n á»Ÿ giai Ä‘oáº¡n ban Ä‘Ăªm." };
+    return { ok: false, error: "Không còn ở giai đoạn ban đêm." };
   }
 
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!room?.current_game_id) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!currentPlayer) {
-    return { ok: false, error: "Báº¡n chÆ°a á»Ÿ trong phĂ²ng nĂ y." };
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
   }
 
   const { data: myCard } = await supabase
@@ -1225,7 +1220,7 @@ export async function submitWolfNightAction(
   const originalRole = myCard?.original_role as WolfRole | undefined;
 
   if (!originalRole || input.actionType !== originalRole) {
-    return { ok: false, error: "HĂ nh Ä‘á»™ng khĂ´ng khá»›p vá»›i vai trĂ² cá»§a báº¡n." };
+    return { ok: false, error: "Hành động không khớp với vai trò của bạn." };
   }
 
   const targetPlayerIds = [input.targetPlayerId, input.targetPlayerId2].filter(Boolean) as string[];
@@ -1235,11 +1230,11 @@ export async function submitWolfNightAction(
   );
 
   if (targetPlayerIds.some((playerId) => !activePlayerIds.has(playerId))) {
-    return { ok: false, error: "NgÆ°á»i chÆ¡i Ä‘Æ°á»£c chá»n khĂ´ng há»£p lá»‡." };
+    return { ok: false, error: "Người chơi được chọn không hợp lệ." };
   }
 
   if (originalRole === "robber" && (!input.targetPlayerId || !otherPlayerIds.has(input.targetPlayerId))) {
-    return { ok: false, error: "Káº» Trá»™m pháº£i chá»n má»™t ngÆ°á»i chÆ¡i khĂ¡c." };
+    return { ok: false, error: "Kẻ Trộm phải chọn một người chơi khác." };
   }
 
   if (
@@ -1250,11 +1245,11 @@ export async function submitWolfNightAction(
       !otherPlayerIds.has(input.targetPlayerId) ||
       !otherPlayerIds.has(input.targetPlayerId2))
   ) {
-    return { ok: false, error: "Káº» GĂ¢y Rá»‘i pháº£i chá»n hai ngÆ°á»i chÆ¡i khĂ¡c nhau." };
+    return { ok: false, error: "Kẻ Gây Rối phải chọn hai người chơi khác nhau." };
   }
 
   if (originalRole === "drunk" && !validateCenterIndex(input.targetCenterIndex)) {
-    return { ok: false, error: "Say RÆ°á»£u pháº£i chá»n má»™t lĂ¡ giá»¯a bĂ n." };
+    return { ok: false, error: "Say Rượu phải chọn một lá giữa bàn." };
   }
 
   if (
@@ -1264,7 +1259,7 @@ export async function submitWolfNightAction(
       !validateCenterIndex(input.targetCenterIndex2) ||
       input.targetCenterIndex === input.targetCenterIndex2)
   ) {
-    return { ok: false, error: "TiĂªn Tri pháº£i chá»n má»™t ngÆ°á»i chÆ¡i hoáº·c hai lĂ¡ giá»¯a bĂ n." };
+    return { ok: false, error: "Tiên Tri phải chọn một người chơi hoặc hai lá giữa bàn." };
   }
 
   const { error } = await supabase
@@ -1283,7 +1278,7 @@ export async function submitWolfNightAction(
     );
 
   if (error) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ lÆ°u hĂ nh Ä‘á»™ng ban Ä‘Ăªm." };
+    return { ok: false, error: "Không thể lưu hành động ban đêm." };
   }
 
   await maybeAutoAdvancePhase(supabase, room, players, "night");
@@ -1296,14 +1291,14 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!currentPlayer) {
-    return { ok: false, error: "Báº¡n chÆ°a á»Ÿ trong phĂ²ng nĂ y." };
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
   }
 
   const { data: game } = await supabase
@@ -1313,7 +1308,7 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
     .maybeSingle();
 
   if (!game || !isConfirmablePhase(game.phase)) {
-    return { ok: false, error: "Giai Ä‘oáº¡n nĂ y khĂ´ng cáº§n xĂ¡c nháº­n." };
+    return { ok: false, error: "Giai đoạn này không cần xác nhận." };
   }
 
   const { error } = await supabase
@@ -1328,7 +1323,7 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
     );
 
   if (error) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ lÆ°u tráº¡ng thĂ¡i hoĂ n táº¥t." };
+    return { ok: false, error: "Không thể lưu trạng thái hoàn tất." };
   }
 
   await maybeAutoAdvancePhase(supabase, room, players, game.phase);
@@ -1341,14 +1336,14 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!isHost(currentPlayer, room)) {
-    return { ok: false, error: "Chá»‰ chá»§ phĂ²ng má»›i Ä‘Æ°á»£c chuyá»ƒn giai Ä‘oáº¡n." };
+    return { ok: false, error: "Chỉ chủ phòng mới được chuyển giai đoạn." };
   }
 
   const { data: game } = await supabase
@@ -1358,7 +1353,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
     .maybeSingle();
 
   if (!game) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   if (game.phase === "card_reveal") {
@@ -1396,7 +1391,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
     return { ok: true };
   }
 
-  return { ok: false, error: "VĂ¡n Ä‘Ă£ káº¿t thĂºc." };
+  return { ok: false, error: "Ván đã kết thúc." };
 }
 
 export async function submitWolfVote(
@@ -1407,14 +1402,14 @@ export async function submitWolfVote(
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!currentPlayer) {
-    return { ok: false, error: "Báº¡n chÆ°a á»Ÿ trong phĂ²ng nĂ y." };
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
   }
 
   const { data: game } = await supabase
@@ -1424,11 +1419,11 @@ export async function submitWolfVote(
     .maybeSingle();
 
   if (!game || game.phase !== "voting") {
-    return { ok: false, error: "ChÆ°a Ä‘áº¿n giai Ä‘oáº¡n bá» phiáº¿u." };
+    return { ok: false, error: "Chưa đến giai đoạn bỏ phiếu." };
   }
 
   if (!players.some((player) => player.id === targetPlayerId)) {
-    return { ok: false, error: "NgÆ°á»i chÆ¡i Ä‘Æ°á»£c chá»n khĂ´ng há»£p lá»‡." };
+    return { ok: false, error: "Người chơi được chọn không hợp lệ." };
   }
 
   const { error } = await supabase
@@ -1443,7 +1438,7 @@ export async function submitWolfVote(
     );
 
   if (error) {
-    return { ok: false, error: "KhĂ´ng thá»ƒ lÆ°u phiáº¿u báº§u." };
+    return { ok: false, error: "Không thể lưu phiếu bầu." };
   }
 
   await maybeAutoAdvancePhase(supabase, room, players, "voting");
@@ -1456,14 +1451,14 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
   const { supabase, room } = await getRoomByCode(roomCode);
 
   if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "KhĂ´ng tĂ¬m tháº¥y vĂ¡n Ä‘ang chÆ¡i." };
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 
   if (!isHost(currentPlayer, room)) {
-    return { ok: false, error: "Chá»‰ chá»§ phĂ²ng má»›i Ä‘Æ°á»£c káº¿t thĂºc vĂ¡n." };
+    return { ok: false, error: "Chỉ chủ phòng mới được kết thúc ván." };
   }
 
   await supabase

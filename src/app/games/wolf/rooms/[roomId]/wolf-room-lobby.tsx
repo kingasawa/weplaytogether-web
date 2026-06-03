@@ -49,6 +49,7 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestNameError, setGuestNameError] = useState("");
+  const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -145,11 +146,27 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     const playerName = getCurrentPlayerName();
 
     if (playerName === null) {
+      setShouldJoinAfterGuestName(true);
       setIsIdentityOpen(true);
+      setIsGuestFormOpen(true);
       return null;
     }
 
     return playerName;
+  }
+
+  function runJoinCurrentRoom(playerName?: string) {
+    setErrorMessage("");
+    startTransition(async () => {
+      const result = await joinWolfRoom(lobbyState.room.code, playerName);
+
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      await refreshLobby();
+    });
   }
 
   function saveGuestName(event: FormEvent<HTMLFormElement>) {
@@ -170,6 +187,11 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
+
+    if (shouldJoinAfterGuestName) {
+      setShouldJoinAfterGuestName(false);
+      runJoinCurrentRoom(normalizedGuestName);
+    }
   }
 
   function joinCurrentRoom() {
@@ -179,17 +201,7 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
       return;
     }
 
-    setErrorMessage("");
-    startTransition(async () => {
-      const result = await joinWolfRoom(lobbyState.room.code, playerName);
-
-      if (!result.ok) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      await refreshLobby();
-    });
+    runJoinCurrentRoom(playerName);
   }
 
   function toggleReady() {
@@ -260,6 +272,12 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
 
   function copyRoomUrl() {
     void copyToClipboard(window.location.href, "URL phòng");
+  }
+
+  function closeIdentityModal() {
+    setIsIdentityOpen(false);
+    setIsGuestFormOpen(false);
+    setShouldJoinAfterGuestName(false);
   }
 
   return (
@@ -433,7 +451,7 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
         <div
           className={styles.modalBackdrop}
           role="presentation"
-          onClick={() => setIsIdentityOpen(false)}
+          onClick={closeIdentityModal}
         >
           <section
             aria-labelledby="room-identity-title"

@@ -610,18 +610,14 @@
   border: 1px solid color-mix(in srgb, var(--primary-light) 24%, var(--bg-primary));
   border-radius: inherit;
   background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-secondary) 98%, transparent),
-      color-mix(in srgb, var(--bg-primary) 96%, transparent)
-    ),
     repeating-linear-gradient(
       135deg,
       color-mix(in srgb, var(--primary) 18%, transparent) 0,
       color-mix(in srgb, var(--primary) 18%, transparent) 0.12rem,
       transparent 0.12rem,
       transparent 0.72rem
-    );
+    ),
+    linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
   color: var(--text);
   cursor: grab;
   text-align: center;

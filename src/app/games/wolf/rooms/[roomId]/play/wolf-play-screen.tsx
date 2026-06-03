@@ -319,6 +319,10 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     const nextOffset = Math.min(0, event.clientY - maskPointerStartY);
+    if (maskPointerStartY - event.clientY >= 44 && privateRevealKey) {
+      setUnlockedPrivateRevealKey(privateRevealKey);
+    }
+
     setMaskDragOffset(Math.max(nextOffset, -220));
   }
 
@@ -467,9 +471,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
               {playState.nightReviewMessages.map((reviewMessage) => (
                 <p key={reviewMessage}>{reviewMessage}</p>
               ))}
-              {playState.myCard?.currentRole && playState.myCard.currentRole !== playState.myCard.originalRole && (
-                <p>Hiện tại bạn đang là {WOLF_ROLE_LABELS[playState.myCard.currentRole]}.</p>
-              )}
               {renderPrivateMask("Kết quả ban đêm")}
             </div>
             <button

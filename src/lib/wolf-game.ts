@@ -23,7 +23,7 @@ export const WOLF_ROLE_DESCRIPTIONS: Record<WolfRole, string> = {
 export const WOLF_PHASE_LABELS: Record<WolfGamePhase, string> = {
   card_reveal: "Xem bài",
   night: "Ban đêm",
-  night_review: "Xem lại ban đêm",
+  night_review: "Xem lại kết quả",
   discussion: "Thảo luận",
   voting: "Bỏ phiếu",
   result: "Kết quả",

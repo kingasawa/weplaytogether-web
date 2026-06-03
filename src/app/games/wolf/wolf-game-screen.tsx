@@ -23,6 +23,7 @@ import { createWolfRoom, joinWolfRoom } from "./actions";
 import styles from "./page.module.css";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
+type PendingIdentityAction = "create_room" | "open_join_room" | "join_room" | null;
 
 export default function WolfGameScreen() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function WolfGameScreen() {
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestNameError, setGuestNameError] = useState("");
+  const [pendingIdentityAction, setPendingIdentityAction] = useState<PendingIdentityAction>(null);
   const [roomCode, setRoomCode] = useState("");
   const [roomCodeError, setRoomCodeError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -54,7 +56,6 @@ export default function WolfGameScreen() {
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setIsLoggedIn(hasSession);
-      setIsIdentityOpen(!hasSession && !savedGuestName);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -64,7 +65,6 @@ export default function WolfGameScreen() {
       setIsLoggedIn(hasSession);
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
-      setIsIdentityOpen(!hasSession && !savedGuestName);
     });
 
     return () => {
@@ -81,15 +81,50 @@ export default function WolfGameScreen() {
     return normalizedGuestName || null;
   }
 
-  function ensurePlayerIdentity() {
+  function ensurePlayerIdentity(nextAction: Exclude<PendingIdentityAction, null>) {
     const playerName = getCurrentPlayerName();
 
     if (playerName === null) {
+      setPendingIdentityAction(nextAction);
       setIsIdentityOpen(true);
+      setIsGuestFormOpen(true);
       return null;
     }
 
     return playerName;
+  }
+
+  function runCreateRoom(playerName?: string) {
+    setActionError("");
+    startTransition(async () => {
+      const result = await createWolfRoom(playerName);
+
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+
+      router.push(`/games/wolf/rooms/${result.roomCode}`);
+    });
+  }
+
+  function runJoinRoom(playerName?: string) {
+    if (!ROOM_ID_PATTERN.test(normalizedRoomCode)) {
+      setRoomCodeError("Mã phòng phải gồm đúng 4 chữ cái từ a đến z.");
+      return;
+    }
+
+    setRoomCodeError("");
+    startTransition(async () => {
+      const result = await joinWolfRoom(normalizedRoomCode, playerName);
+
+      if (!result.ok) {
+        setRoomCodeError(result.error);
+        return;
+      }
+
+      router.push(`/games/wolf/rooms/${result.roomCode}`);
+    });
   }
 
   function saveGuestName(event: FormEvent<HTMLFormElement>) {
@@ -110,30 +145,35 @@ export default function WolfGameScreen() {
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
+
+    const nextAction = pendingIdentityAction;
+    setPendingIdentityAction(null);
+
+    if (nextAction === "create_room") {
+      runCreateRoom(normalizedGuestName);
+    }
+
+    if (nextAction === "open_join_room") {
+      setIsJoinOpen(true);
+    }
+
+    if (nextAction === "join_room") {
+      runJoinRoom(normalizedGuestName);
+    }
   }
 
   function createRoom() {
-    const playerName = ensurePlayerIdentity();
+    const playerName = ensurePlayerIdentity("create_room");
 
     if (playerName === null) {
       return;
     }
 
-    setActionError("");
-    startTransition(async () => {
-      const result = await createWolfRoom(playerName);
-
-      if (!result.ok) {
-        setActionError(result.error);
-        return;
-      }
-
-      router.push(`/games/wolf/rooms/${result.roomCode}`);
-    });
+    runCreateRoom(playerName);
   }
 
   function openJoinRoom() {
-    if (ensurePlayerIdentity() === null) {
+    if (ensurePlayerIdentity("open_join_room") === null) {
       return;
     }
 
@@ -142,33 +182,24 @@ export default function WolfGameScreen() {
 
   function joinRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const playerName = ensurePlayerIdentity();
+    const playerName = ensurePlayerIdentity("join_room");
 
     if (playerName === null) {
       return;
     }
 
-    if (!ROOM_ID_PATTERN.test(normalizedRoomCode)) {
-      setRoomCodeError("Mã phòng phải gồm đúng 4 chữ cái từ a đến z.");
-      return;
-    }
-
-    setRoomCodeError("");
-    startTransition(async () => {
-      const result = await joinWolfRoom(normalizedRoomCode, playerName);
-
-      if (!result.ok) {
-        setRoomCodeError(result.error);
-        return;
-      }
-
-      router.push(`/games/wolf/rooms/${result.roomCode}`);
-    });
+    runJoinRoom(playerName);
   }
 
   function updateRoomCode(value: string) {
     setRoomCode(value);
     setRoomCodeError("");
+  }
+
+  function closeIdentityModal() {
+    setIsIdentityOpen(false);
+    setIsGuestFormOpen(false);
+    setPendingIdentityAction(null);
   }
 
   return (
@@ -274,7 +305,7 @@ export default function WolfGameScreen() {
         <div
           className={styles.modalBackdrop}
           role="presentation"
-          onClick={() => setIsIdentityOpen(false)}
+          onClick={closeIdentityModal}
         >
           <section
             aria-labelledby="identity-title"
