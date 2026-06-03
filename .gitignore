@@ -37,6 +37,11 @@ yarn-error.log*
 /documents/project-config.md
 .claude/settings.local.json
 .mcp.json
+.dev.vars
+
+# OpenNext / Cloudflare build output
+.open-next/
+.wrangler/
 
 # supabase temp
 supabase/.temp/
