@@ -1,0 +1,574 @@
+.page {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--danger) 22%, transparent), transparent 22rem),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--primary) 18%, transparent), transparent 26rem),
+    var(--bg-primary);
+  color: var(--text);
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-height: calc(100vh - (var(--spacing-md) * 2) - var(--spacing-md) - 2.75rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 1.25rem;
+  background: var(--bg-secondary);
+  isolation: isolate;
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.heroImage::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 20%, transparent),
+      var(--bg-primary) 82%
+    ),
+    linear-gradient(
+      90deg,
+      var(--bg-primary),
+      color-mix(in srgb, var(--bg-primary) 72%, transparent)
+    );
+  content: "";
+}
+
+.heroImage img {
+  object-fit: cover;
+  object-position: center top;
+}
+
+.heroContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  max-width: 44rem;
+  padding: clamp(1rem, 6vw, 4rem);
+}
+
+.backLink,
+.eyebrow,
+.actions,
+.exitBar,
+.roomStatusGrid,
+.identityActions,
+.joinForm {
+  display: flex;
+}
+
+.backLink {
+  width: fit-content;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--primary-light);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.eyebrow {
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--primary-light);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.eyebrow svg {
+  width: 1rem;
+}
+
+.heroContent h1,
+.roomPanel h1 {
+  max-width: 12ch;
+  font-size: clamp(3.4rem, 18vw, 6.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.07em;
+}
+
+.description {
+  max-width: 40rem;
+  color: var(--text-secondary);
+  font-size: clamp(0.95rem, 3.5vw, 1.08rem);
+  line-height: 1.75;
+}
+
+.actions {
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: var(--spacing-sm);
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.smallButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.exitButton,
+.smallButton,
+.closeButton {
+  cursor: pointer;
+}
+
+.primaryButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 72%, transparent);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--text);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.secondaryButton {
+  border: 1px solid color-mix(in srgb, var(--success) 52%, transparent);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--text);
+}
+
+.ghostButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  color: var(--text);
+}
+
+.primaryButton svg,
+.secondaryButton svg,
+.ghostButton svg,
+.smallButton svg {
+  width: 1.1rem;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.ghostButton:disabled,
+.smallButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+}
+
+.inlineError {
+  color: var(--danger);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.exitBar {
+  justify-content: center;
+}
+
+.exitButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background var(--transition-base);
+}
+
+.roomStatusGrid article {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+}
+
+.roomStatusGrid span,
+.roomCodeCard span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.roomStatusGrid strong {
+  font-size: 1rem;
+}
+
+.roomStatusGrid svg {
+  width: 1.35rem;
+  color: var(--primary-light);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: end center;
+  padding: var(--spacing-md);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  backdrop-filter: blur(1rem);
+}
+
+.modal {
+  position: relative;
+  width: min(100%, 32rem);
+  max-height: calc(100vh - (var(--spacing-md) * 2));
+  overflow: auto;
+  padding: var(--spacing-lg);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 1.1rem;
+  background: var(--bg-card);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.modal h2 {
+  padding-right: 2.75rem;
+  font-size: 1.35rem;
+}
+
+.modal p {
+  margin-top: var(--spacing-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.closeButton {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
+  color: var(--text);
+}
+
+.closeButton svg {
+  width: 1.1rem;
+}
+
+.joinForm {
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.identityActions {
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: var(--spacing-lg);
+}
+
+.guestForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+}
+
+.joinForm label,
+.guestForm label {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.joinForm input,
+.guestForm input {
+  min-height: 3.25rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 32%, transparent);
+  border-radius: 0.85rem;
+  outline: none;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-align: center;
+  text-transform: lowercase;
+}
+
+.guestForm input {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  padding-inline: var(--spacing-md);
+}
+
+.joinForm input:focus,
+.guestForm input:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.errorText {
+  color: var(--danger);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.guideModal {
+  width: min(100%, 40rem);
+}
+
+.guideList {
+  display: grid;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.guideList li::marker {
+  color: var(--primary-light);
+  font-weight: 700;
+}
+
+.roomPage {
+  display: grid;
+  place-items: center;
+}
+
+.roomPanel {
+  width: min(100%, 54rem);
+  padding: clamp(1rem, 5vw, 3rem);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--success) 16%, transparent), transparent 20rem),
+    var(--bg-secondary);
+}
+
+.roomPanel .description {
+  margin-top: var(--spacing-md);
+}
+
+.roomCodeCard {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 26%, transparent);
+  border-radius: 1rem;
+  background: var(--bg-card);
+}
+
+.roomCodeCard strong {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 16vw, 5rem);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.lobbyHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.lobbyHeader > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.lobbyHeader span,
+.playerRow span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.lobbyHeader strong {
+  font-size: 1rem;
+}
+
+.smallButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 26%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  color: var(--text);
+}
+
+.playerList {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.playerRow {
+  display: flex;
+  min-height: 4.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+
+.playerRow > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.hostBadge {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding-inline: 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hostBadge svg {
+  width: 0.9rem;
+}
+
+.roomStatusGrid {
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primaryButton:not(:disabled):hover,
+  .secondaryButton:not(:disabled):hover,
+  .ghostButton:not(:disabled):hover,
+  .exitButton:hover,
+  .smallButton:not(:disabled):hover,
+  .closeButton:not(:disabled):hover {
+    transform: translateY(-0.12rem);
+  }
+
+  .ghostButton:not(:disabled):hover,
+  .exitButton:hover,
+  .smallButton:not(:disabled):hover,
+  .closeButton:not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--primary-light) 44%, transparent);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+}
+
+@media (min-width: 48rem) {
+  .page {
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+  }
+
+  .hero {
+    min-height: calc(100vh - (var(--spacing-lg) * 2) - var(--spacing-lg) - 2.75rem);
+  }
+
+  .actions,
+  .identityActions,
+  .lobbyHeader,
+  .roomStatusGrid {
+    flex-direction: row;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .primaryButton,
+  .secondaryButton,
+  .ghostButton {
+    min-width: 10rem;
+  }
+
+  .roomStatusGrid article {
+    flex: 1;
+  }
+
+  .exitButton {
+    width: auto;
+    min-width: 10rem;
+  }
+
+  .smallButton {
+    min-width: 8.5rem;
+  }
+
+  .modalBackdrop {
+    place-items: center;
+  }
+}
+
+@media (min-width: 64rem) {
+  .hero {
+    align-items: end;
+    min-height: 35rem;
+  }
+
+  .heroImage::after {
+    background:
+      linear-gradient(
+        90deg,
+        var(--bg-primary),
+        color-mix(in srgb, var(--bg-primary) 76%, transparent) 45%,
+        color-mix(in srgb, var(--bg-primary) 30%, transparent)
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-primary) 12%, transparent),
+        var(--bg-primary) 96%
+      );
+  }
+
+  .heroContent {
+    padding: clamp(3rem, 7vw, 6rem);
+  }
+}

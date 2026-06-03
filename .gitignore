@@ -33,6 +33,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# project credentials — never commit
+/documents/project-config.md
+.claude/settings.local.json
+.mcp.json
+
+# supabase temp
+supabase/.temp/
+
 # vercel
 .vercel
 

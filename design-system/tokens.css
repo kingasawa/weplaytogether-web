@@ -1,0 +1,29 @@
+/* ============================================================
+   Board Game — Design Tokens (source of truth)
+   All CSS custom properties must be imported from this file.
+   Never define colors or font families outside this file.
+   ============================================================ */
+
+:root {
+  /* --- Backgrounds --- */
+  --bg-primary:   #0D1324;
+  --bg-secondary: #1B2440;
+  --bg-card:      #202B4A;
+
+  /* --- Brand / Interactive --- */
+  --primary:       #5D7CFF;
+  --primary-light: #8EA8FF;
+
+  /* --- Text --- */
+  --text:           #FFFFFF;
+  --text-secondary: #B7C0D8;
+
+  /* --- Semantic --- */
+  --success: #2ECC71;
+  --danger:  #E74C3C;
+
+  /* --- Typography --- */
+  --font-logo:    var(--font-anton, "Anton", sans-serif);
+  --font-heading: var(--font-sora,  "Sora",  sans-serif);
+  --font-body:    var(--font-inter, "Inter", sans-serif);
+}

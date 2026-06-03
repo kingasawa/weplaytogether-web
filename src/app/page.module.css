@@ -1,142 +1,1003 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
+  min-height: 100vh;
+  padding-bottom: 5rem;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 16%, transparent), transparent 28rem),
+    var(--bg-primary);
+}
 
-  --text-primary: #000;
-  --text-secondary: #666;
+/* ── Header ─────────────────────────────────────────────────── */
 
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-piece);
   display: flex;
-  flex: 1;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+  backdrop-filter: blur(1.5rem) saturate(180%);
+  box-shadow:
+    0 4px 28px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* ── Logo ───────────────────────────────────────────────────── */
+
+.logo {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.logoIcon,
+.communityIcon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 42%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--primary) 25%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--primary-light) 20%, transparent);
+}
+
+.logoIcon {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+}
+
+.logoIcon svg {
+  width: 1.5rem;
+}
+
+.logo strong,
+.logo small {
+  display: block;
+}
+
+.logo strong {
+  font-family: var(--font-logo);
+  font-size: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.logo small {
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* ── Nav & Header Actions ───────────────────────────────────── */
+
+.desktopNav,
+.searchBox,
+.iconButton,
+.loginButton,
+.signupButton {
+  display: none;
+}
+
+.headerActions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.iconButton {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  color: var(--text);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.iconButton svg {
+  width: 1.25rem;
+}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  display: flex;
+  min-height: 33rem;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.heroContent {
+  z-index: 1;
+  padding: 3.25rem var(--spacing-md) 1.5rem;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--primary-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eyebrow svg {
+  width: 1rem;
+}
+
+.hero h1 {
+  margin-top: var(--spacing-md);
+  font-family: var(--font-heading);
+  font-size: clamp(3.65rem, 18vw, 5.5rem);
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  line-height: 0.92;
+}
+
+.heroTitleLine,
+.heroTitleAccent {
+  display: block;
+  white-space: nowrap;
+}
+
+.heroTitleAccent {
+  color: var(--primary-light);
+}
+
+.heroDescription {
+  margin-top: var(--spacing-lg);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.heroButtons {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: var(--spacing-lg);
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+
+.primaryButton,
+.secondaryButton,
+.loginButton,
+.signupButton {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: 0.7rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition:
+    transform var(--transition-base),
+    background var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.loginButton,
+.signupButton {
+  display: none;
+}
+
+.primaryButton,
+.signupButton {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 68%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary-light) 92%, var(--text)) 0%,
+      var(--primary) 46%,
+      color-mix(in srgb, var(--primary) 82%, var(--bg-primary)) 100%
+    ),
+    linear-gradient(
+      135deg,
+      var(--primary-light) 0%,
+      var(--primary) 58%,
+      color-mix(in srgb, var(--primary) 78%, var(--bg-primary)) 100%
+  );
+  color: var(--text);
+  box-shadow: none;
+  text-shadow: 0 0.08rem 0 color-mix(in srgb, var(--bg-primary) 34%, transparent);
+}
+
+.primaryButton::before,
+.signupButton::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      color-mix(in srgb, var(--text) 22%, transparent) 18%,
+      transparent 34%
+    ),
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--text) 14%, transparent) 0,
+      color-mix(in srgb, var(--text) 14%, transparent) 0.08rem,
+      transparent 0.08rem,
+      transparent 0.46rem
+  );
+  content: "";
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.secondaryButton,
+.loginButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 38%, transparent);
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary-light) 10%, transparent);
+}
+
+.primaryButton svg,
+.secondaryButton svg {
+  width: 1.1rem;
+}
+
+/* ── Online Players ─────────────────────────────────────────── */
+
+.onlinePlayers {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.onlinePlayers strong {
+  color: var(--text);
+}
+
+.avatarStack {
+  display: flex;
+  padding-left: 0.15rem;
+}
+
+.avatarStack span {
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-left: -0.2rem;
+  place-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 35%, var(--bg-primary));
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--primary-light);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.avatarStack svg {
+  width: 1rem;
+}
+
+/* ── Hero Art ───────────────────────────────────────────────── */
+
+.heroArt {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.heroArt::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 48%, transparent),
+      color-mix(in srgb, var(--bg-primary) 62%, transparent) 72%,
+      var(--bg-primary)
+    ),
+    linear-gradient(
+      90deg,
+      var(--bg-primary),
+      color-mix(in srgb, var(--bg-primary) 72%, transparent)
+    );
+  content: "";
+}
+
+.heroArt img {
+  object-fit: cover;
+  object-position: 62% center;
+}
+
+/* ── Content Shell ──────────────────────────────────────────── */
+
+.contentShell {
+  max-width: 92rem;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+/* ── Section Heading ────────────────────────────────────────── */
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.sectionHeading h2 {
+  position: relative;
+  padding-left: 0.75rem;
+  color: var(--text);
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.sectionHeading h2::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--primary-light), var(--primary));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 60%, transparent);
+  content: "";
+}
+
+.sectionHeading a {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.1rem;
+  color: var(--primary-light);
+  font-size: 0.75rem;
+  transition: opacity var(--transition-fast);
+}
+
+.sectionHeading svg {
+  width: 0.95rem;
+}
+
+/* ── Game List & Cards ──────────────────────────────────────── */
+
+.gameList {
+  display: flex;
+  margin-right: calc(var(--spacing-md) * -1);
+  padding-top: 0.75rem;
+  padding-right: var(--spacing-md);
+  padding-bottom: 1rem;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.gameList::-webkit-scrollbar {
+  display: none;
+}
+
+.gameCard {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 10.5rem;
+  min-width: 10.5rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--bg-card);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 color-mix(in srgb, var(--primary-light) 7%, transparent);
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.gameCover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.gameCover::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 36%;
+  background: linear-gradient(transparent, color-mix(in srgb, var(--bg-card) 95%, transparent));
+  content: "";
+}
+
+.gameCover img {
+  object-fit: cover;
+  object-position: center top;
+}
+
+.hotBadge {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 2rem;
+  background: var(--danger);
+  color: var(--text);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--danger) 65%, transparent),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.gameDetails {
+  padding: 0.8rem;
+}
+
+.gameDetails h3 {
+  margin-bottom: 0.55rem;
+  overflow: hidden;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gameDetails p,
+.gameDetails span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  line-height: 1.7;
+}
+
+.gameDetails svg {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.gameDetails i {
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 70%, transparent);
+}
+
+/* ── Community Banner ───────────────────────────────────────── */
+
+.communityBanner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: 2rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 1rem;
+  background:
+    linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--primary) 16%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--bg-secondary);
+  box-shadow:
+    0 0 40px color-mix(in srgb, var(--primary) 10%, transparent),
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 color-mix(in srgb, var(--primary-light) 14%, transparent);
+}
+
+.communityBanner > div {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.communityIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+}
+
+.communityIcon svg {
+  width: 1.45rem;
+}
+
+.communityBanner p {
+  margin-bottom: 0.35rem;
+  color: var(--primary-light);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communityBanner h2 {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+/* ── Mobile Nav ─────────────────────────────────────────────── */
+
+.mobileNav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-piece);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: 4.4rem;
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+  backdrop-filter: blur(1.5rem) saturate(160%);
+  box-shadow:
+    0 -4px 28px rgba(0, 0, 0, 0.5),
+    0 -1px 0 color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.mobileNav a,
+.mobileAccountButton {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.59rem;
+  transition: color var(--transition-fast);
 }
 
-.main {
-  display: flex;
-  flex: 1;
+.mobileAccountButton {
+  height: 100%;
   width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-body);
+  appearance: none;
+  cursor: pointer;
 }
 
-.intro {
+.mobileNav svg,
+.mobileAccountButton svg {
+  width: 1.25rem;
+}
+
+.mobileNav .activeMobileNav {
+  color: var(--primary-light);
+}
+
+.mobileAccountWrapper {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
+  min-width: 0;
+  min-height: 4.4rem;
+  align-items: stretch;
+  justify-content: center;
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+.mobileAccountButton[aria-expanded="true"] {
+  color: var(--primary-light);
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
+.mobileAccountPanel {
+  position: absolute;
+  right: 0.35rem;
+  bottom: calc(100% + var(--spacing-sm));
+  left: auto;
+  display: grid;
+  width: min(70vw, 12rem);
+  gap: 0.45rem;
+  padding: var(--spacing-sm);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+  backdrop-filter: blur(0.8rem) saturate(150%);
+  box-shadow:
+    0 -0.65rem 1.4rem color-mix(in srgb, var(--bg-primary) 64%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--primary-light) 10%, transparent);
+}
+
+.mobileNav .mobileAccountLink,
+.mobileNav .mobileAccountPrimaryLink,
+.mobileNav .mobileAccountRenameButton {
+  display: inline-flex;
+  min-height: 2.55rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding-inline: 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mobileNav .mobileAccountLink,
+.mobileNav .mobileAccountPrimaryLink,
+.mobileNav .mobileAccountRenameButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+}
+
+.mobileAccountRenameButton {
+  font-family: var(--font-body);
+  appearance: none;
+  cursor: pointer;
+}
+
+.mobileNav .mobileAccountLink svg,
+.mobileNav .mobileAccountPrimaryLink svg,
+.mobileNav .mobileAccountRenameButton svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+}
+
+.mobileAccountRenameForm {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+}
+
+.mobileAccountRenameForm label {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.mobileAccountRenameForm input {
+  min-height: 2.55rem;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
+  color: var(--text);
+  font: 700 0.9rem/1 var(--font-body);
+  outline: none;
+  padding-inline: 0.75rem;
+}
+
+.mobileAccountRenameForm input::placeholder {
   color: var(--text-secondary);
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+.mobileAccountRenameForm input:focus {
+  border-color: color-mix(in srgb, var(--primary-light) 58%, transparent);
 }
 
-.ctas {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+.mobileAccountRenameError {
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
-.ctas a {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
+.mobileAccountSaveButton {
+  min-height: 2.55rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 44%, transparent);
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+  color: var(--text);
+  font: 800 0.78rem/1 var(--font-body);
   cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+/* ── Accessibility ──────────────────────────────────────────── */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
-}
+/* ── Hover States ───────────────────────────────────────────── */
 
-/* Enable hover only on non-touch devices */
 @media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
+  .iconButton:hover {
+    border-color: color-mix(in srgb, var(--primary-light) 38%, transparent);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
+  .primaryButton:hover,
+  .secondaryButton:hover,
+  .loginButton:hover,
+  .signupButton:hover,
+  .gameCard:hover {
+    z-index: 1;
+    transform: translateY(-0.65rem) scale(1.015);
+  }
+
+  .gameCard:hover {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 0 24px color-mix(in srgb, var(--primary) 20%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--primary-light) 12%, transparent);
+  }
+
+
+  .primaryButton:hover,
+  .signupButton:hover {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--primary-light) 96%, var(--text)) 0%,
+        color-mix(in srgb, var(--primary-light) 62%, var(--primary)) 48%,
+        var(--primary) 100%
+      ),
+      linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    border-color: color-mix(in srgb, var(--primary-light) 90%, transparent);
+    box-shadow: none;
+  }
+
+  .secondaryButton:hover,
+  .loginButton:hover {
+    border-color: color-mix(in srgb, var(--primary-light) 58%, transparent);
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    box-shadow:
+      0 0 18px color-mix(in srgb, var(--primary) 16%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--primary-light) 14%, transparent);
+  }
+
+  .sectionHeading a:hover {
+    opacity: 0.75;
   }
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
+/* ── Tablet ─────────────────────────────────────────────────── */
+
+@media (min-width: 48rem) {
+  .header {
+    padding-inline: var(--spacing-lg);
   }
 
-  .intro {
-    gap: 16px;
+  .signupButton {
+    display: inline-flex;
+    min-width: 6.5rem;
+    min-height: 2.75rem;
   }
 
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
+  .hero {
+    min-height: 35rem;
+  }
+
+  .heroContent {
+    padding: 4.5rem var(--spacing-xl);
+  }
+
+  .hero h1 {
+    font-size: clamp(4.6rem, 11vw, 7rem);
+  }
+
+  .heroDescription {
+    font-size: 1rem;
+  }
+
+  .heroButtons {
+    display: flex;
+  }
+
+  .primaryButton,
+  .heroButtons .secondaryButton {
+    min-width: 11.5rem;
+  }
+
+  .contentShell {
+    padding-inline: var(--spacing-lg);
+  }
+
+  .gameList {
+    margin-right: 0;
+    padding-right: 0;
+  }
+
+  .communityBanner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+  }
+
+  .communityBanner .secondaryButton {
+    min-width: 10.5rem;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
+/* ── Desktop ────────────────────────────────────────────────── */
 
+@media (min-width: 64rem) {
   .page {
-    --background: #000;
-    --foreground: #000;
+    padding-bottom: 0;
+  }
 
-    --text-primary: #ededed;
-    --text-secondary: #999;
+  .header {
+    min-height: 4.75rem;
+    padding-inline: clamp(2rem, 4vw, 5rem);
+  }
 
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
+  .desktopNav {
+    display: flex;
+    align-self: stretch;
+    align-items: stretch;
+    gap: clamp(1rem, 2vw, 2rem);
+  }
+
+  .desktopNav a {
+    position: relative;
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    transition: color var(--transition-fast);
+  }
+
+  .desktopNav .activeNav,
+  .desktopNav a:hover {
+    color: var(--text);
+  }
+
+  .desktopNav .activeNav::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 0.15rem;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--primary-light) 65%, transparent);
+    content: "";
+  }
+
+  .searchBox {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding-inline: 0.85rem;
+    border: 1px solid color-mix(in srgb, var(--primary-light) 15%, transparent);
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--bg-card) 55%, transparent);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
+  }
+
+  .searchBox:focus-within {
+    border-color: color-mix(in srgb, var(--primary-light) 48%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+
+  .searchBox input {
+    width: clamp(8rem, 12vw, 14rem);
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+  }
+
+  .searchBox input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .searchBox svg {
+    width: 1rem;
+    color: var(--text-secondary);
+  }
+
+  .iconButton,
+  .loginButton {
+    display: inline-flex;
+  }
+
+  .loginButton {
+    min-width: 6.7rem;
+    text-transform: none;
+  }
+
+  .signupButton {
+    text-transform: none;
+  }
+
+  .hero {
+    min-height: 32rem;
+  }
+
+  .heroContent {
+    width: min(42rem, 54%);
+    padding: 4rem clamp(3rem, 7vw, 8rem);
+  }
+
+  .eyebrow {
+    font-size: 0.8rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(5.5rem, 7vw, 7.9rem);
+  }
+
+  .heroArt {
+    inset: 0;
+  }
+
+  .heroArt::after {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-primary) 10%, transparent) 62%,
+        var(--bg-primary)
+      ),
+      linear-gradient(
+        90deg,
+        var(--bg-primary),
+        color-mix(in srgb, var(--bg-primary) 86%, transparent) 30%,
+        color-mix(in srgb, var(--bg-primary) 12%, transparent) 64%,
+        color-mix(in srgb, var(--bg-primary) 4%, transparent)
+      );
+  }
+
+  .heroArt img {
+    object-position: center;
+  }
+
+  .contentShell {
+    padding-inline: clamp(3rem, 7vw, 8rem);
+  }
+
+  .gameList {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .gameCard {
+    width: auto;
+    min-width: 0;
+  }
+
+  .mobileNav {
+    display: none;
   }
 }

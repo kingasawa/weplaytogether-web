@@ -1,0 +1,44 @@
+@import "../../design-system/tokens.css";
+
+/* ============================================================
+   App-level spacing, sizing, shadows, transitions, z-index.
+   Colors and fonts must come from design-system/tokens.css.
+   ============================================================ */
+
+:root {
+  /* Board */
+  --cell-size:          64px;
+  --cell-size-sm:       48px;
+  --board-gap:          2px;
+  --board-border-radius: 8px;
+
+  /* Player colors (mapped from semantic tokens) */
+  --color-player-red:    #E74C3C;
+  --color-player-blue:   #5D7CFF;
+  --color-player-green:  #2ECC71;
+  --color-player-yellow: #F1C40F;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px  rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+
+  /* Transitions */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Z-index layers */
+  --z-board:   1;
+  --z-piece:   10;
+  --z-overlay: 100;
+  --z-modal:   200;
+  --z-toast:   300;
+}
