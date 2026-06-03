@@ -4,7 +4,7 @@
 
 ## 202606030001_wolf_multiplayer_lobby.sql
 
-Status: created locally, not applied remotely.
+Status: user reported manually applied in Supabase SQL Editor.
 
 Path:
 
@@ -17,7 +17,58 @@ Purpose:
 - Enable RLS with public read-only policies for lobby sync.
 - Add tables to `supabase_realtime` publication.
 
-Remote execution attempts on 2026-06-03:
+## 202606030002_wolf_gameplay.sql
+
+Status: user reported manually applied in Supabase SQL Editor.
+
+Path:
+
+- `supabase/migrations/202606030002_wolf_gameplay.sql`
+
+Purpose:
+
+- Add Phase 2 Ma Sói gameplay schema.
+- Create `wolf_game_phase` and `wolf_role` enums.
+- Add `current_game_id` to `wolf_rooms`.
+- Create gameplay tables: `wolf_game_sessions`, `wolf_game_cards`, `wolf_game_actions`, `wolf_game_votes`.
+- Add indexes and uniqueness constraints for card ownership, one action per player, and one vote per voter.
+- Enable RLS with public read-only policies for realtime game state sync.
+- Add gameplay tables to `supabase_realtime` publication.
+
+## 202606030003_wolf_phase_confirmations.sql
+
+Status: user reported manually applied in Supabase SQL Editor.
+
+Path:
+
+- `supabase/migrations/202606030003_wolf_phase_confirmations.sql`
+
+Purpose:
+
+- Add `card_reveal` and `night_review` values to `wolf_game_phase`.
+- Create `wolf_game_phase_confirmations` for per-player phase-ready confirmations.
+- Add lookup and uniqueness indexes for confirmation state.
+- Enable RLS with public read-only policy for realtime phase status.
+- Add phase confirmation table to `supabase_realtime` publication.
+
+## 202606030004_wolf_remove_presence_columns.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202606030004_wolf_remove_presence_columns.sql`
+
+Purpose:
+
+- Remove heartbeat/presence tracking from Ma Sói rooms.
+- Delete old player rows that were previously marked with `left_at`.
+- Drop `left_at` and `last_seen_at` from `wolf_room_players`.
+- Replace the partial active-session unique index with a regular unique index on `(room_id, session_id)`.
+
+## Remote Execution Status
+
+Remote execution attempts on 2026-06-03 from this workspace were blocked:
 
 - Supabase Management API `POST /v1/projects/{ref}/database/query`: blocked by insufficient token privileges.
 - Direct Postgres pooler connection: blocked by tenant/user lookup failure with available project ref/password.
@@ -25,4 +76,5 @@ Remote execution attempts on 2026-06-03:
 
 Required next action:
 
-- Apply the SQL manually in Supabase SQL Editor, or provide a Management API token / database connection string with permission to run migrations.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply only `202606030004_wolf_remove_presence_columns.sql` in Supabase SQL Editor.
+- If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
