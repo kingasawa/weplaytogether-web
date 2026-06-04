@@ -21,6 +21,17 @@
     { "pattern": "www.weplaytogether.online/*", "zone_name": "weplaytogether.online" }
   ],
 
+  // Runtime env vars
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://tvwofffcpjgfyxxbvpsi.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d29mZmZjcGpnZnl4eGJ2cHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODAyNjEsImV4cCI6MjA5NTk1NjI2MX0.9RPl9dw40ItI7nRel_mCuIBjA2_8QwAzddFch82W8bI",
+    "NEXT_PUBLIC_PUSHER_APP_KEY": "cd4d09709fff28e5e65c",
+    "NEXT_PUBLIC_PUSHER_CLUSTER": "ap1",
+    "NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX": "presence-nicecode-websocket-",
+    "PUSHER_APP_ID": "2162565",
+    "PUSHER_SECRET": "744712ee1348c8cf66fd"
+  }
+
   // KV namespace for cache (optional — enable when needed)
   // "kv_namespaces": [
   //   { "binding": "NEXT_CACHE_WORKERS_KV", "id": "TODO" }

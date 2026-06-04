@@ -115,11 +115,25 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     setPlayState(nextState);
   }, [playState.room.code, router]);
 
-  useWolfRoomPresence({
+  const { isPresenceReady } = useWolfRoomPresence({
     enabled: Boolean(playState.currentPlayerId),
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
   });
+
+  useEffect(() => {
+    if (!playState.currentPlayerId || playState.game.phase === "result") {
+      return;
+    }
+
+    const fallbackRefreshInterval = window.setInterval(() => {
+      void refreshPlayState();
+    }, isPresenceReady ? 8000 : 2500);
+
+    return () => {
+      window.clearInterval(fallbackRefreshInterval);
+    };
+  }, [isPresenceReady, playState.currentPlayerId, playState.game.phase, refreshPlayState]);
 
   function getWaitingPlayers() {
     if (playState.game.phase === "card_reveal" || playState.game.phase === "night_review") {

@@ -1,4 +1,4 @@
-const DEFAULT_WOLF_ROOM_CHANNEL_PREFIX = "presence-wolf-room-";
+const DEFAULT_WOLF_ROOM_CHANNEL_PREFIX = "presence-nicecode-websocket-";
 
 export const WOLF_ROOM_UPDATED_EVENT = "wolf-room-updated";
 export const WOLF_PLAY_UPDATED_EVENT = "wolf-play-updated";
