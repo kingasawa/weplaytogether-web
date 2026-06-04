@@ -31,6 +31,7 @@ export type WolfRoomPlayerRow = {
   room_id: string;
   session_id: string;
   name: string;
+  avatar_key: string;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -73,7 +74,8 @@ export type WolfGameVoteRow = {
   id: string;
   game_id: string;
   voter_player_id: string;
-  target_player_id: string;
+  target_player_id: string | null;
+  is_skip: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -111,7 +113,7 @@ export type Database = {
         Insert: Partial<
           Pick<
             WolfRoomPlayerRow,
-            "id" | "is_host" | "is_ready" | "joined_at"
+            "id" | "avatar_key" | "is_host" | "is_ready" | "joined_at"
           >
         > &
           Pick<WolfRoomPlayerRow, "room_id" | "session_id" | "name">;
@@ -154,7 +156,8 @@ export type Database = {
       wolf_game_votes: {
         Row: WolfGameVoteRow;
         Insert: Partial<Pick<WolfGameVoteRow, "id" | "created_at" | "updated_at">> &
-          Pick<WolfGameVoteRow, "game_id" | "voter_player_id" | "target_player_id">;
+          Pick<WolfGameVoteRow, "game_id" | "voter_player_id"> &
+          Partial<Pick<WolfGameVoteRow, "target_player_id" | "is_skip">>;
         Update: Partial<Omit<WolfGameVoteRow, "id" | "game_id" | "voter_player_id" | "created_at">>;
       };
       wolf_game_phase_confirmations: {

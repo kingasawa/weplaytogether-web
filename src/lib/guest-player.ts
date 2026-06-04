@@ -1,4 +1,11 @@
+import {
+  DEFAULT_PLAYER_AVATAR_KEY,
+  normalizePlayerAvatarKey,
+  type PlayerAvatarKey,
+} from "@/lib/player-avatars";
+
 export const GUEST_PLAYER_NAME_KEY = "boardverse:guest-name";
+export const GUEST_PLAYER_AVATAR_KEY = "boardverse:guest-avatar";
 export const LEGACY_WOLF_GUEST_PLAYER_NAME_KEY = "boardverse:wolf-guest-name";
 export const MAX_GUEST_PLAYER_NAME_LENGTH = 32;
 
@@ -33,4 +40,20 @@ export function saveStoredGuestPlayerName(guestName: string) {
   window.localStorage.removeItem(LEGACY_WOLF_GUEST_PLAYER_NAME_KEY);
 
   return normalizedGuestName;
+}
+
+export function readStoredGuestPlayerAvatarKey(): PlayerAvatarKey {
+  if (typeof window === "undefined") {
+    return DEFAULT_PLAYER_AVATAR_KEY;
+  }
+
+  return normalizePlayerAvatarKey(window.localStorage.getItem(GUEST_PLAYER_AVATAR_KEY));
+}
+
+export function saveStoredGuestPlayerAvatarKey(avatarKey: string): PlayerAvatarKey {
+  const normalizedAvatarKey = normalizePlayerAvatarKey(avatarKey);
+
+  window.localStorage.setItem(GUEST_PLAYER_AVATAR_KEY, normalizedAvatarKey);
+
+  return normalizedAvatarKey;
 }

@@ -39,6 +39,12 @@
 | `--success` | `#2ECC71` | Score gain, win state, confirm |
 | `--danger`  | `#E74C3C` | Error, lose state, destructive |
 
+### Shadows
+
+| Token           | Value     | Usage                         |
+| ----------------| --------- | ----------------------------- |
+| `--shadow-card` | `#151c31` | View box and panel shadow     |
+
 ## Icons
 
 All icons must come from **`lucide-react`**.

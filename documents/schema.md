@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-06-03 -->
+﻿<!-- Last updated: 2026-06-04 -->
 
 # Database Schema
 
@@ -17,6 +17,8 @@ Expected remote state after the user-applied SQL includes the lobby/gameplay sch
 Local migration file created in this task and still pending manual remote apply:
 
 - `supabase/migrations/202606030004_wolf_remove_presence_columns.sql`
+- `supabase/migrations/202606040001_wolf_player_avatars.sql`
+- `supabase/migrations/202606040002_wolf_vote_skip.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -45,6 +47,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `room_id uuid not null references public.wolf_rooms(id) on delete cascade`
 - `session_id text not null`
 - `name text not null`, trimmed length 1-32
+- `avatar_key text not null default 'avatar0'`, constrained to available avatar asset keys
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`
@@ -87,7 +90,8 @@ Local migration file created in this task and still pending manual remote apply:
 - `id uuid primary key default gen_random_uuid()`
 - `game_id uuid not null references public.wolf_game_sessions(id) on delete cascade`
 - `voter_player_id uuid not null references public.wolf_room_players(id) on delete cascade`
-- `target_player_id uuid not null references public.wolf_room_players(id) on delete cascade`
+- `target_player_id uuid null references public.wolf_room_players(id) on delete cascade`
+- `is_skip boolean not null default false`, true when the voter intentionally skips voting for a player
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
@@ -110,6 +114,7 @@ Local migration file created in this task and still pending manual remote apply:
 - Unique center card per game: `wolf_game_cards(game_id, center_index) where center_index is not null`
 - Unique night action per game/player: `wolf_game_actions(game_id, player_id)`
 - Unique vote per game/voter: `wolf_game_votes(game_id, voter_player_id)`
+- Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
 - Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
 
 ## Remote Apply Blocker

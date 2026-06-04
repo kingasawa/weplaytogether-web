@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Copy,
@@ -7,19 +7,27 @@ import {
   LogIn,
   LogOut,
   Play,
-  RotateCw,
   UserX,
   UserPlus,
   UserRound,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
+  readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
+  saveStoredGuestPlayerAvatarKey,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import {
+  DEFAULT_PLAYER_AVATAR_KEY,
+  getPlayerAvatarPath,
+  type PlayerAvatarKey,
+} from "@/lib/player-avatars";
+import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   getWolfLobbyState,
@@ -30,6 +38,7 @@ import {
   toggleWolfReady,
   type WolfLobbyState,
 } from "../../actions";
+import { PlayerAvatarPicker } from "../../player-avatar-picker";
 import styles from "../../page.module.css";
 
 type WolfRoomLobbyProps = {
@@ -40,7 +49,6 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [lobbyState, setLobbyState] = useState(initialState);
-  const [connectionStatus, setConnectionStatus] = useState("Đang kết nối realtime...");
   const [errorMessage, setErrorMessage] = useState("");
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
@@ -48,6 +56,9 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
+  const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestAvatarInput, setGuestAvatarInput] =
+    useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
   const [guestNameError, setGuestNameError] = useState("");
   const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
@@ -70,61 +81,75 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     const nextLobbyState = await getWolfLobbyState(lobbyState.room.code);
 
     if (nextLobbyState) {
-      setLobbyState(nextLobbyState);
+      setLobbyState((currentState) => {
+        if (
+          nextLobbyState.currentPlayerId ||
+          !currentState.currentPlayerId ||
+          !nextLobbyState.players.some((player) => player.id === currentState.currentPlayerId)
+        ) {
+          return nextLobbyState;
+        }
+
+        return {
+          ...nextLobbyState,
+          currentPlayerId: currentState.currentPlayerId,
+        };
+      });
     }
   }, [lobbyState.room.code]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel(`wolf-room:${lobbyState.room.code}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_room_players",
-          filter: `room_id=eq.${lobbyState.room.id}`,
-        },
-        () => {
-          void refreshLobby();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_rooms",
-          filter: `id=eq.${lobbyState.room.id}`,
-        },
-        () => {
-          void refreshLobby();
-        }
-      )
-      .subscribe((status) => {
-        setConnectionStatus(status === "SUBSCRIBED" ? "Realtime đã kết nối" : "Đang kết nối realtime...");
-      });
+  const { connectionStatus, isPresenceReady, onlinePlayerIds } = useWolfRoomPresence({
+    enabled: Boolean(currentPlayer),
+    roomCode: lobbyState.room.code,
+    onRoomUpdate: refreshLobby,
+  });
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [lobbyState.room.code, lobbyState.room.id, refreshLobby, supabase]);
+  function renderPlayerConnectionStatus(playerId: string) {
+    if (!currentPlayer) {
+      return null;
+    }
+
+    if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
+      return <span className={styles.connectionBadge}>{connectionStatus}</span>;
+    }
+
+    if (!isPresenceReady) {
+      return <span className={styles.connectionBadge}>Kiểm tra kết nối</span>;
+    }
+
+    if (onlinePlayerIds.includes(playerId)) {
+      return (
+        <span className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`}>
+          <span aria-hidden="true" className={styles.connectionDot} />
+          Online
+        </span>
+      );
+    }
+
+    return <span className={styles.connectionBadge}>Đã thoát game</span>;
+  }
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
       const hasSession = Boolean(data.session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
       setIsLoggedIn(hasSession);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
       setIsLoggedIn(Boolean(session));
     });
 
@@ -155,17 +180,45 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     return playerName;
   }
 
-  function runJoinCurrentRoom(playerName?: string) {
+  function getCurrentPlayerAvatarKey() {
+    if (isLoggedIn) {
+      return undefined;
+    }
+
+    return guestAvatarKey;
+  }
+
+  function runJoinCurrentRoom(playerName?: string, avatarKey?: string) {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await joinWolfRoom(lobbyState.room.code, playerName);
+      const result = await joinWolfRoom(lobbyState.room.code, playerName, avatarKey);
 
       if (!result.ok) {
         setErrorMessage(result.error);
         return;
       }
 
-      await refreshLobby();
+      setLobbyState((currentState) => ({
+        ...currentState,
+        players: currentState.players.some((player) => player.id === result.playerId)
+          ? currentState.players.map((player) =>
+              player.id === result.playerId
+                ? { ...player, name: result.playerName, avatarKey: result.playerAvatarKey }
+                : player
+            )
+          : [
+              ...currentState.players,
+              {
+                id: result.playerId,
+                name: result.playerName,
+                avatarKey: result.playerAvatarKey,
+                isHost: false,
+                isReady: false,
+                joinedAt: new Date().toISOString(),
+              },
+            ],
+        currentPlayerId: result.playerId,
+      }));
     });
   }
 
@@ -182,15 +235,18 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     }
 
     saveStoredGuestPlayerName(normalizedGuestName);
+    const savedAvatarKey = saveStoredGuestPlayerAvatarKey(guestAvatarInput);
     setGuestName(normalizedGuestName);
     setGuestNameInput(normalizedGuestName);
+    setGuestAvatarKey(savedAvatarKey);
+    setGuestAvatarInput(savedAvatarKey);
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
 
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
-      runJoinCurrentRoom(normalizedGuestName);
+      runJoinCurrentRoom(normalizedGuestName, savedAvatarKey);
     }
   }
 
@@ -201,13 +257,27 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
       return;
     }
 
-    runJoinCurrentRoom(playerName);
+    runJoinCurrentRoom(playerName, getCurrentPlayerAvatarKey());
+  }
+
+  function openGuestProfileEditor() {
+    setShouldJoinAfterGuestName(false);
+    setGuestNameInput(guestName);
+    setGuestAvatarInput(guestAvatarKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
   }
 
   function toggleReady() {
     startTransition(async () => {
       await toggleWolfReady(lobbyState.room.code);
-      await refreshLobby();
+      setLobbyState((currentState) => ({
+        ...currentState,
+        players: currentState.players.map((player) =>
+          player.id === currentState.currentPlayerId ? { ...player, isReady: !player.isReady } : player
+        ),
+      }));
     });
   }
 
@@ -221,7 +291,10 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
         return;
       }
 
-      await refreshLobby();
+      setLobbyState((currentState) => ({
+        ...currentState,
+        players: currentState.players.filter((player) => player.id !== playerId),
+      }));
     });
   }
 
@@ -280,6 +353,8 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     setShouldJoinAfterGuestName(false);
   }
 
+  const isEditingGuestProfile = isGuestFormOpen && !shouldJoinAfterGuestName;
+
   return (
     <main className={`${styles.page} ${styles.roomPage}`}>
       <section className={styles.roomPanel}>
@@ -307,8 +382,7 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
         )}
 
         <p className={styles.description}>
-          Gửi mã phòng này cho bạn bè. Khi người khác nhập mã và vào phòng, danh
-          sách bên dưới sẽ tự cập nhật realtime.
+          Gửi mã phòng này cho bạn bè.
         </p>
 
         <div className={styles.lobbyHeader}>
@@ -316,23 +390,27 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
             <span>{connectionStatus}</span>
             <strong>{lobbyState.players.length}/10 người chơi</strong>
           </div>
-          <button
-            className={styles.smallButton}
-            type="button"
-            disabled={isPending}
-            onClick={() => void refreshLobby()}
-          >
-            <RotateCw aria-hidden="true" />
-            Đồng bộ
-          </button>
         </div>
 
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {lobbyState.players.map((player) => (
             <article className={styles.playerRow} key={player.id}>
-              <div>
-                <strong>{player.name}</strong>
-                <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
+              <div className={styles.playerIdentity}>
+                <Image
+                  alt=""
+                  aria-hidden="true"
+                  className={styles.playerAvatar}
+                  width={48}
+                  height={48}
+                  src={getPlayerAvatarPath(player.avatarKey)}
+                />
+                <div>
+                  <div className={styles.playerNameLine}>
+                    <strong>{player.name}</strong>
+                    {renderPlayerConnectionStatus(player.id)}
+                  </div>
+                  <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
+                </div>
               </div>
               {player.isHost && (
                 <span className={styles.hostBadge}>
@@ -359,6 +437,18 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
         {errorMessage && <p className={styles.inlineError}>{errorMessage}</p>}
 
         <div className={styles.actions}>
+          {!currentPlayer && !isLoggedIn && (
+            <button
+              className={`${styles.ghostButton} ${styles.profileButton}`}
+              type="button"
+              disabled={isPending}
+              onClick={openGuestProfileEditor}
+            >
+              <UserRound aria-hidden="true" />
+              Tên & avatar
+            </button>
+          )}
+
           {!currentPlayer && (
             <button
               className={styles.primaryButton}
@@ -395,7 +485,7 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
           )}
 
           <button
-            className={styles.ghostButton}
+            className={styles.exitButton}
             type="button"
             disabled={isPending}
             onClick={requestLeaveRoom}
@@ -460,23 +550,31 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
             role="dialog"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="room-identity-title">Bạn chưa đăng nhập</h2>
-            <p>Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?</p>
+            <h2 id="room-identity-title">
+              {isEditingGuestProfile ? "Tên & avatar" : "Bạn chưa đăng nhập"}
+            </h2>
+            <p>
+              {isEditingGuestProfile
+                ? "Thiết lập tên và avatar trước khi tham gia phòng."
+                : "Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?"}
+            </p>
 
-            <div className={styles.identityActions}>
-              <Link className={styles.primaryButton} href="/#login">
-                <LogIn aria-hidden="true" />
-                ĐĂNG NHẬP
-              </Link>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setIsGuestFormOpen(true)}
-              >
-                <UserRound aria-hidden="true" />
-                CHƠI VỚI VAI TRÒ KHÁCH
-              </button>
-            </div>
+            {!isEditingGuestProfile && (
+              <div className={styles.identityActions}>
+                <Link className={styles.primaryButton} href="/#login">
+                  <LogIn aria-hidden="true" />
+                  ĐĂNG NHẬP
+                </Link>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() => setIsGuestFormOpen(true)}
+                >
+                  <UserRound aria-hidden="true" />
+                  CHƠI VỚI VAI TRÒ KHÁCH
+                </button>
+              </div>
+            )}
 
             {isGuestFormOpen && (
               <form className={styles.guestForm} onSubmit={saveGuestName}>
@@ -492,6 +590,10 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
                     setGuestNameInput(event.target.value);
                     setGuestNameError("");
                   }}
+                />
+                <PlayerAvatarPicker
+                  selectedAvatarKey={guestAvatarInput}
+                  onSelectAvatar={setGuestAvatarInput}
                 />
                 {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
                 <button className={styles.primaryButton} type="submit">

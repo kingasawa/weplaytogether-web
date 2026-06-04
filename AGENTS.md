@@ -98,5 +98,6 @@ Mọi component, page, và layout đều phải hiển thị tốt trên cả **
 4. **Không overflow ngang** — tuyệt đối không để nội dung bị tràn ngang trên mobile. Luôn kiểm tra `overflow-x`.
 5. **Font size tối thiểu 14px** trên mobile để đảm bảo dễ đọc.
 6. **Navigation/menu trên mobile** phải được thiết kế riêng (hamburger, bottom bar, drawer...) — không thu nhỏ desktop nav thành mobile.
-7. **Kiểm tra cả hai** trước khi báo hoàn thành: nếu có preview tool, chụp screenshot ở viewport 390px (mobile) và 1280px (desktop).
+7. **Ưu tiên fullscreen, không scroll ngoài ý muốn** — khi thiết kế UI, luôn ưu tiên layout vừa đúng viewport (`100svh`/`100dvh` khi phù hợp), đặc biệt với game screen, modal, onboarding, lobby/play screen. Không để xuất hiện scroll dọc/ngang trừ khi nội dung dài thật sự cần scroll; nếu có fixed bottom/top controls thì phải tính trước chiều cao và safe-area để nội dung không bị che hoặc tạo overflow.
+8. **Kiểm tra cả hai** trước khi báo hoàn thành: nếu có preview tool, chụp screenshot ở viewport 390px (mobile) và 1280px (desktop).
 <!-- END:responsive-ui-rules -->

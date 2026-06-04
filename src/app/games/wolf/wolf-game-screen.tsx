@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   BookOpen,
@@ -15,11 +15,15 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
+  readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
+  saveStoredGuestPlayerAvatarKey,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { createWolfRoom, joinWolfRoom } from "./actions";
+import { PlayerAvatarPicker } from "./player-avatar-picker";
 import styles from "./page.module.css";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
@@ -35,6 +39,9 @@ export default function WolfGameScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
+  const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestAvatarInput, setGuestAvatarInput] =
+    useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
   const [guestNameError, setGuestNameError] = useState("");
   const [pendingIdentityAction, setPendingIdentityAction] = useState<PendingIdentityAction>(null);
   const [roomCode, setRoomCode] = useState("");
@@ -51,20 +58,26 @@ export default function WolfGameScreen() {
 
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
       const hasSession = Boolean(data.session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
       setIsLoggedIn(hasSession);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
       const hasSession = Boolean(session);
 
       setIsLoggedIn(hasSession);
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
     });
 
     return () => {
@@ -94,10 +107,18 @@ export default function WolfGameScreen() {
     return playerName;
   }
 
-  function runCreateRoom(playerName?: string) {
+  function getCurrentPlayerAvatarKey() {
+    if (isLoggedIn) {
+      return undefined;
+    }
+
+    return guestAvatarKey;
+  }
+
+  function runCreateRoom(playerName?: string, avatarKey?: string) {
     setActionError("");
     startTransition(async () => {
-      const result = await createWolfRoom(playerName);
+      const result = await createWolfRoom(playerName, avatarKey);
 
       if (!result.ok) {
         setActionError(result.error);
@@ -108,7 +129,7 @@ export default function WolfGameScreen() {
     });
   }
 
-  function runJoinRoom(playerName?: string) {
+  function runJoinRoom(playerName?: string, avatarKey?: string) {
     if (!ROOM_ID_PATTERN.test(normalizedRoomCode)) {
       setRoomCodeError("Mã phòng phải gồm đúng 4 chữ cái từ a đến z.");
       return;
@@ -116,7 +137,7 @@ export default function WolfGameScreen() {
 
     setRoomCodeError("");
     startTransition(async () => {
-      const result = await joinWolfRoom(normalizedRoomCode, playerName);
+      const result = await joinWolfRoom(normalizedRoomCode, playerName, avatarKey);
 
       if (!result.ok) {
         setRoomCodeError(result.error);
@@ -140,8 +161,11 @@ export default function WolfGameScreen() {
     }
 
     saveStoredGuestPlayerName(normalizedGuestName);
+    const savedAvatarKey = saveStoredGuestPlayerAvatarKey(guestAvatarInput);
     setGuestName(normalizedGuestName);
     setGuestNameInput(normalizedGuestName);
+    setGuestAvatarKey(savedAvatarKey);
+    setGuestAvatarInput(savedAvatarKey);
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
@@ -150,7 +174,7 @@ export default function WolfGameScreen() {
     setPendingIdentityAction(null);
 
     if (nextAction === "create_room") {
-      runCreateRoom(normalizedGuestName);
+      runCreateRoom(normalizedGuestName, savedAvatarKey);
     }
 
     if (nextAction === "open_join_room") {
@@ -158,7 +182,7 @@ export default function WolfGameScreen() {
     }
 
     if (nextAction === "join_room") {
-      runJoinRoom(normalizedGuestName);
+      runJoinRoom(normalizedGuestName, savedAvatarKey);
     }
   }
 
@@ -169,7 +193,7 @@ export default function WolfGameScreen() {
       return;
     }
 
-    runCreateRoom(playerName);
+    runCreateRoom(playerName, getCurrentPlayerAvatarKey());
   }
 
   function openJoinRoom() {
@@ -188,7 +212,7 @@ export default function WolfGameScreen() {
       return;
     }
 
-    runJoinRoom(playerName);
+    runJoinRoom(playerName, getCurrentPlayerAvatarKey());
   }
 
   function updateRoomCode(value: string) {
@@ -196,11 +220,22 @@ export default function WolfGameScreen() {
     setRoomCodeError("");
   }
 
+  function openGuestProfileEditor() {
+    setPendingIdentityAction(null);
+    setGuestNameInput(guestName);
+    setGuestAvatarInput(guestAvatarKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
+  }
+
   function closeIdentityModal() {
     setIsIdentityOpen(false);
     setIsGuestFormOpen(false);
     setPendingIdentityAction(null);
   }
+
+  const isEditingGuestProfile = isGuestFormOpen && pendingIdentityAction === null;
 
   return (
     <main className={styles.page}>
@@ -220,10 +255,10 @@ export default function WolfGameScreen() {
             <ShieldQuestion aria-hidden="true" />
             Suy luận xã hội
           </p>
-          <h1>Ma Sói Một Đêm</h1>
+          <p className={styles.heroTitle}>Ma Sói Một Đêm</p>
           <p className={styles.description}>
             Một đêm, nhiều vai trò, rất ít thời gian để thuyết phục mọi người tin
-            bạn. Tạo phòng riêng hoặc nhập mã để vào cùng nhóm bạn.
+            bạn.
           </p>
 
           <div className={styles.actions} aria-label="Hành động chính">
@@ -243,12 +278,18 @@ export default function WolfGameScreen() {
               onClick={openJoinRoom}
             >
               <Play aria-hidden="true" />
-              THAM GIA PHÒNG
+              THAM GIA
             </button>
-            <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
-              <BookOpen aria-hidden="true" />
-              HƯỚNG DẪN
-            </button>
+            {!isLoggedIn && (
+              <button
+                className={`${styles.ghostButton} ${styles.profileButton}`}
+                type="button"
+                onClick={openGuestProfileEditor}
+              >
+                <UserRound aria-hidden="true" />
+                TÊN & AVATAR
+              </button>
+            )}
           </div>
           {actionError && <p className={styles.inlineError}>{actionError}</p>}
         </div>
@@ -258,6 +299,10 @@ export default function WolfGameScreen() {
         <Link className={styles.exitButton} href="/">
           THOÁT
         </Link>
+        <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
+          <BookOpen aria-hidden="true" />
+          HƯỚNG DẪN
+        </button>
       </div>
 
       {isJoinOpen && (
@@ -314,23 +359,31 @@ export default function WolfGameScreen() {
             role="dialog"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="identity-title">Bạn chưa đăng nhập</h2>
-            <p>Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?</p>
+            <h2 id="identity-title">
+              {isEditingGuestProfile ? "Tên & avatar" : "Bạn chưa đăng nhập"}
+            </h2>
+            <p>
+              {isEditingGuestProfile
+                ? "Thiết lập tên và avatar trước khi tạo hoặc tham gia phòng."
+                : "Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?"}
+            </p>
 
-            <div className={styles.identityActions}>
-              <Link className={styles.primaryButton} href="/#login">
-                <LogIn aria-hidden="true" />
-                ĐĂNG NHẬP
-              </Link>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setIsGuestFormOpen(true)}
-              >
-                <UserRound aria-hidden="true" />
-                CHƠI VỚI VAI TRÒ KHÁCH
-              </button>
-            </div>
+            {!isEditingGuestProfile && (
+              <div className={styles.identityActions}>
+                <Link className={styles.primaryButton} href="/#login">
+                  <LogIn aria-hidden="true" />
+                  ĐĂNG NHẬP
+                </Link>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  onClick={() => setIsGuestFormOpen(true)}
+                >
+                  <UserRound aria-hidden="true" />
+                  CHƠI VỚI VAI TRÒ KHÁCH
+                </button>
+              </div>
+            )}
 
             {isGuestFormOpen && (
               <form className={styles.guestForm} onSubmit={saveGuestName}>
@@ -346,6 +399,10 @@ export default function WolfGameScreen() {
                     setGuestNameInput(event.target.value);
                     setGuestNameError("");
                   }}
+                />
+                <PlayerAvatarPicker
+                  selectedAvatarKey={guestAvatarInput}
+                  onSelectAvatar={setGuestAvatarInput}
                 />
                 {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
                 <button className={styles.primaryButton} type="submit">

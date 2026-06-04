@@ -22,6 +22,9 @@
   --success: #2ECC71;
   --danger:  #E74C3C;
 
+  /* --- Shadows --- */
+  --shadow-card: #151c31;
+
   /* --- Typography --- */
   --font-logo:    var(--font-anton, "Anton", sans-serif);
   --font-heading: var(--font-sora,  "Sora",  sans-serif);

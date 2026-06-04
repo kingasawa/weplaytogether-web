@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-06-03 -->
+﻿<!-- Last updated: 2026-06-04 -->
 
 # Migrations
 
@@ -66,6 +66,34 @@ Purpose:
 - Drop `left_at` and `last_seen_at` from `wolf_room_players`.
 - Replace the partial active-session unique index with a regular unique index on `(room_id, session_id)`.
 
+## 202606040001_wolf_player_avatars.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202606040001_wolf_player_avatars.sql`
+
+Purpose:
+
+- Add `avatar_key` to `wolf_room_players`.
+- Default existing and new players to `avatar0`.
+- Constrain saved avatar keys to the available files under `public/images/avatars`.
+
+## 202606040002_wolf_vote_skip.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202606040002_wolf_vote_skip.sql`
+
+Purpose:
+
+- Add `is_skip` to `wolf_game_votes`.
+- Allow `target_player_id` to be null for skipped votes.
+- Add a check constraint so each vote is either a player vote or an intentional skip.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -76,5 +104,5 @@ Remote execution attempts on 2026-06-03 from this workspace were blocked:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply only `202606030004_wolf_remove_presence_columns.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, and `202606040002_wolf_vote_skip.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.

@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, ChevronUp, LoaderCircle, LogOut, RefreshCw, Shield, Vote } from "lucide-react";
+import { Check, ChevronUp, LoaderCircle, LogOut, Shield } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition, type PointerEvent } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useCallback, useEffect, useState, useTransition, type PointerEvent } from "react";
+import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
 import {
   getWolfRoleImagePath,
@@ -26,6 +26,8 @@ import styles from "../../../page.module.css";
 type WolfPlayScreenProps = {
   initialState: WolfPlayState;
 };
+
+const VOTE_SKIP_KEY = "__skip_vote__";
 
 type RoleCardProps = {
   role: WolfRole | null;
@@ -64,7 +66,6 @@ function getPlayerName(players: WolfPlayPlayer[], playerId: string | null) {
 
 export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [playState, setPlayState] = useState(initialState);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCenterIndexes, setSelectedCenterIndexes] = useState<number[]>([]);
@@ -82,7 +83,19 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const myRole = playState.myCard?.originalRole ?? null;
   const otherPlayers = playState.players.filter((player) => player.id !== playState.currentPlayerId);
   const myActionSubmitted = Boolean(playState.myAction);
-  const activeVoteTargetPlayerId = optimisticVoteTargetPlayerId ?? playState.myVoteTargetPlayerId;
+  const activeVoteTargetPlayerId =
+    optimisticVoteTargetPlayerId ??
+    (playState.players.find((player) => player.id === playState.currentPlayerId)?.hasSkippedVote
+      ? VOTE_SKIP_KEY
+      : playState.myVoteTargetPlayerId);
+  const isCardRevealPhase = playState.game.phase === "card_reveal";
+  const isNightPhase = playState.game.phase === "night";
+  const isNightReviewPhase = playState.game.phase === "night_review";
+  const isDiscussionPhase = playState.game.phase === "discussion";
+  const isVotingPhase = playState.game.phase === "voting";
+  const hasFocusedWaitingStatus =
+    isCardRevealPhase || isNightPhase || isNightReviewPhase || isDiscussionPhase || isVotingPhase;
+  const usesFocusedRevealLayout = isCardRevealPhase || isNightReviewPhase;
   const privateRevealKey = isPrivateRevealPhase(playState.game.phase)
     ? `${playState.game.id}:${playState.game.phase}`
     : null;
@@ -102,6 +115,54 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     setPlayState(nextState);
   }, [playState.room.code, router]);
 
+  useWolfRoomPresence({
+    enabled: Boolean(playState.currentPlayerId),
+    roomCode: playState.room.code,
+    onPlayUpdate: refreshPlayState,
+  });
+
+  function getWaitingPlayers() {
+    if (playState.game.phase === "card_reveal" || playState.game.phase === "night_review") {
+      return playState.players.filter((player) => !player.isPhaseReady);
+    }
+
+    if (playState.game.phase === "night") {
+      return playState.players.filter((player) => !player.hasNightAction);
+    }
+
+    if (playState.game.phase === "discussion") {
+      return playState.players.filter((player) => !player.isPhaseReady);
+    }
+
+    if (playState.game.phase === "voting") {
+      return playState.players.filter((player) => !player.hasVoted);
+    }
+
+    return [];
+  }
+
+  function getWaitingStatusText() {
+    const waitingPlayers = getWaitingPlayers();
+
+    if (playState.game.phase === "result") {
+      return "Ván đã có kết quả.";
+    }
+
+    if (waitingPlayers.length === 0) {
+      return "Tất cả người chơi đã hoàn tất.";
+    }
+
+    if (waitingPlayers.length > 2) {
+      return `Đang chờ ${waitingPlayers.length} người`;
+    }
+
+    if (waitingPlayers.length === 2) {
+      return `Đang chờ ${waitingPlayers[0].name} và ${waitingPlayers[1].name}`;
+    }
+
+    return `Đang chờ ${waitingPlayers[0].name}`;
+  }
+
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
 
@@ -109,88 +170,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       window.clearInterval(intervalId);
     };
   }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`wolf-play:${playState.game.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_game_sessions",
-          filter: `id=eq.${playState.game.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_game_phase_confirmations",
-          filter: `game_id=eq.${playState.game.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_game_actions",
-          filter: `game_id=eq.${playState.game.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_game_votes",
-          filter: `game_id=eq.${playState.game.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_game_cards",
-          filter: `game_id=eq.${playState.game.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wolf_rooms",
-          filter: `id=eq.${playState.room.id}`,
-        },
-        () => {
-          void refreshPlayState();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [playState.game.id, playState.room.id, refreshPlayState, supabase]);
 
   function togglePlayerSelection(playerId: string) {
     setMessage("");
@@ -246,7 +225,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         return;
       }
 
-      setMessage("Đã lưu hành động ban đêm.");
+      setMessage("");
       setSelectedPlayerIds([]);
       setSelectedCenterIndexes([]);
       await refreshPlayState();
@@ -271,9 +250,9 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     });
   }
 
-  function votePlayer(playerId: string) {
+  function votePlayer(playerId: string | null) {
     setMessage("");
-    setOptimisticVoteTargetPlayerId(playerId);
+    setOptimisticVoteTargetPlayerId(playerId ?? VOTE_SKIP_KEY);
     setPendingLabel("Đang lưu phiếu bầu...");
     startTransition(async () => {
       const result = await submitWolfVote(playState.room.code, playerId);
@@ -319,11 +298,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     const nextOffset = Math.min(0, event.clientY - maskPointerStartY);
+    const maxLift = event.currentTarget.offsetHeight;
     if (maskPointerStartY - event.clientY >= 44 && privateRevealKey) {
       setUnlockedPrivateRevealKey(privateRevealKey);
     }
 
-    setMaskDragOffset(Math.max(nextOffset, -220));
+    setMaskDragOffset(Math.max(nextOffset, -maxLift));
   }
 
   function endPrivateRevealGesture(event: PointerEvent<HTMLButtonElement>) {
@@ -370,19 +350,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
     const needsPlayerPicker = myRole === "seer" || myRole === "robber" || myRole === "troublemaker";
     const needsCenterPicker = myRole === "seer" || myRole === "drunk" || myRole === "werewolf";
-    const canSubmit =
-      myRole === "villager" ||
-      myRole === "insomniac" ||
-      (myRole === "werewolf" && selectedCenterIndexes.length <= 1) ||
-      (myRole === "robber" && selectedPlayerIds.length === 1) ||
-      (myRole === "troublemaker" && selectedPlayerIds.length === 2) ||
-      (myRole === "drunk" && selectedCenterIndexes.length === 1) ||
-      (myRole === "seer" && (selectedPlayerIds.length === 1 || selectedCenterIndexes.length === 2));
-
     return (
       <>
-        <p>{WOLF_ROLE_DESCRIPTIONS[myRole]}</p>
-
         {needsPlayerPicker && (
           <div className={styles.playPicker}>
             <span>Chọn người chơi</span>
@@ -415,77 +384,42 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           </div>
         )}
 
-        <button className={styles.primaryButton} type="button" disabled={!canSubmit || isPending} onClick={submitNightAction}>
-          <Check aria-hidden="true" />
-          Hoàn tất lượt đêm
-        </button>
       </>
     );
   }
 
+  const canSubmitNightAction =
+    myRole === "villager" ||
+    myRole === "insomniac" ||
+    (myRole === "werewolf" && selectedCenterIndexes.length <= 1) ||
+    (myRole === "robber" && selectedPlayerIds.length === 1) ||
+    (myRole === "troublemaker" && selectedPlayerIds.length === 2) ||
+    (myRole === "drunk" && selectedCenterIndexes.length === 1) ||
+    (myRole === "seer" && (selectedPlayerIds.length === 1 || selectedCenterIndexes.length === 2));
+
   return (
-    <main className={`${styles.page} ${styles.playPage}`}>
+    <main
+      className={`${styles.page} ${styles.playPage} ${usesFocusedRevealLayout ? styles.focusedPlayPage : ""} ${
+        (isNightPhase && !myActionSubmitted && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
+      } ${isVotingPhase ? styles.fixedBottomWaitingPage : ""}`}
+    >
       <section className={styles.playHeader}>
         <div>
           <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{WOLF_PHASE_LABELS[playState.game.phase]}</h1>
         </div>
-        <button className={styles.smallButton} type="button" disabled={isPending} onClick={() => void refreshPlayState()}>
-          <RefreshCw aria-hidden="true" />
-          Đồng bộ
-        </button>
-      </section>
-
-      <section className={styles.playPanel}>
-        <div>
-          <span>Điều khiển phase</span>
-          <h2>{WOLF_PHASE_LABELS[playState.game.phase]}</h2>
-        </div>
-
-        {playState.game.phase === "card_reveal" && (
-          <>
-            <p>Xem kỹ lá bài của bạn. Khi tất cả người chơi bấm OK, ván sẽ tự chuyển sang giai đoạn thực hiện chức năng ban đêm.</p>
-            <div className={styles.privateRevealBox}>
-              <RoleCard label="Bài của tôi" role={playState.myCard?.originalRole ?? null} />
-              {renderPrivateMask("Bài của bạn")}
-            </div>
-            {!privateRevealUnlocked && <p>Vuốt lớp bảo vệ trên lá bài lên trước khi bấm OK.</p>}
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={isPending || playState.isCurrentPlayerPhaseReady || !privateRevealUnlocked}
-              onClick={() => confirmCurrentPhase("Đang xác nhận đã xem bài...")}
-            >
-              <Check aria-hidden="true" />
-              {playState.isCurrentPlayerPhaseReady ? "Đã OK" : "OK, tôi đã xem bài"}
-            </button>
-          </>
+        {isCardRevealPhase && (
+          <p>
+            Hãy xem kĩ lá bài của bạn và ghi nhớ nó
+          </p>
         )}
-
-        {playState.game.phase === "night" && renderNightActions()}
-
-        {playState.game.phase === "night_review" && (
-          <>
-            <p>Xem lại kết quả hành động ban đêm của bạn. Khi tất cả người chơi hoàn tất, ván sẽ tự chuyển sang thảo luận.</p>
-            <div className={styles.privateRevealBox}>
-              {playState.nightReviewMessages.map((reviewMessage) => (
-                <p key={reviewMessage}>{reviewMessage}</p>
-              ))}
-              {renderPrivateMask("Kết quả ban đêm")}
-            </div>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={isPending || playState.isCurrentPlayerPhaseReady || !privateRevealUnlocked}
-              onClick={() => confirmCurrentPhase("Đang xác nhận đã xem lại...")}
-            >
-              <Check aria-hidden="true" />
-              {playState.isCurrentPlayerPhaseReady ? "Đã xong" : "Xong, vào thảo luận"}
-            </button>
-          </>
+        {isNightPhase && <p>{myRole ? WOLF_ROLE_DESCRIPTIONS[myRole] : "Bạn chưa có bài trong ván này."}</p>}
+        {isNightReviewPhase && (
+          <p>
+            Xem lại kết quả hành động ban đêm của bạn. Khi tất cả người chơi hoàn tất, ván sẽ tự chuyển sang thảo luận.
+          </p>
         )}
-
-        {playState.game.phase === "discussion" && (
+        {isDiscussionPhase && (
           <>
             <p>Thảo luận, thuyết phục và tìm Ma Sói. Timer đề xuất là 5 phút.</p>
             {discussionSecondsLeft !== null && (
@@ -493,22 +427,55 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                 {Math.floor(discussionSecondsLeft / 60)}:{String(discussionSecondsLeft % 60).padStart(2, "0")}
               </strong>
             )}
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={isPending || playState.isCurrentPlayerPhaseReady}
-              onClick={() => confirmCurrentPhase("Đang xác nhận thảo luận xong...")}
-            >
-              <Check aria-hidden="true" />
-              {playState.isCurrentPlayerPhaseReady ? "Đã sẵn sàng vote" : "Tôi đã thảo luận xong"}
-            </button>
+          </>
+        )}
+        {isVotingPhase && <p>Chọn một người để bỏ phiếu treo.</p>}
+      </section>
+
+      {!isDiscussionPhase && (
+        <section className={`${styles.playPanel} ${usesFocusedRevealLayout ? styles.focusedPlayPanel : ""}`}>
+        {!hasFocusedWaitingStatus && playState.game.phase !== "result" && (
+          <div>
+            <span>Điều khiển phase</span>
+            <h2>{WOLF_PHASE_LABELS[playState.game.phase]}</h2>
+          </div>
+        )}
+
+        {isCardRevealPhase && (
+          <>
+            <div className={styles.privateRevealBox}>
+              <RoleCard label="Bài của tôi" role={playState.myCard?.originalRole ?? null} />
+              {renderPrivateMask("Bài của bạn")}
+            </div>
+          </>
+        )}
+
+        {playState.game.phase === "night" && renderNightActions()}
+
+        {playState.game.phase === "night_review" && (
+          <>
+            <div className={styles.privateRevealBox}>
+              <div className={styles.nightReviewContent}>
+                {playState.nightReviewMessages.map((reviewMessage) => (
+                  <p key={reviewMessage}>{reviewMessage}</p>
+                ))}
+              </div>
+              {renderPrivateMask("Kết quả ban đêm")}
+            </div>
           </>
         )}
 
         {playState.game.phase === "voting" && (
           <>
-            <p>Chọn một người để bỏ phiếu treo.</p>
             <div className={styles.playPicker}>
+              <button
+                className={activeVoteTargetPlayerId === VOTE_SKIP_KEY ? styles.playOptionActive : styles.playOption}
+                type="button"
+                disabled={isPending}
+                onClick={() => votePlayer(null)}
+              >
+                Bỏ qua
+              </button>
               {playState.players.map((player) => (
                 <button
                   className={activeVoteTargetPlayerId === player.id ? styles.playOptionActive : styles.playOption}
@@ -517,7 +484,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                   disabled={isPending}
                   onClick={() => votePlayer(player.id)}
                 >
-                  <Vote aria-hidden="true" />
                   {player.name}
                 </button>
               ))}
@@ -529,6 +495,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <>
             <strong className={styles.resultBanner}>{playState.result.winnerText}</strong>
             <div className={styles.playPicker}>
+              {playState.result.skippedVoteCount > 0 && (
+                <span className={styles.voteResult}>
+                  Bỏ qua: {playState.result.skippedVoteCount} lượt
+                </span>
+              )}
               {playState.result.voteCounts.map((voteCount) => (
                 <span className={styles.voteResult} key={voteCount.playerId}>
                   {getPlayerName(playState.players, voteCount.playerId)}: {voteCount.votes} phiếu
@@ -540,33 +511,101 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
         {message && <p className={styles.inlineError}>{message}</p>}
 
-        {playState.isCurrentPlayerHost && playState.game.phase === "result" && (
+        </section>
+      )}
+
+      {isCardRevealPhase && (
+        <section className={styles.cardRevealActionBar}>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            disabled={isPending || playState.isCurrentPlayerPhaseReady || !privateRevealUnlocked}
+            onClick={() => confirmCurrentPhase("Đang xác nhận đã xem bài...")}
+          >
+            <Check aria-hidden="true" />
+            {playState.isCurrentPlayerPhaseReady ? "Đã OK" : "OK, tôi đã xem bài"}
+          </button>
+        </section>
+      )}
+
+      {isNightPhase && !myActionSubmitted && myRole && (
+        <section className={styles.cardRevealActionBar}>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            disabled={!canSubmitNightAction || isPending}
+            onClick={submitNightAction}
+          >
+            <Check aria-hidden="true" />
+            Hoàn tất lượt đêm
+          </button>
+        </section>
+      )}
+
+      {isNightReviewPhase && (
+        <section className={styles.cardRevealActionBar}>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            disabled={isPending || playState.isCurrentPlayerPhaseReady || !privateRevealUnlocked}
+            onClick={() => confirmCurrentPhase("Đang xác nhận đã xem lại...")}
+          >
+            <Check aria-hidden="true" />
+            {playState.isCurrentPlayerPhaseReady ? "Đã xong" : "Xong, vào thảo luận"}
+          </button>
+        </section>
+      )}
+
+      {isDiscussionPhase && (
+        <section className={styles.cardRevealActionBar}>
+          <button
+            className={styles.primaryButton}
+            type="button"
+            disabled={isPending || playState.isCurrentPlayerPhaseReady}
+            onClick={() => confirmCurrentPhase("Đang xác nhận thảo luận xong...")}
+          >
+            <Check aria-hidden="true" />
+            {playState.isCurrentPlayerPhaseReady ? "Đã sẵn sàng vote" : "Tôi đã thảo luận xong"}
+          </button>
+        </section>
+      )}
+
+      <section
+        className={`${styles.playWaitingStatus} ${hasFocusedWaitingStatus ? styles.focusedWaitingStatus : ""} ${playState.game.phase === "result" ? styles.playWaitingStatusResult : ""}`}
+        aria-live="polite"
+      >
+        {playState.game.phase === "result" && playState.allPlayersSummary ? (
+          <div className={styles.resultSummaryList}>
+            {playState.allPlayersSummary.map((summary) => (
+              <div className={styles.resultSummaryRow} key={summary.playerId}>
+                <div className={styles.resultSummaryHeader}>
+                  <strong>{summary.playerName}</strong>
+                  <span className={styles.resultRoleTag}>
+                    {WOLF_ROLE_LABELS[summary.originalRole]}
+                    {summary.finalRole !== summary.originalRole && (
+                      <> → {WOLF_ROLE_LABELS[summary.finalRole]}</>
+                    )}
+                  </span>
+                </div>
+                {summary.nightMessages.map((msg) => (
+                  <p key={msg} className={styles.resultNightMessage}>{msg}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span>{getWaitingStatusText()}</span>
+        )}
+      </section>
+
+      {playState.isCurrentPlayerHost && playState.game.phase === "result" && (
+        <section className={styles.cardRevealActionBar}>
           <button className={styles.primaryButton} type="button" disabled={isPending} onClick={returnToLobby}>
             <LogOut aria-hidden="true" />
             Về phòng chờ
           </button>
-        )}
-      </section>
-
-      <section className={styles.playPlayers}>
-        <h2>Người chơi</h2>
-        {playState.players.map((player) => (
-          <article className={styles.playerRow} key={player.id}>
-            <div>
-              <strong>{player.name}</strong>
-              <span>
-                {playState.game.phase === "card_reveal" && (player.isPhaseReady ? "Đã xem bài" : "Đang xem bài")}
-                {playState.game.phase === "night" && (player.hasNightAction ? "Đã xong lượt đêm" : "Chưa xong lượt đêm")}
-                {playState.game.phase === "night_review" && (player.isPhaseReady ? "Đã xem lại" : "Đang xem lại")}
-                {playState.game.phase === "voting" && (player.hasVoted ? "Đã vote" : "Chưa vote")}
-                {playState.game.phase === "result" && player.role && WOLF_ROLE_LABELS[player.role]}
-                {playState.game.phase === "discussion" && (player.isPhaseReady ? "Đã sẵn sàng vote" : "Đang thảo luận")}
-              </span>
-            </div>
-            {player.isHost && <span className={styles.hostBadge}>Chủ phòng</span>}
-          </article>
-        ))}
-      </section>
+        </section>
+      )}
 
       {isPending && (
         <div className={styles.playLoading} aria-live="polite">

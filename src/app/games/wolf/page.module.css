@@ -4,6 +4,7 @@
   flex-direction: column;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
+
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--danger) 22%, transparent), transparent 22rem),
     radial-gradient(circle at bottom right, color-mix(in srgb, var(--primary) 18%, transparent), transparent 26rem),
@@ -15,7 +16,9 @@
   position: relative;
   display: grid;
   flex: 1;
+  width: min(100%, 478px);
   min-height: calc(100vh - (var(--spacing-md) * 2) - var(--spacing-md) - 2.75rem);
+  margin-inline: auto;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
   border-radius: 1.25rem;
@@ -35,13 +38,13 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--bg-primary) 20%, transparent),
-      var(--bg-primary) 82%
+      color-mix(in srgb, var(--bg-primary) 6%, transparent),
+      color-mix(in srgb, var(--bg-primary) 74%, transparent) 82%
     ),
     linear-gradient(
       90deg,
-      var(--bg-primary),
-      color-mix(in srgb, var(--bg-primary) 72%, transparent)
+      color-mix(in srgb, var(--bg-primary) 72%, transparent),
+      color-mix(in srgb, var(--bg-primary) 44%, transparent)
     );
   content: "";
 }
@@ -57,7 +60,7 @@
   justify-content: flex-end;
   gap: var(--spacing-md);
   max-width: 44rem;
-  padding: clamp(1rem, 6vw, 4rem);
+  padding: 2.5rem;
 }
 
 .backLink,
@@ -93,12 +96,22 @@
   width: 1rem;
 }
 
-.heroContent h1,
+.heroTitle,
 .roomPanel h1 {
   max-width: 12ch;
-  font-size: clamp(3.4rem, 18vw, 6.5rem);
   line-height: 0.92;
   letter-spacing: -0.07em;
+}
+
+.heroTitle {
+  font-family: var(--font-heading);
+  font-size: 80px;
+  font-weight: 800;
+  text-shadow: 0 0.16rem 0.45rem color-mix(in srgb, var(--bg-primary) 78%, transparent);
+}
+
+.roomPanel h1 {
+  font-size: clamp(3.4rem, 18vw, 6.5rem);
 }
 
 .description {
@@ -108,28 +121,33 @@
   line-height: 1.75;
 }
 
+.heroContent .description {
+  text-shadow: 0 0.12rem 0.35rem color-mix(in srgb, var(--bg-primary) 82%, transparent);
+}
+
 .actions {
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
 }
 
 .primaryButton,
 .secondaryButton,
 .ghostButton,
 .smallButton {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   min-height: 2.75rem;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  border-radius: 0.85rem;
+  border-radius: 999px;
   font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 700;
   transition:
     transform var(--transition-base),
-    border-color var(--transition-base),
+    box-shadow var(--transition-base),
     background var(--transition-base);
 }
 
@@ -144,21 +162,41 @@
 
 .primaryButton {
   border: 0;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  background: linear-gradient(1deg, color-mix(in srgb, var(--primary) 40%, black), color-mix(in srgb, var(--primary) 80%, black));
   color: var(--text);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
 }
 
 .secondaryButton {
-  border: 1px solid color-mix(in srgb, var(--success) 42%, var(--bg-primary));
-  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border: 0;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--success) 16%, transparent), color-mix(in srgb, var(--success) 32%, transparent));
   color: var(--text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 5px 0 rgba(0, 0, 0, 0.3);
 }
 
 .ghostButton {
-  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--bg-primary));
-  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  border: 0;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--bg-card) 55%, transparent), color-mix(in srgb, var(--bg-card) 88%, transparent));
   color: var(--text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 5px 0 rgba(0, 0, 0, 0.25);
+}
+
+.profileButton {
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--text) 18%, var(--bg-card)),
+    color-mix(in srgb, var(--text) 34%, var(--bg-card))
+  );
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 22%, transparent),
+    0 5px 0 rgba(0, 0, 0, 0.22);
 }
 
 .primaryButton svg,
@@ -177,6 +215,17 @@
   transform: none;
 }
 
+.primaryButton:not(:disabled):active,
+.secondaryButton:not(:disabled):active,
+.ghostButton:not(:disabled):active,
+.smallButton:not(:disabled):active,
+.exitButton:active,
+.closeButton:active,
+.kickButton:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
 .inlineError {
   color: var(--danger);
   font-size: 0.9rem;
@@ -185,7 +234,16 @@
 }
 
 .exitBar {
-  justify-content: center;
+  width: min(100%, 478px);
+  gap: 0.75rem;
+  margin-inline: auto;
+  align-items: center;
+  justify-content: stretch;
+}
+
+.exitBar > * {
+  flex: 1;
+  min-width: 0;
 }
 
 .exitButton {
@@ -194,15 +252,18 @@
   width: 100%;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--bg-primary));
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 40%, transparent), color-mix(in srgb, var(--danger) 62%, transparent));
   color: var(--text);
   font-size: 0.9rem;
   font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 5px 0 rgba(0, 0, 0, 0.25);
   transition:
     transform var(--transition-base),
-    border-color var(--transition-base),
+    box-shadow var(--transition-base),
     background var(--transition-base);
 }
 
@@ -275,10 +336,13 @@
   min-width: 2.75rem;
   min-height: 2.75rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--bg-primary));
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--bg-secondary) 60%, transparent), color-mix(in srgb, var(--bg-secondary) 90%, transparent));
   color: var(--text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 0 rgba(0, 0, 0, 0.25);
 }
 
 .closeButton svg {
@@ -347,6 +411,63 @@
   box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
+.avatarPicker {
+  display: grid;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.avatarPicker legend {
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.avatarGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 0.55rem;
+  max-height: min(32vh, 14rem);
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.avatarOption,
+.avatarOptionActive {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  color: var(--text);
+}
+
+.avatarOptionActive {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 24%, var(--bg-secondary));
+  box-shadow: 0 0 0 0.18rem color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.avatarOption img,
+.avatarOptionActive img {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.guestForm .avatarPicker + .primaryButton {
+  margin-top: var(--spacing-md);
+}
+
 .errorText {
   color: var(--danger);
   font-size: 0.85rem;
@@ -377,7 +498,7 @@
 }
 
 .roomPanel {
-  width: min(100%, 54rem);
+  width: min(100%, 478px);
   padding: clamp(1rem, 5vw, 3rem);
   border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
   border-radius: 1.25rem;
@@ -454,8 +575,8 @@
 }
 
 .smallButton {
-  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--bg-primary));
-  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  border: 0;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--bg-card) 55%, transparent), color-mix(in srgb, var(--bg-card) 88%, transparent));
   color: var(--text);
 }
 
@@ -477,11 +598,75 @@
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
-.playerRow > div {
+.playerIdentity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.playerAvatar {
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  object-fit: cover;
+}
+
+.playerIdentity > div {
   display: grid;
   min-width: 0;
   flex: 1;
   gap: 0.2rem;
+}
+
+.playerNameLine {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.playerNameLine strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.playerRow .connectionBadge {
+  display: inline-flex;
+  min-height: 1.2rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline: 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 44%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.playerRow .connectionBadgeOnline {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.playerRow .connectionDot {
+  width: 0.34rem;
+  height: 0.34rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--success);
 }
 
 .kickButton {
@@ -491,13 +676,16 @@
   justify-content: center;
   gap: 0.4rem;
   padding-inline: 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--bg-primary));
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 10%, transparent), color-mix(in srgb, var(--danger) 24%, transparent));
   color: var(--text);
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 0 rgba(0, 0, 0, 0.25);
 }
 
 .kickButton:disabled {
@@ -521,6 +709,9 @@
   font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .hostBadge svg {
@@ -535,14 +726,16 @@
 .playHeader,
 .playBoard,
 .playPanel,
-.playPlayers {
-  width: min(100%, 64rem);
+.playPlayers,
+.playWaitingStatus {
+  width: min(100%, 478px);
   margin-inline: auto;
 }
 
 .playHeader,
 .playPanel,
-.playPlayers {
+.playPlayers,
+.playWaitingStatus {
   padding: clamp(1rem, 4vw, 2rem);
   border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
   border-radius: 1.25rem;
@@ -553,6 +746,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+}
+
+.playHeader p {
+  max-width: 52rem;
+  color: var(--text-secondary);
+  font-size: clamp(0.9rem, 3.5vw, 1rem);
+  line-height: 1.7;
 }
 
 .playHeader span,
@@ -604,7 +804,7 @@
   display: grid;
   min-height: 100%;
   place-items: center;
-  align-content: center;
+  align-content: end;
   gap: var(--spacing-sm);
   padding: var(--spacing-lg);
   border: 1px solid color-mix(in srgb, var(--primary-light) 24%, var(--bg-primary));
@@ -617,7 +817,7 @@
       transparent 0.12rem,
       transparent 0.72rem
     ),
-    linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
+    linear-gradient(1deg, var(--bg-secondary), var(--bg-primary));
   color: var(--text);
   cursor: grab;
   text-align: center;
@@ -753,20 +953,20 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  border-radius: 0.85rem;
+  border-radius: 999px;
   color: var(--text);
   font: 800 0.86rem/1 var(--font-body);
   cursor: pointer;
 }
 
 .playOption {
-  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--bg-primary));
-  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  border: 0;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--bg-card) 55%, transparent), color-mix(in srgb, var(--bg-card) 88%, transparent));
 }
 
 .playOptionActive {
   border: 0;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  background: linear-gradient(1deg, color-mix(in srgb, var(--primary) 80%, black), color-mix(in srgb, var(--primary) 40%, black));
 }
 
 .playTimer,
@@ -792,6 +992,50 @@
   text-align: center;
 }
 
+.resultSummaryList {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.resultSummaryRow {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+
+.resultSummaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.resultSummaryHeader strong {
+  font-size: 0.78rem;
+}
+
+.resultRoleTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.resultNightMessage {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .voteResult {
   display: inline-flex;
   min-height: 2.4rem;
@@ -808,6 +1052,137 @@
 .playPlayers {
   display: grid;
   gap: var(--spacing-sm);
+}
+
+.playWaitingStatus {
+  display: flex;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.playWaitingStatusResult {
+  min-height: unset;
+  align-items: stretch;
+  text-align: left;
+  padding: var(--spacing-md);
+}
+
+.playWaitingStatus span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.focusedPlayPage {
+  --card-reveal-page-pad: var(--spacing-md);
+  --card-reveal-header-height: clamp(8.8rem, 20svh, 12rem);
+  --card-reveal-bottom-space: calc(8.6rem + env(safe-area-inset-bottom));
+  height: 100svh;
+  min-height: 100svh;
+  gap: 0.75rem;
+  overflow: hidden;
+  padding: var(--card-reveal-page-pad);
+  padding-bottom: var(--card-reveal-bottom-space);
+}
+
+.focusedPlayPanel {
+  flex: 1;
+  min-height: 0;
+  height: max(
+    12rem,
+    calc(
+      100svh - var(--card-reveal-bottom-space) - (var(--card-reveal-page-pad) * 2) -
+        var(--card-reveal-header-height) - 0.75rem
+    )
+  );
+  padding: clamp(0.65rem, 2vw, 1rem);
+}
+
+.focusedPlayPage .playHeader {
+  min-height: 0;
+  max-height: var(--card-reveal-header-height);
+  overflow: hidden;
+}
+
+.focusedPlayPanel .privateRevealBox,
+.focusedPlayPanel .playCard,
+.focusedPlayPanel .nightReviewContent {
+  min-height: 100%;
+  height: 100%;
+}
+
+.nightReviewContent {
+  display: grid;
+  align-content: end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--bg-primary));
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--primary) 20%, transparent), transparent 10rem),
+    var(--bg-card);
+}
+
+.nightReviewContent p {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.cardRevealActionBar,
+.focusedWaitingStatus {
+  position: fixed;
+  right: var(--spacing-md);
+  left: var(--spacing-md);
+  z-index: var(--z-modal);
+  width: min(calc(100% - (var(--spacing-md) * 2)), 478px);
+  margin-inline: auto;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--bg-primary) 68%, transparent);
+  backdrop-filter: blur(1rem);
+}
+
+.cardRevealActionBar {
+  bottom: calc(4.7rem + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+}
+
+.cardRevealActionBar .primaryButton,
+.cardRevealActionBar .secondaryButton,
+.cardRevealActionBar .ghostButton {
+  border-radius: 999px;
+}
+
+.cardRevealActionBar span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.focusedWaitingStatus {
+  bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
+  min-height: 3.2rem;
+  padding: 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
+}
+
+.fixedBottomActionPage {
+  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+}
+
+.fixedBottomWaitingPage {
+  padding-bottom: calc(4.8rem + env(safe-area-inset-bottom));
 }
 
 .playLoading {
@@ -847,6 +1222,27 @@
   margin-top: var(--spacing-lg);
 }
 
+.hero,
+.modal,
+.roomStatusGrid article,
+.roomPanel,
+.roomCodeCard,
+.playerRow,
+.playHeader,
+.playPanel,
+.playPlayers,
+.playWaitingStatus,
+.privateRevealMask,
+.playCard,
+.resultSummaryRow,
+.nightReviewContent,
+.cardRevealActionBar,
+.focusedWaitingStatus,
+.playLoading {
+  border: 0;
+  box-shadow: 0px 1px 2px 2px var(--shadow-card);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .primaryButton:not(:disabled):hover,
   .secondaryButton:not(:disabled):hover,
@@ -859,16 +1255,25 @@
   }
 
   .kickButton:not(:disabled):hover {
-    border-color: var(--danger);
     background: color-mix(in srgb, var(--danger) 18%, transparent);
   }
 
   .ghostButton:not(:disabled):hover,
-  .exitButton:hover,
   .smallButton:not(:disabled):hover,
   .closeButton:not(:disabled):hover {
-    border-color: color-mix(in srgb, var(--primary) 54%, var(--bg-primary));
     background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  .profileButton:not(:disabled):hover {
+    background: linear-gradient(
+      1deg,
+      color-mix(in srgb, var(--text) 24%, var(--bg-card)),
+      color-mix(in srgb, var(--text) 42%, var(--bg-card))
+    );
+  }
+
+  .exitButton:hover {
+    background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 50%, transparent), color-mix(in srgb, var(--danger) 72%, transparent));
   }
 }
 
@@ -882,21 +1287,9 @@
     min-height: calc(100vh - (var(--spacing-lg) * 2) - var(--spacing-lg) - 2.75rem);
   }
 
-  .actions,
-  .identityActions,
   .lobbyHeader,
   .roomStatusGrid {
     flex-direction: row;
-  }
-
-  .actions {
-    flex-wrap: wrap;
-  }
-
-  .primaryButton,
-  .secondaryButton,
-  .ghostButton {
-    min-width: 10rem;
   }
 
   .roomStatusGrid article {
@@ -909,6 +1302,20 @@
     justify-content: space-between;
   }
 
+  .focusedPlayPage {
+    --card-reveal-page-pad: var(--spacing-lg);
+    --card-reveal-header-height: clamp(7.2rem, 17svh, 10rem);
+    gap: 0.75rem;
+    padding: var(--card-reveal-page-pad);
+    padding-bottom: var(--card-reveal-bottom-space);
+  }
+
+  .focusedPlayPage .playHeader {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+  }
+
   .playBoard {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   }
@@ -917,14 +1324,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .exitButton {
-    width: auto;
-    min-width: 10rem;
-  }
-
-  .smallButton {
-    min-width: 8.5rem;
-  }
 
   .modalBackdrop {
     place-items: center;
@@ -941,23 +1340,24 @@
     background:
       linear-gradient(
         90deg,
-        var(--bg-primary),
-        color-mix(in srgb, var(--bg-primary) 76%, transparent) 45%,
-        color-mix(in srgb, var(--bg-primary) 30%, transparent)
+        color-mix(in srgb, var(--bg-primary) 74%, transparent),
+        color-mix(in srgb, var(--bg-primary) 50%, transparent) 45%,
+        color-mix(in srgb, var(--bg-primary) 12%, transparent)
       ),
       linear-gradient(
         180deg,
-        color-mix(in srgb, var(--bg-primary) 12%, transparent),
-        var(--bg-primary) 96%
+        color-mix(in srgb, var(--bg-primary) 4%, transparent),
+        color-mix(in srgb, var(--bg-primary) 76%, transparent) 96%
       );
-  }
-
-  .heroContent {
-    padding: clamp(3rem, 7vw, 6rem);
   }
 
   .playPage {
     padding-inline: clamp(2rem, 6vw, 5rem);
+  }
+
+  .focusedPlayPage {
+    padding: var(--card-reveal-page-pad);
+    padding-bottom: var(--card-reveal-bottom-space);
   }
 
   .playPicker {
