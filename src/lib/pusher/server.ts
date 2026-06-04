@@ -48,11 +48,16 @@ async function triggerPusherEvent(channel: string, event: string, data: unknown)
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const encoder = new TextEncoder();
 
-  // Build sorted query string (body_md5 omitted — optional in Pusher API)
+  // MD5 via node:crypto (available with nodejs_compat in Cloudflare Workers)
+  const nodeCrypto = await import("node:crypto");
+  const bodyMd5 = nodeCrypto.createHash("md5").update(body).digest("hex");
+
+  // Build sorted query string
   const params: Record<string, string> = {
     auth_key: key,
     auth_timestamp: timestamp,
     auth_version: "1.0",
+    body_md5: bodyMd5,
   };
   const sortedQuery = Object.keys(params)
     .sort()
@@ -75,11 +80,16 @@ async function triggerPusherEvent(channel: string, event: string, data: unknown)
 
   const url = `https://api-${cluster}.pusher.com/apps/${appId}/events?${sortedQuery}&auth_signature=${signature}`;
 
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,
   });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Pusher trigger failed:", res.status, text);
+  }
 }
 
 export async function broadcastWolfRoomUpdate(roomCode: string) {
