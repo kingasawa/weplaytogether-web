@@ -1,5 +1,10 @@
 import Pusher from "pusher";
-import { getWolfRoomChannelName, WOLF_PLAY_UPDATED_EVENT, WOLF_ROOM_UPDATED_EVENT } from "./channels";
+import {
+  getWolfRoomChannelName,
+  getWolfRoomPublicChannelName,
+  WOLF_PLAY_UPDATED_EVENT,
+  WOLF_ROOM_UPDATED_EVENT,
+} from "./channels";
 
 // Auth only — uses crypto, works fine in Cloudflare Workers
 let pusherServer: Pusher | null = null;
@@ -93,19 +98,21 @@ async function triggerPusherEvent(channel: string, event: string, data: unknown)
 }
 
 export async function broadcastWolfRoomUpdate(roomCode: string) {
-  await triggerPusherEvent(
-    getWolfRoomChannelName(roomCode),
-    WOLF_ROOM_UPDATED_EVENT,
-    { roomCode: roomCode.toLowerCase() }
-  );
+  const data = { roomCode: roomCode.toLowerCase() };
+
+  await Promise.all([
+    triggerPusherEvent(getWolfRoomChannelName(roomCode), WOLF_ROOM_UPDATED_EVENT, data),
+    triggerPusherEvent(getWolfRoomPublicChannelName(roomCode), WOLF_ROOM_UPDATED_EVENT, data),
+  ]);
 }
 
 export async function broadcastWolfPlayUpdate(roomCode: string) {
-  await triggerPusherEvent(
-    getWolfRoomChannelName(roomCode),
-    WOLF_PLAY_UPDATED_EVENT,
-    { roomCode: roomCode.toLowerCase() }
-  );
+  const data = { roomCode: roomCode.toLowerCase() };
+
+  await Promise.all([
+    triggerPusherEvent(getWolfRoomChannelName(roomCode), WOLF_PLAY_UPDATED_EVENT, data),
+    triggerPusherEvent(getWolfRoomPublicChannelName(roomCode), WOLF_PLAY_UPDATED_EVENT, data),
+  ]);
 }
 
 export async function safeBroadcastWolfRoomUpdate(roomCode: string) {

@@ -1,10 +1,10 @@
-﻿<!-- Last updated: 2026-06-04 -->
+<!-- Last updated: 2026-06-05 -->
 
 # Database Schema
 
 ## Verified Scope
 
-This document tracks the Ma Sói multiplayer lobby and gameplay schema status.
+This document tracks the Ma S�i multiplayer lobby and gameplay schema status.
 
 Earlier verification on 2026-06-03 via Supabase REST returned `PGRST205` for `public.wolf_rooms`. The user later reported successful manual SQL execution for the lobby/gameplay migrations in Supabase SQL Editor. This task did not execute or re-verify remote schema directly.
 
@@ -19,6 +19,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202606030004_wolf_remove_presence_columns.sql`
 - `supabase/migrations/202606040001_wolf_player_avatars.sql`
 - `supabase/migrations/202606040002_wolf_vote_skip.sql`
+- `supabase/migrations/202606050001_wolf_cleanup_old_rooms.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -116,6 +117,23 @@ Local migration file created in this task and still pending manual remote apply:
 - Unique vote per game/voter: `wolf_game_votes(game_id, voter_player_id)`
 - Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
 - Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
+
+### Functions And Scheduled Jobs
+
+#### `public.cleanup_old_wolf_rooms(...)`
+
+- Returns counts for deleted room groups.
+- Deletes old `finished` rooms after the configured `finished_older_than` interval, default `7 days`.
+- Deletes `playing` rooms whose `current_game_id` is already in phase `result` after the configured `completed_playing_older_than` interval, default `7 days`.
+- Deletes empty `waiting` rooms with no players after the configured `empty_waiting_older_than` interval, default `1 day`.
+- Deletes stale `waiting` rooms after the configured `stale_waiting_older_than` interval, default `14 days`.
+- Related `wolf_room_players`, `wolf_game_sessions`, `wolf_game_cards`, `wolf_game_actions`, `wolf_game_votes`, and `wolf_game_phase_confirmations` rows are removed by existing `ON DELETE CASCADE` constraints.
+- Function execution is revoked from `PUBLIC` and granted to `service_role`.
+
+#### Cron Job
+
+- `wolf-cleanup-old-rooms`: scheduled via `pg_cron` to run daily at `03:17` database time.
+- Command: `SELECT public.cleanup_old_wolf_rooms();`
 
 ## Remote Apply Blocker
 

@@ -128,6 +128,15 @@ export type WolfLobbyState = {
   currentPlayerId: string | null;
 };
 
+export type WolfSpectatorState = {
+  room: WolfLobbyState["room"];
+  players: WolfLobbyPlayer[];
+  game: {
+    phase: WolfGamePhase;
+  } | null;
+  result: WolfGameResult | null;
+};
+
 export type WolfActionResult =
   | {
       ok: true;
@@ -212,6 +221,10 @@ export type WolfPlayState = {
     originalRole: WolfRole;
     currentRole: WolfRole | null;
   } | null;
+  werewolfTeammates: Array<{
+    playerId: string;
+    playerName: string;
+  }>;
   centerCards: WolfCenterCardState[];
   myAction: {
     actionType: string;
@@ -480,6 +493,12 @@ function validateCenterIndex(centerIndex?: number | null) {
   return typeof centerIndex === "number" && centerIndex >= 0 && centerIndex <= 2;
 }
 
+function getOriginalWerewolfPlayerIds(cards: CardRow[]) {
+  return cards
+    .filter((card) => card.player_id && card.original_role === "werewolf")
+    .map((card) => card.player_id as string);
+}
+
 function buildNightReviewMessages(
   currentPlayer: PlayerRow | null,
   action: ActionRow | null,
@@ -518,6 +537,14 @@ function buildNightReviewMessages(
   }
 
   if (action.action_type === "werewolf") {
+    const werewolfTeammateNames = getOriginalWerewolfPlayerIds(cards)
+      .filter((playerId) => playerId !== currentPlayer.id)
+      .map((playerId) => getPlayerName(players, playerId));
+
+    if (werewolfTeammateNames.length > 0) {
+      return [`Bạn thấy Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}. Vì có từ 2 Ma Sói trở lên, bạn không được xem lá giữa bàn.`];
+    }
+
     if (validateCenterIndex(action.target_center_index)) {
       const centerCard = getCenterCard(cards, action.target_center_index as number);
 
@@ -955,7 +982,7 @@ export async function joinWolfRoom(
 
   const { data: room, error: roomError } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id")
+    .select("id, code, status, host_player_id, current_game_id")
     .eq("code", code)
     .single();
 
@@ -968,7 +995,31 @@ export async function joinWolfRoom(
   }
 
   if (room.status !== "waiting") {
-    return { ok: false, error: "Phòng này đã bắt đầu hoặc đã kết thúc." };
+    if (room.status !== "playing" || !room.current_game_id) {
+      return { ok: false, error: "Phòng này đã bắt đầu hoặc đã kết thúc." };
+    }
+
+    const { data: game } = await supabase
+      .from("wolf_game_sessions")
+      .select("phase")
+      .eq("id", room.current_game_id)
+      .maybeSingle();
+
+    if (game?.phase !== "result") {
+      return { ok: false, error: "Phòng này đang chơi. Hãy chờ ván hiện tại kết thúc." };
+    }
+
+    await supabase
+      .from("wolf_rooms")
+      .update({ status: "waiting", current_game_id: null })
+      .eq("id", room.id);
+    await supabase
+      .from("wolf_room_players")
+      .update({ is_ready: false })
+      .eq("room_id", room.id)
+      .eq("is_host", false);
+    room.status = "waiting";
+    room.current_game_id = null;
   }
 
   const { data: existingPlayer } = await supabase
@@ -1046,7 +1097,19 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   }
 
   if (room.status !== "waiting") {
-    return;
+    if (room.status !== "playing" || !room.current_game_id) {
+      return;
+    }
+
+    const { data: game } = await supabase
+      .from("wolf_game_sessions")
+      .select("phase")
+      .eq("id", room.current_game_id)
+      .maybeSingle();
+
+    if (game?.phase !== "result") {
+      return;
+    }
   }
 
   const { data: player } = await supabase
@@ -1081,7 +1144,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   if (!nextHost) {
     await supabase
       .from("wolf_rooms")
-      .update({ host_player_id: null, status: "finished" })
+      .update({ host_player_id: null, status: "finished", current_game_id: null })
       .eq("id", room.id);
     await safeBroadcastWolfRoomUpdate(room.code);
     return;
@@ -1214,6 +1277,69 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
     },
     players: players.map(mapLobbyPlayer),
     currentPlayerId: players.find((player) => player.session_id === sessionId)?.id ?? null,
+  };
+}
+
+export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpectatorState | null> {
+  const code = normalizeRoomCode(roomCode);
+
+  if (!ROOM_CODE_PATTERN.test(code)) {
+    return null;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: room } = await supabase
+    .from("wolf_rooms")
+    .select("id, code, status, host_player_id, current_game_id")
+    .eq("code", code)
+    .maybeSingle();
+
+  if (!room) {
+    return null;
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  let game: GameRow | null = null;
+  let result: WolfGameResult | null = null;
+
+  if (room.current_game_id) {
+    const { data: gameData } = await supabase
+      .from("wolf_game_sessions")
+      .select("id, room_id, phase, round_number, discussion_ends_at")
+      .eq("id", room.current_game_id)
+      .maybeSingle();
+
+    game = (gameData ?? null) as GameRow | null;
+
+    if (game?.phase === "result") {
+      const { data: cardsData } = await supabase
+        .from("wolf_game_cards")
+        .select("id, game_id, player_id, center_index, original_role, current_role")
+        .eq("game_id", game.id);
+      const { data: votesData } = await supabase
+        .from("wolf_game_votes")
+        .select("id, game_id, voter_player_id, target_player_id, is_skip")
+        .eq("game_id", game.id);
+
+      result = buildGameResult(players, (cardsData ?? []) as CardRow[], (votesData ?? []) as VoteRow[]);
+    }
+  }
+
+  return {
+    room: {
+      id: room.id,
+      code: room.code,
+      status: room.status,
+      hostPlayerId: room.host_player_id,
+      currentGameId: room.current_game_id ?? null,
+    },
+    players: players.map(mapLobbyPlayer),
+    game: game
+      ? {
+          phase: game.phase,
+        }
+      : null,
+    result,
   };
 }
 
@@ -1357,6 +1483,16 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     ? await getPhaseConfirmations(supabase, game.id, game.phase)
     : [];
   const myCard = currentPlayer ? getPlayerCard(cards, currentPlayer.id) : null;
+  const originalWerewolfPlayerIds = getOriginalWerewolfPlayerIds(cards);
+  const werewolfTeammates =
+    currentPlayer && myCard?.original_role === "werewolf"
+      ? originalWerewolfPlayerIds
+          .filter((playerId) => playerId !== currentPlayer.id)
+          .map((playerId) => ({
+            playerId,
+            playerName: getPlayerName(players, playerId),
+          }))
+      : [];
   const myAction = currentPlayer
     ? actions.find((action) => action.player_id === currentPlayer.id) ?? null
     : null;
@@ -1391,7 +1527,11 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     }
   }
 
-  if (myAction?.action_type === "werewolf" && validateCenterIndex(myAction.target_center_index)) {
+  if (
+    myAction?.action_type === "werewolf" &&
+    originalWerewolfPlayerIds.length === 1 &&
+    validateCenterIndex(myAction.target_center_index)
+  ) {
     revealedCenterIndexes.add(myAction.target_center_index as number);
   }
 
@@ -1426,6 +1566,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
           currentRole: shouldRevealMyCurrentRole ? myCard.current_role : null,
         }
       : null,
+    werewolfTeammates,
     centerCards: [0, 1, 2].map((index) => {
       const centerCard = getCenterCard(cards, index);
       return {
@@ -1535,6 +1676,28 @@ export async function submitWolfNightAction(
 
   if (originalRole === "drunk" && !validateCenterIndex(input.targetCenterIndex)) {
     return { ok: false, error: "Say Rượu phải chọn một lá giữa bàn." };
+  }
+
+  if (originalRole === "werewolf") {
+    const { data: werewolfCards } = await supabase
+      .from("wolf_game_cards")
+      .select("player_id")
+      .eq("game_id", room.current_game_id)
+      .eq("original_role", "werewolf")
+      .not("player_id", "is", null);
+    const werewolfCount = werewolfCards?.length ?? 0;
+
+    if (werewolfCount > 1 && (input.targetCenterIndex != null || input.targetCenterIndex2 != null)) {
+      return { ok: false, error: "Có từ 2 Ma Sói trở lên nên Ma Sói không được xem lá giữa bàn." };
+    }
+
+    if (
+      werewolfCount === 1 &&
+      ((input.targetCenterIndex != null && !validateCenterIndex(input.targetCenterIndex)) ||
+        input.targetCenterIndex2 != null)
+    ) {
+      return { ok: false, error: "Ma Sói đơn chỉ được xem tối đa một lá giữa bàn." };
+    }
   }
 
   if (
@@ -1744,15 +1907,28 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
   const sessionId = await getPlayerSessionId();
   const { supabase, room } = await getRoomByCode(roomCode);
 
-  if (!sessionId || !room?.current_game_id) {
+  if (!sessionId || !room) {
     return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  if (!room.current_game_id) {
+    return { ok: true };
   }
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
+  const { data: game } = await supabase
+    .from("wolf_game_sessions")
+    .select("phase")
+    .eq("id", room.current_game_id)
+    .maybeSingle();
 
-  if (!isHost(currentPlayer, room)) {
-    return { ok: false, error: "Chỉ chủ phòng mới được kết thúc ván." };
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  if (!isHost(currentPlayer, room) && game?.phase !== "result") {
+    return { ok: false, error: "Chỉ chủ phòng mới được kết thúc ván trước phase kết quả." };
   }
 
   await supabase

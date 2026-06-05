@@ -15,6 +15,7 @@ import {
 import {
   finishWolfGame,
   getWolfPlayState,
+  leaveWolfRoom,
   submitWolfPhaseConfirmation,
   submitWolfNightAction,
   submitWolfVote,
@@ -82,6 +83,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
   const myRole = playState.myCard?.originalRole ?? null;
   const otherPlayers = playState.players.filter((player) => player.id !== playState.currentPlayerId);
+  const hasWerewolfTeammates = myRole === "werewolf" && playState.werewolfTeammates.length > 0;
   const myActionSubmitted = Boolean(playState.myAction);
   const activeVoteTargetPlayerId =
     optimisticVoteTargetPlayerId ??
@@ -93,6 +95,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const isNightReviewPhase = playState.game.phase === "night_review";
   const isDiscussionPhase = playState.game.phase === "discussion";
   const isVotingPhase = playState.game.phase === "voting";
+  const isResultPhase = playState.game.phase === "result";
   const hasFocusedWaitingStatus =
     isCardRevealPhase || isNightPhase || isNightReviewPhase || isDiscussionPhase || isVotingPhase;
   const usesFocusedRevealLayout = isCardRevealPhase || isNightReviewPhase;
@@ -229,8 +232,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         actionType: myRole,
         targetPlayerId: selectedPlayerIds[0] ?? null,
         targetPlayerId2: selectedPlayerIds[1] ?? null,
-        targetCenterIndex: selectedCenterIndexes[0] ?? null,
-        targetCenterIndex2: selectedCenterIndexes[1] ?? null,
+        targetCenterIndex: hasWerewolfTeammates ? null : selectedCenterIndexes[0] ?? null,
+        targetCenterIndex2: hasWerewolfTeammates ? null : selectedCenterIndexes[1] ?? null,
       });
 
       if (!result.ok) {
@@ -300,6 +303,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     });
   }
 
+  function exitGame() {
+    setMessage("");
+    setPendingLabel("Đang thoát phòng...");
+    startTransition(async () => {
+      await leaveWolfRoom(playState.room.code);
+      router.push("/games/wolf");
+    });
+  }
+
   function startPrivateRevealGesture(event: PointerEvent<HTMLButtonElement>) {
     setMaskPointerStartY(event.clientY);
     setMaskDragOffset(0);
@@ -363,9 +375,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     const needsPlayerPicker = myRole === "seer" || myRole === "robber" || myRole === "troublemaker";
-    const needsCenterPicker = myRole === "seer" || myRole === "drunk" || myRole === "werewolf";
+    const needsCenterPicker = myRole === "seer" || myRole === "drunk" || (myRole === "werewolf" && !hasWerewolfTeammates);
     return (
       <>
+        {hasWerewolfTeammates && (
+          <div className={styles.werewolfTeammatePanel}>
+            <span>Ma Sói cùng phe</span>
+            <strong>{playState.werewolfTeammates.map((player) => player.playerName).join(", ")}</strong>
+            <p>Vì có từ 2 Ma Sói trở lên, bạn không được xem lá giữa bàn.</p>
+          </div>
+        )}
+
         {needsPlayerPicker && (
           <div className={styles.playPicker}>
             <span>Chọn người chơi</span>
@@ -405,7 +425,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const canSubmitNightAction =
     myRole === "villager" ||
     myRole === "insomniac" ||
-    (myRole === "werewolf" && selectedCenterIndexes.length <= 1) ||
+    (myRole === "werewolf" && (hasWerewolfTeammates ? selectedCenterIndexes.length === 0 : selectedCenterIndexes.length <= 1)) ||
     (myRole === "robber" && selectedPlayerIds.length === 1) ||
     (myRole === "troublemaker" && selectedPlayerIds.length === 2) ||
     (myRole === "drunk" && selectedCenterIndexes.length === 1) ||
@@ -414,7 +434,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   return (
     <main
       className={`${styles.page} ${styles.playPage} ${usesFocusedRevealLayout ? styles.focusedPlayPage : ""} ${
-        (isNightPhase && !myActionSubmitted && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
+        (isNightPhase && !myActionSubmitted && myRole) || isDiscussionPhase || isResultPhase ? styles.fixedBottomActionPage : ""
       } ${isVotingPhase ? styles.fixedBottomWaitingPage : ""}`}
     >
       <section className={styles.playHeader}>
@@ -636,11 +656,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         )}
       </section>
 
-      {playState.isCurrentPlayerHost && playState.game.phase === "result" && (
+      {isResultPhase && (
         <section className={styles.cardRevealActionBar}>
           <button className={styles.primaryButton} type="button" disabled={isPending} onClick={returnToLobby}>
+            <Check aria-hidden="true" />
+            Quay lại phòng chờ
+          </button>
+          <button className={styles.ghostButton} type="button" disabled={isPending} onClick={exitGame}>
             <LogOut aria-hidden="true" />
-            Về phòng chờ
+            Thoát
           </button>
         </section>
       )}

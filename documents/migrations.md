@@ -1,4 +1,4 @@
-ï»¿<!-- Last updated: 2026-06-04 -->
+<!-- Last updated: 2026-06-05 -->
 
 # Migrations
 
@@ -12,7 +12,7 @@ Path:
 
 Purpose:
 
-- Add Phase 1 Ma SÃ³i realtime multiplayer lobby schema.
+- Add Phase 1 Ma Sói realtime multiplayer lobby schema.
 - Create room and player tables.
 - Enable RLS with public read-only policies for lobby sync.
 - Add tables to `supabase_realtime` publication.
@@ -27,7 +27,7 @@ Path:
 
 Purpose:
 
-- Add Phase 2 Ma SÃ³i gameplay schema.
+- Add Phase 2 Ma Sói gameplay schema.
 - Create `wolf_game_phase` and `wolf_role` enums.
 - Add `current_game_id` to `wolf_rooms`.
 - Create gameplay tables: `wolf_game_sessions`, `wolf_game_cards`, `wolf_game_actions`, `wolf_game_votes`.
@@ -61,7 +61,7 @@ Path:
 
 Purpose:
 
-- Remove heartbeat/presence tracking from Ma SÃ³i rooms.
+- Remove heartbeat/presence tracking from Ma Sói rooms.
 - Delete old player rows that were previously marked with `left_at`.
 - Drop `left_at` and `last_seen_at` from `wolf_room_players`.
 - Replace the partial active-session unique index with a regular unique index on `(room_id, session_id)`.
@@ -94,6 +94,23 @@ Purpose:
 - Allow `target_player_id` to be null for skipped votes.
 - Add a check constraint so each vote is either a player vote or an intentional skip.
 
+## 202606050001_wolf_cleanup_old_rooms.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202606050001_wolf_cleanup_old_rooms.sql`
+
+Purpose:
+
+- Create `public.cleanup_old_wolf_rooms(...)` to delete old Ma Sói rooms and rely on existing cascade constraints for related room/gameplay rows.
+- Delete `finished` rooms older than 7 days by default.
+- Delete `playing` rooms whose current game is already in phase `result` and older than 7 days by default.
+- Delete empty `waiting` rooms older than 1 day by default.
+- Delete stale `waiting` rooms older than 14 days by default.
+- Enable `pg_cron` and schedule `wolf-cleanup-old-rooms` daily at `03:17` database time.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -104,5 +121,5 @@ Remote execution attempts on 2026-06-03 from this workspace were blocked:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, and `202606040002_wolf_vote_skip.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, and `202606050001_wolf_cleanup_old_rooms.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.

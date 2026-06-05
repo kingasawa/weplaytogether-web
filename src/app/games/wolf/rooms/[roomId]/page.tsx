@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getWolfLobbyState } from "../../actions";
+import { getWolfLobbyState, getWolfSpectatorState } from "../../actions";
 import WolfRoomLobby from "./wolf-room-lobby";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
@@ -35,5 +35,8 @@ export default async function WolfRoomPage({ params }: WolfRoomPageProps) {
     notFound();
   }
 
-  return <WolfRoomLobby initialState={lobbyState} />;
+  const spectatorState =
+    lobbyState.room.status === "playing" ? await getWolfSpectatorState(roomId) : null;
+
+  return <WolfRoomLobby initialSpectatorState={spectatorState} initialState={lobbyState} />;
 }

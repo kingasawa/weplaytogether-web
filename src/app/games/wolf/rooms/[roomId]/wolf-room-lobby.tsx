@@ -37,15 +37,18 @@ import {
   startWolfGame,
   toggleWolfReady,
   type WolfLobbyState,
+  type WolfSpectatorState,
 } from "../../actions";
 import { PlayerAvatarPicker } from "../../player-avatar-picker";
 import styles from "../../page.module.css";
+import WolfRoomSpectator from "./wolf-room-spectator";
 
 type WolfRoomLobbyProps = {
   initialState: WolfLobbyState;
+  initialSpectatorState: WolfSpectatorState | null;
 };
 
-export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
+export default function WolfRoomLobby({ initialState, initialSpectatorState }: WolfRoomLobbyProps) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [lobbyState, setLobbyState] = useState(initialState);
@@ -72,10 +75,10 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
     lobbyState.players.length >= 3 && lobbyState.players.every((player) => player.isReady);
 
   useEffect(() => {
-    if (lobbyState.room.status === "playing" && lobbyState.room.currentGameId) {
+    if (currentPlayer && lobbyState.room.status === "playing" && lobbyState.room.currentGameId) {
       router.push(`/games/wolf/rooms/${lobbyState.room.code}/play`);
     }
-  }, [lobbyState.room.code, lobbyState.room.currentGameId, lobbyState.room.status, router]);
+  }, [currentPlayer, lobbyState.room.code, lobbyState.room.currentGameId, lobbyState.room.status, router]);
 
   const refreshLobby = useCallback(async () => {
     const nextLobbyState = await getWolfLobbyState(lobbyState.room.code);
@@ -354,6 +357,21 @@ export default function WolfRoomLobby({ initialState }: WolfRoomLobbyProps) {
   }
 
   const isEditingGuestProfile = isGuestFormOpen && !shouldJoinAfterGuestName;
+
+  if (lobbyState.room.status === "playing" && !currentPlayer) {
+    return (
+      <WolfRoomSpectator
+        initialState={
+          initialSpectatorState ?? {
+            room: lobbyState.room,
+            players: lobbyState.players,
+            game: null,
+            result: null,
+          }
+        }
+      />
+    );
+  }
 
   return (
     <main className={`${styles.page} ${styles.roomPage}`}>

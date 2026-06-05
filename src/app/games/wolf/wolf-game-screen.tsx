@@ -263,7 +263,7 @@ export default function WolfGameScreen() {
 
           <div className={styles.actions} aria-label="Hành động chính">
             <button
-              className={styles.secondaryButton}
+              className={`${styles.secondaryButton} ${styles.createRoomButton}`}
               type="button"
               disabled={isPending}
               onClick={createRoom}
@@ -272,7 +272,7 @@ export default function WolfGameScreen() {
               {isPending ? "ĐANG TẠO..." : "TẠO PHÒNG"}
             </button>
             <button
-              className={styles.primaryButton}
+              className={`${styles.primaryButton} ${styles.joinRoomButton}`}
               type="button"
               disabled={isPending}
               onClick={openJoinRoom}
@@ -282,7 +282,7 @@ export default function WolfGameScreen() {
             </button>
             {!isLoggedIn && (
               <button
-                className={`${styles.ghostButton} ${styles.profileButton}`}
+                className={`${styles.ghostButton} ${styles.profileButton} ${styles.profileImageButton}`}
                 type="button"
                 onClick={openGuestProfileEditor}
               >

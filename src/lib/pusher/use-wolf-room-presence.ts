@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getWolfRoomChannelName, WOLF_PLAY_UPDATED_EVENT, WOLF_ROOM_UPDATED_EVENT } from "./channels";
+import {
+  getWolfRoomChannelName,
+  getWolfRoomPublicChannelName,
+  WOLF_PLAY_UPDATED_EVENT,
+  WOLF_ROOM_UPDATED_EVENT,
+} from "./channels";
 import { createPusherBrowserClient } from "./client";
 
 type PresenceMember = {
@@ -19,6 +24,7 @@ type PresenceChannel = {
 
 type UseWolfRoomPresenceOptions = {
   enabled: boolean;
+  mode?: "presence" | "public";
   roomCode: string;
   onRoomUpdate?: () => void | Promise<void>;
   onPlayUpdate?: () => void | Promise<void>;
@@ -32,6 +38,7 @@ function collectMemberIds(members: PresenceMembers) {
 
 export function useWolfRoomPresence({
   enabled,
+  mode = "presence",
   roomCode,
   onRoomUpdate,
   onPlayUpdate,
@@ -63,7 +70,7 @@ export function useWolfRoomPresence({
         return;
       }
 
-      const channelName = getWolfRoomChannelName(roomCode);
+      const channelName = mode === "presence" ? getWolfRoomChannelName(roomCode) : getWolfRoomPublicChannelName(roomCode);
       const channel = pusher.subscribe(channelName) as unknown as PresenceChannel;
 
       subscribedChannelName = channelName;
@@ -72,7 +79,7 @@ export function useWolfRoomPresence({
       channel.bind("pusher:subscription_succeeded", (members: unknown) => {
         setConnectionStatus("Ng\u01b0\u1eddi ch\u01a1i \u0111\u00e3 k\u1ebft n\u1ed1i");
         setIsPresenceReady(true);
-        setOnlinePlayerIds(collectMemberIds(members as PresenceMembers));
+        setOnlinePlayerIds(mode === "presence" ? collectMemberIds(members as PresenceMembers) : []);
       });
       channel.bind("pusher:subscription_error", () => {
         setConnectionStatus("Kh\u00f4ng th\u1ec3 x\u00e1c th\u1ef1c Ng\u01b0\u1eddi ch\u01a1i");
@@ -116,11 +123,11 @@ export function useWolfRoomPresence({
         });
       }
     };
-  }, [enabled, onPlayUpdate, onRoomUpdate, roomCode]);
+  }, [enabled, mode, onPlayUpdate, onRoomUpdate, roomCode]);
 
   return {
     connectionStatus: !enabled ? "V\u00e0o ph\u00f2ng \u0111\u1ec3 k\u1ebft n\u1ed1i Ng\u01b0\u1eddi ch\u01a1i" : connectionStatus,
     isPresenceReady: enabled && isPresenceReady,
-    onlinePlayerIds: enabled ? onlinePlayerIds : [],
+    onlinePlayerIds: enabled && mode === "presence" ? onlinePlayerIds : [],
   };
 }
