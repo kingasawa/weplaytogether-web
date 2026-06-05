@@ -662,7 +662,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             <Check aria-hidden="true" />
             Quay lại phòng chờ
           </button>
-          <button className={styles.ghostButton} type="button" disabled={isPending} onClick={exitGame}>
+          <button className={styles.exitButton} type="button" disabled={isPending} onClick={exitGame}>
             <LogOut aria-hidden="true" />
             Thoát
           </button>

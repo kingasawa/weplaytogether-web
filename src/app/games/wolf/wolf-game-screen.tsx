@@ -296,7 +296,7 @@ export default function WolfGameScreen() {
       </section>
 
       <div className={styles.exitBar}>
-        <Link className={styles.exitButton} href="/">
+        <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
           THOÁT
         </Link>
         <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>

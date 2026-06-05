@@ -6,8 +6,8 @@ import {
   Link as LinkIcon,
   LogIn,
   LogOut,
+  Minus,
   Play,
-  UserX,
   UserPlus,
   UserRound,
 } from "lucide-react";
@@ -431,9 +431,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 </div>
               </div>
               {player.isHost && (
-                <span className={styles.hostBadge}>
+                <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
                   <Crown aria-hidden="true" />
-                  Chủ phòng
                 </span>
               )}
               {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
@@ -444,8 +443,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                   disabled={isPending}
                   onClick={() => kickPlayer(player.id)}
                 >
-                  <UserX aria-hidden="true" />
-                  Kick
+                  <Minus aria-hidden="true" />
                 </button>
               )}
             </article>
@@ -542,7 +540,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 Ở lại
               </button>
               <button
-                className={styles.ghostButton}
+                className={styles.exitButton}
                 type="button"
                 disabled={isPending}
                 onClick={leaveRoom}

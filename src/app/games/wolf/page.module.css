@@ -236,6 +236,7 @@
 .primaryButton svg,
 .secondaryButton svg,
 .ghostButton svg,
+.exitButton svg,
 .smallButton svg {
   width: 1.1rem;
 }
@@ -243,6 +244,7 @@
 .primaryButton:disabled,
 .secondaryButton:disabled,
 .ghostButton:disabled,
+.exitButton:disabled,
 .smallButton:disabled {
   cursor: not-allowed;
   opacity: 0.68;
@@ -282,23 +284,34 @@
 
 .exitButton {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 3.2rem;
   width: 100%;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 40%, transparent), color-mix(in srgb, var(--danger) 62%, transparent));
+  background:
+    linear-gradient(1deg, color-mix(in srgb, var(--danger) 18%, transparent), color-mix(in srgb, var(--danger) 34%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--bg-primary) 28%, transparent), color-mix(in srgb, var(--bg-primary) 28%, transparent)),
+    url("/images/ui/red_bg_btn.png") center / 100% 100% no-repeat;
   color: var(--text);
   font-size: 0.9rem;
   font-weight: 700;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 5px 0 rgba(0, 0, 0, 0.25);
+    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent),
+    0 5px 0 color-mix(in srgb, var(--danger) 20%, black);
   transition:
     transform var(--transition-base),
     box-shadow var(--transition-base),
     background var(--transition-base);
+}
+
+.homeExitButton {
+  min-height: 2.75rem;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 40%, transparent), color-mix(in srgb, var(--danger) 62%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 5px 0 rgba(0, 0, 0, 0.25);
 }
 
 .roomStatusGrid article {
@@ -781,17 +794,16 @@
 
 .kickButton {
   display: inline-flex;
-  min-height: 2.75rem;
+  width: 2.35rem;
+  min-width: 2.35rem;
+  min-height: 2.35rem;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding-inline: 0.8rem;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 10%, transparent), color-mix(in srgb, var(--danger) 24%, transparent));
   color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 800;
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -804,28 +816,27 @@
 }
 
 .kickButton svg {
-  width: 1rem;
+  width: 0.95rem;
 }
 
 .hostBadge {
   display: inline-flex;
-  min-height: 2rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   align-items: center;
-  gap: 0.35rem;
-  padding-inline: 0.65rem;
-  border-radius: 999px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary-light);
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .hostBadge svg {
-  width: 0.9rem;
+  width: 1.1rem;
 }
 
 .playPage {
@@ -1344,7 +1355,8 @@
 
 .cardRevealActionBar .primaryButton,
 .cardRevealActionBar .secondaryButton,
-.cardRevealActionBar .ghostButton {
+.cardRevealActionBar .ghostButton,
+.cardRevealActionBar .exitButton {
   border-radius: 999px;
 }
 
@@ -1439,7 +1451,7 @@
   .primaryButton:not(:disabled):hover,
   .secondaryButton:not(:disabled):hover,
   .ghostButton:not(:disabled):hover,
-  .exitButton:hover,
+  .exitButton:not(:disabled):hover,
   .smallButton:not(:disabled):hover,
   .kickButton:not(:disabled):hover,
   .closeButton:not(:disabled):hover {
@@ -1478,7 +1490,14 @@
       url("/images/ui/blue_bg_btn.png") center / 100% 100% no-repeat;
   }
 
-  .exitButton:hover {
+  .exitButton:not(:disabled):hover {
+    background:
+      linear-gradient(1deg, color-mix(in srgb, var(--danger) 22%, transparent), color-mix(in srgb, var(--danger) 40%, transparent)),
+      linear-gradient(color-mix(in srgb, var(--bg-primary) 24%, transparent), color-mix(in srgb, var(--bg-primary) 24%, transparent)),
+      url("/images/ui/red_bg_btn.png") center / 100% 100% no-repeat;
+  }
+
+  .homeExitButton:not(:disabled):hover {
     background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 50%, transparent), color-mix(in srgb, var(--danger) 72%, transparent));
   }
 }
