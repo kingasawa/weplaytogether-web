@@ -589,23 +589,47 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         aria-live="polite"
       >
         {playState.game.phase === "result" && playState.allPlayersSummary ? (
-          <div className={styles.resultSummaryList}>
-            {playState.allPlayersSummary.map((summary) => (
-              <div className={styles.resultSummaryRow} key={summary.playerId}>
-                <div className={styles.resultSummaryHeader}>
-                  <strong>{summary.playerName}</strong>
-                  <span className={styles.resultRoleTag}>
-                    {WOLF_ROLE_LABELS[summary.originalRole]}
-                    {summary.finalRole !== summary.originalRole && (
-                      <> → {WOLF_ROLE_LABELS[summary.finalRole]}</>
-                    )}
-                  </span>
+          <div className={styles.resultSummaryStack}>
+            {playState.cardMovementSummary && (
+              <section className={styles.resultMovementCard}>
+                <div className={styles.resultMovementIntro}>
+                  <strong>Thứ tự luân chuyển lá bài</strong>
+                  <p>{playState.cardMovementSummary.orderText}</p>
                 </div>
-                {summary.nightMessages.map((msg) => (
-                  <p key={msg} className={styles.resultNightMessage}>{msg}</p>
-                ))}
-              </div>
-            ))}
+
+                {playState.cardMovementSummary.steps.length > 0 ? (
+                  <div className={styles.resultMovementList}>
+                    {playState.cardMovementSummary.steps.map((step) => (
+                      <div className={styles.resultMovementStep} key={step.id}>
+                        <strong>{step.title}</strong>
+                        <p>{step.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.resultMovementEmpty}>Không có lá nào đổi chỗ trong đêm này.</p>
+                )}
+              </section>
+            )}
+
+            <div className={styles.resultSummaryList}>
+              {playState.allPlayersSummary.map((summary) => (
+                <div className={styles.resultSummaryRow} key={summary.playerId}>
+                  <div className={styles.resultSummaryHeader}>
+                    <strong>{summary.playerName}</strong>
+                    <span className={styles.resultRoleTag}>
+                      {WOLF_ROLE_LABELS[summary.originalRole]}
+                      {summary.finalRole !== summary.originalRole && (
+                        <> → {WOLF_ROLE_LABELS[summary.finalRole]}</>
+                      )}
+                    </span>
+                  </div>
+                  {summary.nightMessages.map((msg) => (
+                    <p key={msg} className={styles.resultNightMessage}>{msg}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <span>{getWaitingStatusText()}</span>

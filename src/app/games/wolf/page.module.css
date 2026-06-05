@@ -998,6 +998,55 @@
   width: 100%;
 }
 
+.resultSummaryStack {
+  display: grid;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.resultMovementCard {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: 0.85rem;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+
+.resultMovementIntro {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.resultMovementIntro strong,
+.resultMovementStep strong {
+  font-size: 0.92rem;
+}
+
+.resultMovementIntro p,
+.resultMovementStep p,
+.resultMovementEmpty {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.resultMovementList {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.resultMovementStep {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+}
+
+.resultMovementEmpty {
+  padding: 0.25rem 0;
+}
+
 .resultSummaryRow {
   display: grid;
   gap: 0.25rem;
@@ -1032,7 +1081,7 @@
 
 .resultNightMessage {
   color: var(--text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.88rem;
   line-height: 1.45;
 }
 
@@ -1234,6 +1283,8 @@
 .playWaitingStatus,
 .privateRevealMask,
 .playCard,
+.resultMovementCard,
+.resultMovementStep,
 .resultSummaryRow,
 .nightReviewContent,
 .cardRevealActionBar,

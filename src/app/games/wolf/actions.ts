@@ -186,6 +186,17 @@ export type WolfGameResult = {
   }>;
 };
 
+export type WolfCardMovementStep = {
+  id: string;
+  title: string;
+  description: string;
+};
+
+export type WolfCardMovementSummary = {
+  orderText: string;
+  steps: WolfCardMovementStep[];
+};
+
 export type WolfPlayState = {
   room: WolfLobbyState["room"];
   game: {
@@ -217,6 +228,7 @@ export type WolfPlayState = {
   allVotesSubmitted: boolean;
   allPhaseConfirmationsSubmitted: boolean;
   result: WolfGameResult | null;
+  cardMovementSummary: WolfCardMovementSummary | null;
   allPlayersSummary: Array<{
     playerId: string;
     playerName: string;
@@ -434,6 +446,30 @@ function getPlayerName(players: PlayerRow[], playerId: string | null) {
 
 function getRoleReviewLabel(role?: WolfRole | null) {
   return role ? WOLF_ROLE_LABELS[role] : "không rõ";
+}
+
+function getCardHolderLabel(card: CardRow | null, players: PlayerRow[]) {
+  if (!card) {
+    return "không rõ";
+  }
+
+  if (card.player_id) {
+    return getPlayerName(players, card.player_id);
+  }
+
+  if (validateCenterIndex(card.center_index)) {
+    return `lá giữa ${(card.center_index as number) + 1}`;
+  }
+
+  return "không rõ";
+}
+
+function getMovementResolutionOrderText() {
+  const movementRoles: WolfRole[] = ["robber", "troublemaker", "drunk"];
+
+  return movementRoles
+    .map((role, index) => `${index + 1}. ${WOLF_ROLE_LABELS[role]}`)
+    .join(" → ");
 }
 
 function getCenterCard(cards: CardRow[], centerIndex: number) {
@@ -699,21 +735,19 @@ function buildGameResult(players: PlayerRow[], cards: CardRow[], votes: VoteRow[
   };
 }
 
-async function resolveNightActions(gameId: string) {
-  const supabase = createSupabaseAdminClient();
-  const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
-    .select("id, game_id, player_id, center_index, original_role, current_role")
-    .eq("game_id", gameId);
-  const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
-    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2")
-    .eq("game_id", gameId);
-
-  const cards = (cardsData ?? []) as CardRow[];
-  const actions = (actionsData ?? []) as ActionRow[];
+function simulateNightResolution(
+  cards: CardRow[],
+  actions: ActionRow[],
+  players: PlayerRow[] = []
+): {
+  currentRoleByCardId: Map<string, WolfRole>;
+  cardMovementSummary: WolfCardMovementSummary;
+} {
   const actionByPlayerId = new Map(actions.map((action) => [action.player_id, action]));
   const currentRoleByCardId = new Map(cards.map((card) => [card.id, card.original_role]));
+  const steps: WolfCardMovementStep[] = [];
+  let stepNumber = 1;
+
   const roleOfCard = (card: CardRow) => currentRoleByCardId.get(card.id) ?? card.original_role;
   const swapCards = (cardA: CardRow | null, cardB: CardRow | null) => {
     if (!cardA || !cardB) {
@@ -736,18 +770,98 @@ async function resolveNightActions(gameId: string) {
       }
 
       if (role === "robber" && action.target_player_id) {
-        swapCards(card, getPlayerCard(cards, action.target_player_id));
+        const targetCard = getPlayerCard(cards, action.target_player_id);
+
+        if (!targetCard) {
+          continue;
+        }
+
+        const actorName = getPlayerName(players, card.player_id);
+        const targetName = getCardHolderLabel(targetCard, players);
+        const actorRoleBefore = roleOfCard(card);
+        const targetRoleBefore = roleOfCard(targetCard);
+
+        steps.push({
+          id: `${role}-${card.player_id}-${stepNumber}`,
+          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
+          description: `Trước bước này, ${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} và ${targetName} đang giữ lá ${getRoleReviewLabel(targetRoleBefore)}. ${actorName} đổi bài với ${targetName}: lá ${getRoleReviewLabel(actorRoleBefore)} chuyển sang ${targetName}, còn lá ${getRoleReviewLabel(targetRoleBefore)} chuyển sang ${actorName}.`,
+        });
+        stepNumber += 1;
+        swapCards(card, targetCard);
       }
 
       if (role === "troublemaker" && action.target_player_id && action.target_player_id_2) {
-        swapCards(getPlayerCard(cards, action.target_player_id), getPlayerCard(cards, action.target_player_id_2));
+        const firstTargetCard = getPlayerCard(cards, action.target_player_id);
+        const secondTargetCard = getPlayerCard(cards, action.target_player_id_2);
+
+        if (!firstTargetCard || !secondTargetCard) {
+          continue;
+        }
+
+        const actorName = getPlayerName(players, card.player_id);
+        const firstTargetName = getCardHolderLabel(firstTargetCard, players);
+        const secondTargetName = getCardHolderLabel(secondTargetCard, players);
+        const firstRoleBefore = roleOfCard(firstTargetCard);
+        const secondRoleBefore = roleOfCard(secondTargetCard);
+
+        steps.push({
+          id: `${role}-${card.player_id}-${stepNumber}`,
+          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
+          description: `Ở thời điểm ${actorName} hành động, ${firstTargetName} đang giữ lá ${getRoleReviewLabel(firstRoleBefore)} và ${secondTargetName} đang giữ lá ${getRoleReviewLabel(secondRoleBefore)}. ${actorName} đổi chỗ hai lá này: lá ${getRoleReviewLabel(firstRoleBefore)} chuyển sang ${secondTargetName}, còn lá ${getRoleReviewLabel(secondRoleBefore)} chuyển sang ${firstTargetName}.`,
+        });
+        stepNumber += 1;
+        swapCards(firstTargetCard, secondTargetCard);
       }
 
       if (role === "drunk" && validateCenterIndex(action.target_center_index)) {
-        swapCards(card, getCenterCard(cards, action.target_center_index as number));
+        const centerCard = getCenterCard(cards, action.target_center_index as number);
+
+        if (!centerCard) {
+          continue;
+        }
+
+        const actorName = getPlayerName(players, card.player_id);
+        const actorRoleBefore = roleOfCard(card);
+        const centerRoleBefore = roleOfCard(centerCard);
+        const centerLabel = getCardHolderLabel(centerCard, players);
+
+        steps.push({
+          id: `${role}-${card.player_id}-${stepNumber}`,
+          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
+          description: `Khi ${actorName} đổi với ${centerLabel}, ${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} còn ${centerLabel} là lá ${getRoleReviewLabel(centerRoleBefore)}. Sau khi đổi, lá ${getRoleReviewLabel(actorRoleBefore)} đi vào ${centerLabel}, còn lá ${getRoleReviewLabel(centerRoleBefore)} chuyển cho ${actorName}.`,
+        });
+        stepNumber += 1;
+        swapCards(card, centerCard);
       }
     }
   }
+
+  return {
+    currentRoleByCardId,
+    cardMovementSummary: {
+      orderText:
+        steps.length > 0
+          ? `Các lượt đổi bài được xử lý theo vai ban đầu của người chơi, không theo lá họ đang cầm sau khi bị đổi. Thứ tự đổi bài trong đêm là ${getMovementResolutionOrderText()}.`
+          : `Đêm này không có lá bài nào thực sự đổi chỗ. Nếu có đổi bài, hệ thống sẽ xử lý theo vai ban đầu với thứ tự ${getMovementResolutionOrderText()}.`,
+      steps,
+    },
+  };
+}
+
+async function resolveNightActions(gameId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data: cardsData } = await supabase
+    .from("wolf_game_cards")
+    .select("id, game_id, player_id, center_index, original_role, current_role")
+    .eq("game_id", gameId);
+  const { data: actionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2")
+    .eq("game_id", gameId);
+
+  const cards = (cardsData ?? []) as CardRow[];
+  const actions = (actionsData ?? []) as ActionRow[];
+  const { currentRoleByCardId } = simulateNightResolution(cards, actions);
 
   await Promise.all(
     cards.map((card) =>
@@ -1235,6 +1349,10 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   const cards = (cardsData ?? []) as CardRow[];
   const actions = (actionsData ?? []) as ActionRow[];
   const votes = (votesData ?? []) as VoteRow[];
+  const shouldRevealAll = game.phase === "result";
+  const { cardMovementSummary } = shouldRevealAll
+    ? simulateNightResolution(cards, actions, players)
+    : { cardMovementSummary: null };
   const phaseConfirmations = isConfirmablePhase(game.phase)
     ? await getPhaseConfirmations(supabase, game.id, game.phase)
     : [];
@@ -1261,7 +1379,6 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       .filter((card) => card.player_id)
       .map((card) => [card.player_id as string, card])
   );
-  const shouldRevealAll = game.phase === "result";
   const shouldRevealMyCurrentRole = shouldRevealAll;
   const revealedCenterIndexes = new Set<number>();
 
@@ -1334,6 +1451,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     allPhaseConfirmationsSubmitted:
       isConfirmablePhase(game.phase) && players.every((player) => phaseReadyPlayerIdSet.has(player.id)),
     result: shouldRevealAll ? buildGameResult(players, cards, votes) : null,
+    cardMovementSummary,
     allPlayersSummary: shouldRevealAll
       ? players.map((player) => {
           const playerCard = playerCardsById.get(player.id);
