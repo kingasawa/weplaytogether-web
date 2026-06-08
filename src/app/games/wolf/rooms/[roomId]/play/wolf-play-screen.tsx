@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronUp, LoaderCircle, LogOut, Shield } from "lucide-react";
+import { ArrowUp, Check, LoaderCircle, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition, type PointerEvent } from "react";
@@ -29,6 +29,7 @@ type WolfPlayScreenProps = {
 };
 
 const VOTE_SKIP_KEY = "__skip_vote__";
+const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
 
 type RoleCardProps = {
   role: WolfRole | null;
@@ -76,8 +77,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [unlockedPrivateRevealKey, setUnlockedPrivateRevealKey] = useState<string | null>(
     isPrivateRevealPhase(initialState.game.phase) ? null : `${initialState.game.id}:${initialState.game.phase}`
   );
-  const [maskPointerStartY, setMaskPointerStartY] = useState<number | null>(null);
-  const [maskDragOffset, setMaskDragOffset] = useState(0);
+  const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
+  const [coverDragOffset, setCoverDragOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
@@ -312,56 +313,72 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     });
   }
 
-  function startPrivateRevealGesture(event: PointerEvent<HTMLButtonElement>) {
-    setMaskPointerStartY(event.clientY);
-    setMaskDragOffset(0);
+  function startPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
+    setCoverPointerStartY(event.clientY);
+    setCoverDragOffset(0);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function movePrivateRevealGesture(event: PointerEvent<HTMLButtonElement>) {
-    if (maskPointerStartY === null) {
+  function movePrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
+    if (coverPointerStartY === null) {
       return;
     }
 
-    const nextOffset = Math.min(0, event.clientY - maskPointerStartY);
+    const nextOffset = Math.min(0, event.clientY - coverPointerStartY);
     const maxLift = event.currentTarget.offsetHeight;
-    if (maskPointerStartY - event.clientY >= 44 && privateRevealKey) {
+    if (coverPointerStartY - event.clientY >= 44 && privateRevealKey) {
       setUnlockedPrivateRevealKey(privateRevealKey);
     }
 
-    setMaskDragOffset(Math.max(nextOffset, -maxLift));
+    setCoverDragOffset(Math.max(nextOffset, -maxLift));
   }
 
-  function endPrivateRevealGesture(event: PointerEvent<HTMLButtonElement>) {
-    if (maskPointerStartY !== null && maskPointerStartY - event.clientY >= 44) {
+  function endPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
+    if (coverPointerStartY !== null && coverPointerStartY - event.clientY >= 44) {
       setUnlockedPrivateRevealKey(privateRevealKey);
     }
 
-    setMaskPointerStartY(null);
-    setMaskDragOffset(0);
+    setCoverPointerStartY(null);
+    setCoverDragOffset(0);
   }
 
-  function renderPrivateMask(label: string) {
+  function renderPrivateCover(label: string) {
     return (
-      <button
-        aria-label="Vuốt lớp bảo vệ lên để xem nội dung riêng tư"
-        className={`${styles.privateRevealMask} ${maskPointerStartY !== null ? styles.privateRevealMaskDragging : ""}`}
-        style={{ transform: `translateY(${maskDragOffset}px)` }}
-        type="button"
-        onClick={(event) => event.preventDefault()}
+      <div
+        aria-hidden={privateRevealUnlocked}
+        className={`${styles.privateRevealCover} ${coverPointerStartY !== null ? styles.privateRevealCoverDragging : ""}`}
+        style={{ transform: `translateY(${coverDragOffset}px)` }}
         onPointerCancel={() => {
-          setMaskPointerStartY(null);
-          setMaskDragOffset(0);
+          setCoverPointerStartY(null);
+          setCoverDragOffset(0);
         }}
         onPointerDown={startPrivateRevealGesture}
         onPointerMove={movePrivateRevealGesture}
         onPointerUp={endPrivateRevealGesture}
       >
-        <Shield aria-hidden="true" />
-        <strong>{label}</strong>
-        <span>Vuốt lớp bảo vệ lên để xem</span>
-        <ChevronUp aria-hidden="true" />
-      </button>
+        <Image
+          alt=""
+          aria-hidden="true"
+          className={styles.privateRevealCoverImage}
+          fill
+          sizes="(max-width: 768px) 100vw, 30rem"
+          src={PRIVATE_CARD_COVER_IMAGE_PATH}
+        />
+        <span className={styles.privateRevealHint}>Kéo lên để xem role</span>
+        <button
+          aria-label={`Vuốt ${label} lên để xem nội dung riêng tư`}
+          className={styles.privateRevealHandle}
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            if (privateRevealKey) {
+              setUnlockedPrivateRevealKey(privateRevealKey);
+            }
+          }}
+        >
+          <ArrowUp aria-hidden="true" />
+        </button>
+      </div>
     );
   }
 
@@ -479,7 +496,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <>
             <div className={styles.privateRevealBox}>
               <RoleCard label="Bài của tôi" role={playState.myCard?.originalRole ?? null} />
-              {renderPrivateMask("Bài của bạn")}
+              {renderPrivateCover("Bài của bạn")}
             </div>
           </>
         )}
@@ -494,7 +511,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                   <p key={reviewMessage}>{reviewMessage}</p>
                 ))}
               </div>
-              {renderPrivateMask("Kết quả ban đêm")}
+              {renderPrivateCover("Kết quả ban đêm")}
             </div>
           </>
         )}
