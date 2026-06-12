@@ -8,12 +8,15 @@ export type WolfGamePhase =
   | "result";
 export type WolfRole =
   | "werewolf"
+  | "werewolf_seer"
   | "villager"
   | "seer"
   | "robber"
   | "troublemaker"
+  | "witch"
   | "drunk"
-  | "insomniac";
+  | "insomniac"
+  | "copycat";
 
 export type WolfRoomRow = {
   id: string;
@@ -66,6 +69,7 @@ export type WolfGameActionRow = {
   target_player_id_2: string | null;
   target_center_index: number | null;
   target_center_index_2: number | null;
+  target_center_index_3: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -146,6 +150,7 @@ export type Database = {
             | "target_player_id_2"
             | "target_center_index"
             | "target_center_index_2"
+            | "target_center_index_3"
             | "created_at"
             | "updated_at"
           >

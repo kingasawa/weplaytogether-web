@@ -29,6 +29,8 @@ import {
 } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import type { WolfRole } from "@/lib/supabase/types";
+import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 import {
   getWolfLobbyState,
   joinWolfRoom,
@@ -42,6 +44,55 @@ import {
 import { PlayerAvatarPicker } from "../../player-avatar-picker";
 import styles from "../../page.module.css";
 import WolfRoomSpectator from "./wolf-room-spectator";
+
+type RoleLabelOption = { id: string; role: WolfRole };
+
+const ROLE_LABEL_GROUPS: Array<{ id: string; options: RoleLabelOption[] }> = [
+  {
+    id: "villagers",
+    options: [
+      { id: "villager-1", role: "villager" },
+      { id: "villager-2", role: "villager" },
+      { id: "villager-3", role: "villager" },
+    ],
+  },
+  {
+    id: "werewolves",
+    options: [
+      { id: "werewolf-1", role: "werewolf" },
+      { id: "werewolf-2", role: "werewolf" },
+    ],
+  },
+  { id: "werewolf-seer", options: [{ id: "werewolf-seer", role: "werewolf_seer" }] },
+  { id: "seer", options: [{ id: "seer", role: "seer" }] },
+  { id: "robber", options: [{ id: "robber", role: "robber" }] },
+  { id: "troublemaker", options: [{ id: "troublemaker", role: "troublemaker" }] },
+  { id: "witch", options: [{ id: "witch", role: "witch" }] },
+  { id: "drunk", options: [{ id: "drunk", role: "drunk" }] },
+  { id: "insomniac", options: [{ id: "insomniac", role: "insomniac" }] },
+  { id: "copycat", options: [{ id: "copycat", role: "copycat" }] },
+];
+
+const ROLE_LABEL_OPTIONS = ROLE_LABEL_GROUPS.flatMap((group) => group.options);
+const BASIC_ROLE_OPTION_IDS = [
+  "werewolf-1",
+  "werewolf-2",
+  "villager-1",
+  "villager-2",
+  "villager-3",
+  "seer",
+  "robber",
+  "troublemaker",
+  "insomniac",
+  "drunk",
+  "werewolf-seer",
+  "witch",
+  "copycat",
+];
+
+function getDefaultRoleOptionIds(requiredRoleCount: number) {
+  return BASIC_ROLE_OPTION_IDS.slice(0, requiredRoleCount);
+}
 
 type WolfRoomLobbyProps = {
   initialState: WolfLobbyState;
@@ -65,6 +116,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [guestNameError, setGuestNameError] = useState("");
   const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
+  const [isRoleSetupOpen, setIsRoleSetupOpen] = useState(false);
+  const [selectedRoleOptionIds, setSelectedRoleOptionIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
 
   const currentPlayer = lobbyState.players.find(
@@ -73,6 +126,12 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const isCurrentPlayerHost = Boolean(currentPlayer?.isHost);
   const allPlayersReady =
     lobbyState.players.length >= 3 && lobbyState.players.every((player) => player.isReady);
+  const requiredRoleCount = lobbyState.players.length + 3;
+  const selectedRoles = selectedRoleOptionIds
+    .map((optionId) => ROLE_LABEL_OPTIONS.find((option) => option.id === optionId)?.role)
+    .filter(Boolean) as WolfRole[];
+  const selectedRoleTotal = selectedRoles.length;
+  const shouldShowRoleSetup = isRoleSetupOpen && isCurrentPlayerHost && allPlayersReady;
 
   useEffect(() => {
     if (currentPlayer && lobbyState.room.status === "playing" && lobbyState.room.currentGameId) {
@@ -301,10 +360,42 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     });
   }
 
+  function toggleSelectedRole(optionId: string) {
+    setSelectedRoleOptionIds((currentOptionIds) => {
+      if (currentOptionIds.includes(optionId)) {
+        return currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId);
+      }
+
+      if (currentOptionIds.length >= requiredRoleCount) {
+        return currentOptionIds;
+      }
+
+      return [...currentOptionIds, optionId];
+    });
+  }
+
+  function openRoleSetup() {
+    setErrorMessage("");
+
+    if (!allPlayersReady) {
+      setErrorMessage("Cần tất cả người chơi sẵn sàng trước khi chọn role.");
+      return;
+    }
+
+    setIsRoleSetupOpen(true);
+    setSelectedRoleOptionIds(getDefaultRoleOptionIds(requiredRoleCount));
+  }
+
   function startGame() {
     setErrorMessage("");
+
+    if (selectedRoleTotal !== requiredRoleCount) {
+      setErrorMessage(`Cần chọn đúng ${requiredRoleCount} lá cho ${lobbyState.players.length} người chơi.`);
+      return;
+    }
+
     startTransition(async () => {
-      const result = await startWolfGame(lobbyState.room.code);
+      const result = await startWolfGame(lobbyState.room.code, selectedRoles);
 
       if (!result.ok) {
         setErrorMessage(result.error);
@@ -378,6 +469,63 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       <section className={styles.roomPanel}>
         <p className={styles.eyebrow}>Phòng chờ</p>
 
+        {shouldShowRoleSetup ? (
+          <div className={styles.roleSetup}>
+            <div className={styles.roleSetupHeader}>
+              <div>
+                <span>Chọn role</span>
+                <strong>{selectedRoleTotal}/{requiredRoleCount} lá</strong>
+              </div>
+              <p>{lobbyState.players.length} người chơi</p>
+            </div>
+
+            <div className={styles.roleSetupGrid}>
+              {ROLE_LABEL_GROUPS.map((group) => (
+                <div className={styles.roleBadgeRow} key={group.id}>
+                  {group.options.map((option) => {
+                    const isDeckFull = selectedRoleTotal >= requiredRoleCount;
+                    const isSelected = selectedRoleOptionIds.includes(option.id);
+
+                    return (
+                      <button
+                        className={`${styles.roleBadge} ${isSelected ? styles.roleBadgeActive : ""}`}
+                        type="button"
+                        disabled={isPending || (!isSelected && isDeckFull)}
+                        key={option.id}
+                        onClick={() => toggleSelectedRole(option.id)}
+                      >
+                        <strong>{WOLF_ROLE_LABELS[option.role]}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {errorMessage && <p className={styles.inlineError}>{errorMessage}</p>}
+
+            <div className={styles.actions}>
+              <button
+                className={`${styles.primaryButton} ${styles.successButton}`}
+                type="button"
+                disabled={isPending || selectedRoleTotal !== requiredRoleCount}
+                onClick={startGame}
+              >
+                <Play aria-hidden="true" />
+                Bắt đầu chơi
+              </button>
+              <button
+                className={styles.ghostButton}
+                type="button"
+                disabled={isPending}
+                onClick={() => setIsRoleSetupOpen(false)}
+              >
+                Quay lại
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         <div className={styles.roomCodeCard} aria-label="Mã phòng">
           <span>Mã phòng</span>
           <strong>{lobbyState.room.code}</strong>
@@ -493,7 +641,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               className={styles.primaryButton}
               type="button"
               disabled={!allPlayersReady || isPending}
-              onClick={startGame}
+              onClick={openRoleSetup}
             >
               <Play aria-hidden="true" />
               {allPlayersReady ? "Bắt đầu" : "Chờ đủ người"}
@@ -510,6 +658,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
             Thoát
           </button>
         </div>
+          </>
+        )}
       </section>
 
       {isLeaveWarningOpen && (

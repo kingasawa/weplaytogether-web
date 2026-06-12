@@ -1,16 +1,20 @@
-<!-- Last updated: 2026-06-05 -->
+﻿<!-- Last updated: 2026-06-12 -->
 
 # Database Schema
 
 ## Verified Scope
 
-This document tracks the Ma S�i multiplayer lobby and gameplay schema status.
+This document tracks the Ma Sói multiplayer lobby and gameplay schema status.
 
-Earlier verification on 2026-06-03 via Supabase REST returned `PGRST205` for `public.wolf_rooms`. The user later reported successful manual SQL execution for the lobby/gameplay migrations in Supabase SQL Editor. This task did not execute or re-verify remote schema directly.
+Earlier verification on 2026-06-03 via Supabase REST returned `PGRST205` for `public.wolf_rooms`. The user later reported successful manual SQL execution for the lobby/gameplay migrations in Supabase SQL Editor.
+
+On 2026-06-12, `public.wolf_role` was updated and verified through Supabase CLI `db query` over the session pooler. The verified enum values are `werewolf`, `villager`, `seer`, `robber`, `troublemaker`, `drunk`, `insomniac`, `werewolf_seer`, `witch`, and `copycat`.
+
+On 2026-06-12, `public.wolf_game_actions.target_center_index_3` and its 0-2 check constraint were added and verified through Supabase CLI `db query`.
 
 ## Current Remote State
 
-Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`.
+Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
 
 ## Pending Local Migrations
 
@@ -27,7 +31,7 @@ Local migration file created in this task and still pending manual remote apply:
 
 - `public.wolf_room_status`: `waiting`, `playing`, `finished`
 - `public.wolf_game_phase`: `card_reveal`, `night`, `night_review`, `discussion`, `voting`, `result`
-- `public.wolf_role`: `werewolf`, `villager`, `seer`, `robber`, `troublemaker`, `drunk`, `insomniac`
+- `public.wolf_role`: `werewolf`, `werewolf_seer`, `villager`, `seer`, `robber`, `troublemaker`, `witch`, `drunk`, `insomniac`, `copycat`
 
 ### Tables
 
@@ -83,6 +87,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `target_player_id_2 uuid null references public.wolf_room_players(id) on delete set null`
 - `target_center_index integer null`, constrained to 0-2
 - `target_center_index_2 integer null`, constrained to 0-2
+- `target_center_index_3 integer null`, constrained to 0-2
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
@@ -135,6 +140,8 @@ Local migration file created in this task and still pending manual remote apply:
 - `wolf-cleanup-old-rooms`: scheduled via `pg_cron` to run daily at `03:17` database time.
 - Command: `SELECT public.cleanup_old_wolf_rooms();`
 
-## Remote Apply Blocker
+## Remote Apply Notes
 
-Automated remote migration execution remains unavailable from this workspace. Apply pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
+Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
+
+
