@@ -20,7 +20,7 @@ export const WOLF_ROLE_DESCRIPTIONS: Record<WolfRole, string> = {
   seer: "Xem bài của một người chơi hoặc hai lá giữa bàn.",
   robber: "Đổi bài của mình với một người chơi khác và biết lá vừa lấy.",
   troublemaker: "Đổi bài của hai người chơi khác nhau mà không xem bài.",
-  witch: "Lấy một lá giữa bàn và gán lá đó cho mình hoặc một người chơi khác.",
+  witch: "Mở một lá giữa bàn và gán chức năng đó cho mình hoặc một người chơi khác.",
   drunk: "Đổi bài của mình với một lá giữa bàn nhưng không được xem lá mới.",
   insomniac: "Sau các hành động ban đêm, được biết lá bài hiện tại của mình.",
   copycat: "Chọn một lá giữa bàn rồi thực hiện ngay chức năng của role đó.",

@@ -122,6 +122,19 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const maxVoteCount = playState.result
     ? playState.result.voteCounts.reduce((max, voteCount) => Math.max(max, voteCount.votes), 0)
     : 0;
+  const roleDeckSummary = playState.roleDeck.reduce<Array<{ role: WolfRole; count: number }>>(
+    (summary, role) => {
+      const existingRole = summary.find((item) => item.role === role);
+
+      if (existingRole) {
+        existingRole.count += 1;
+        return summary;
+      }
+
+      return [...summary, { role, count: 1 }];
+    },
+    []
+  );
   const hasFocusedWaitingStatus =
     isCardRevealPhase || isNightPhase || isNightReviewPhase || isDiscussionPhase || isVotingPhase;
   const usesFocusedRevealLayout = isCardRevealPhase || isNightReviewPhase;
@@ -516,12 +529,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     setCoverDragOffset(0);
   }
 
-  function renderPrivateCover(label: string) {
+  function renderPrivateCover() {
     return (
       <div
         aria-hidden={privateRevealUnlocked}
         className={`${styles.privateRevealCover} ${coverPointerStartY !== null ? styles.privateRevealCoverDragging : ""}`}
         style={{ transform: `translateY(${coverDragOffset}px)` }}
+        onClick={() => {
+          if (privateRevealKey) {
+            setUnlockedPrivateRevealKey(privateRevealKey);
+          }
+        }}
         onPointerCancel={() => {
           setCoverPointerStartY(null);
           setCoverDragOffset(0);
@@ -538,20 +556,10 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           sizes="(max-width: 768px) 100vw, 30rem"
           src={PRIVATE_CARD_COVER_IMAGE_PATH}
         />
-        <span className={styles.privateRevealHint}>Kéo lên để xem role</span>
-        <button
-          aria-label={`Vuốt ${label} lên để xem nội dung riêng tư`}
-          className={styles.privateRevealHandle}
-          type="button"
-          onClick={(event) => {
-            event.preventDefault();
-            if (privateRevealKey) {
-              setUnlockedPrivateRevealKey(privateRevealKey);
-            }
-          }}
-        >
+        <span className={styles.privateRevealHint}>Kéo lên để xem bài</span>
+        <div aria-hidden="true" className={styles.privateRevealHandle}>
           <ArrowUp aria-hidden="true" />
-        </button>
+        </div>
       </div>
     );
   }
@@ -748,7 +756,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <>
             <div className={styles.privateRevealBox}>
               <RoleCard label="Bài của tôi" role={playState.myCard?.originalRole ?? null} />
-              {renderPrivateCover("Bài của bạn")}
+              {renderPrivateCover()}
             </div>
           </>
         )}
@@ -763,7 +771,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                   <p key={reviewMessage}>{reviewMessage}</p>
                 ))}
               </div>
-              {renderPrivateCover("Kết quả ban đêm")}
+              {renderPrivateCover()}
             </div>
           </>
         )}
@@ -825,6 +833,27 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
         {message && <p className={styles.inlineError}>{message}</p>}
 
+        </section>
+      )}
+
+      {isDiscussionPhase && roleDeckSummary.length > 0 && (
+        <section className={styles.discussionRoleDeck}>
+          <span>Vai trò trong ván</span>
+          <div className={styles.roleDeckGrid}>
+            {roleDeckSummary.map((roleSummary) => (
+              <div
+                key={roleSummary.role}
+                className={`${styles.roleDeckTile} ${
+                  roleSummary.role === "werewolf" || roleSummary.role === "werewolf_seer"
+                    ? styles.roleDeckTileWolf
+                    : ""
+                }`}
+              >
+                <strong>{WOLF_ROLE_LABELS[roleSummary.role]}</strong>
+                <span>{roleSummary.count} lá</span>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -892,17 +921,20 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <div className={styles.resultSummaryStack}>
             {playState.cardMovementSummary && (
               <section className={styles.resultMovementCard}>
+                <div className={styles.resultMovementIntro}>
+                  <strong>Report hành động ban đêm</strong>
+                  <p>{playState.cardMovementSummary.orderText}</p>
+                </div>
                 {playState.cardMovementSummary.steps.length > 0 ? (
                   <ol className={styles.resultMovementList}>
                     {playState.cardMovementSummary.steps.map((step, index) => (
                       <li className={styles.resultMovementStep} key={step.id}>
                         <strong>{index + 1}. {step.logText}</strong>
-                        <p>{step.description}</p>
                       </li>
                     ))}
                   </ol>
                 ) : (
-                  <p className={styles.resultMovementEmpty}>Không có lá nào đổi chỗ trong đêm này.</p>
+                  <p className={styles.resultMovementEmpty}>Không có role nào thực hiện hành động trong đêm này.</p>
                 )}
               </section>
             )}
