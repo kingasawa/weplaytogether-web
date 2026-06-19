@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, LoaderCircle, LogOut } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, CircleAlert, LoaderCircle, LogOut, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
 import {
@@ -13,6 +13,7 @@ import {
   WOLF_ROLE_LABELS,
 } from "@/lib/wolf-game";
 import {
+  advanceWolfDiscussionIfExpired,
   finishWolfGame,
   getWolfPlayState,
   leaveWolfRoom,
@@ -21,6 +22,7 @@ import {
   submitWolfNightAction,
   submitWolfVote,
   type WolfCenterRevealResult,
+  type WolfGameResult,
   type WolfPlayPlayer,
   type WolfPlayState,
 } from "../../../actions";
@@ -34,6 +36,33 @@ const VOTE_SKIP_KEY = "__skip_vote__";
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
 
 type RevealedCenterCard = Extract<WolfCenterRevealResult, { ok: true }>;
+type WolfTeam = WolfGameResult["winnerTeam"];
+
+const WOLF_ROLE_TEAMS: Record<WolfRole, WolfTeam> = {
+  werewolf: "werewolves",
+  werewolf_seer: "werewolves",
+  villager: "villagers",
+  seer: "villagers",
+  robber: "villagers",
+  troublemaker: "villagers",
+  witch: "villagers",
+  drunk: "villagers",
+  insomniac: "villagers",
+  copycat: "villagers",
+};
+
+const WOLF_ROLE_WIN_CONDITIONS: Record<WolfRole, string> = {
+  werewolf: "Thắng cùng phe sói: phe sói thắng khi không có Ma Sói nào bị treo.",
+  werewolf_seer: "Thắng cùng phe sói: phe sói thắng khi không có Ma Sói nào bị treo.",
+  villager: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  seer: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  robber: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  troublemaker: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  witch: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  drunk: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  insomniac: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  copycat: "Thắng cùng phe dân theo luật hiện tại của game.",
+};
 
 type RoleCardProps = {
   role: WolfRole | null;
@@ -70,6 +99,10 @@ function getPlayerName(players: WolfPlayPlayer[], playerId: string | null) {
   return players.find((player) => player.id === playerId)?.name ?? "Không rõ";
 }
 
+function getWolfRoleTeam(role: WolfRole | null) {
+  return role ? WOLF_ROLE_TEAMS[role] : null;
+}
+
 export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const router = useRouter();
   const [playState, setPlayState] = useState(initialState);
@@ -85,6 +118,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   );
   const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
   const [coverDragOffset, setCoverDragOffset] = useState(0);
+  const [selectedRoleGuide, setSelectedRoleGuide] = useState<WolfRole | null>(null);
+  const autoAdvancedDiscussionGameIdRef = useRef<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
@@ -122,6 +157,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const maxVoteCount = playState.result
     ? playState.result.voteCounts.reduce((max, voteCount) => Math.max(max, voteCount.votes), 0)
     : 0;
+  const currentPlayerResultTeam = getWolfRoleTeam(playState.myCard?.currentRole ?? null);
+  const isCurrentPlayerWinner =
+    playState.result && currentPlayerResultTeam
+      ? playState.result.winnerTeam === currentPlayerResultTeam
+      : null;
   const roleDeckSummary = playState.roleDeck.reduce<Array<{ role: WolfRole; count: number }>>(
     (summary, role) => {
       const existingRole = summary.find((item) => item.role === role);
@@ -249,6 +289,34 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      playState.game.phase !== "discussion" ||
+      discussionSecondsLeft !== 0 ||
+      autoAdvancedDiscussionGameIdRef.current === playState.game.id
+    ) {
+      return;
+    }
+
+    autoAdvancedDiscussionGameIdRef.current = playState.game.id;
+    startTransition(async () => {
+      const result = await advanceWolfDiscussionIfExpired(playState.room.code);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        return;
+      }
+
+      await refreshPlayState();
+    });
+  }, [
+    discussionSecondsLeft,
+    playState.game.id,
+    playState.game.phase,
+    playState.room.code,
+    refreshPlayState,
+  ]);
 
   function togglePlayerSelection(playerId: string) {
     setMessage("");
@@ -806,7 +874,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <>
             <strong
               className={`${styles.resultBanner} ${
-                playState.result.winnerTeam !== "villagers" ? styles.resultBannerDanger : ""
+                isCurrentPlayerWinner === false ? styles.resultBannerDanger : ""
               }`}
             >
               {playState.result.winnerText}
@@ -841,7 +909,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <span>Vai trò trong ván</span>
           <div className={styles.roleDeckGrid}>
             {roleDeckSummary.map((roleSummary) => (
-              <div
+              <article
                 key={roleSummary.role}
                 className={`${styles.roleDeckTile} ${
                   roleSummary.role === "werewolf" || roleSummary.role === "werewolf_seer"
@@ -849,9 +917,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                     : ""
                 }`}
               >
+                <button
+                  aria-label={`Xem hướng dẫn ${WOLF_ROLE_LABELS[roleSummary.role]}`}
+                  className={styles.roleDeckInfoButton}
+                  type="button"
+                  onClick={() => setSelectedRoleGuide(roleSummary.role)}
+                >
+                  <CircleAlert aria-hidden="true" />
+                </button>
                 <strong>{WOLF_ROLE_LABELS[roleSummary.role]}</strong>
                 <span>{roleSummary.count} lá</span>
-              </div>
+              </article>
             ))}
           </div>
         </section>
@@ -921,10 +997,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <div className={styles.resultSummaryStack}>
             {playState.cardMovementSummary && (
               <section className={styles.resultMovementCard}>
-                <div className={styles.resultMovementIntro}>
-                  <strong>Report hành động ban đêm</strong>
-                  <p>{playState.cardMovementSummary.orderText}</p>
-                </div>
                 {playState.cardMovementSummary.steps.length > 0 ? (
                   <ol className={styles.resultMovementList}>
                     {playState.cardMovementSummary.steps.map((step, index) => (
@@ -970,10 +1042,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
       {isResultPhase && (
         <section className={styles.resultActionBar}>
-          <button className={styles.primaryButton} type="button" disabled={isPending} onClick={returnToLobby}>
-            <Check aria-hidden="true" />
-            Quay lại phòng chờ
-          </button>
+          {playState.isCurrentPlayerHost && (
+            <button
+              className={styles.primaryButton}
+              type="button"
+              disabled={isPending}
+              onClick={returnToLobby}
+            >
+              <Check aria-hidden="true" />
+              Quay lại phòng chờ
+            </button>
+          )}
           <button className={styles.exitButton} type="button" disabled={isPending} onClick={exitGame}>
             <LogOut aria-hidden="true" />
             Thoát
@@ -985,6 +1064,35 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         <div className={styles.playLoading} aria-live="polite">
           <LoaderCircle aria-hidden="true" />
           <span>{pendingLabel || "Đang xử lý..."}</span>
+        </div>
+      )}
+
+      {selectedRoleGuide && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section
+            aria-labelledby="wolf-role-guide-title"
+            aria-modal="true"
+            className={`${styles.modal} ${styles.roleGuideModal}`}
+            role="dialog"
+          >
+            <button
+              aria-label="Đóng hướng dẫn vai trò"
+              className={styles.closeButton}
+              type="button"
+              onClick={() => setSelectedRoleGuide(null)}
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h2 id="wolf-role-guide-title">{WOLF_ROLE_LABELS[selectedRoleGuide]}</h2>
+            <div className={styles.roleGuideSection}>
+              <span>Ban đêm</span>
+              <p>{WOLF_ROLE_DESCRIPTIONS[selectedRoleGuide]}</p>
+            </div>
+            <div className={styles.roleGuideSection}>
+              <span>Điều kiện thắng</span>
+              <p>{WOLF_ROLE_WIN_CONDITIONS[selectedRoleGuide]}</p>
+            </div>
+          </section>
         </div>
       )}
     </main>

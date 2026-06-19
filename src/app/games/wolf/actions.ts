@@ -817,8 +817,16 @@ async function maybeAutoAdvancePhase(
 
   if (phase === "discussion") {
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, phase);
+    const { data: game } = await supabase
+      .from("wolf_game_sessions")
+      .select("discussion_ends_at")
+      .eq("id", room.current_game_id)
+      .maybeSingle();
+    const discussionExpired = game?.discussion_ends_at
+      ? new Date(game.discussion_ends_at).getTime() <= Date.now()
+      : false;
 
-    if (confirmations.length >= players.length) {
+    if (discussionExpired || confirmations.length >= players.length) {
       await supabase
         .from("wolf_game_sessions")
         .update({ phase: "voting" })
@@ -2412,6 +2420,45 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
   return { ok: true };
 }
 
+export async function advanceWolfDiscussionIfExpired(roomCode: string): Promise<WolfMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const { data: game } = await supabase
+    .from("wolf_game_sessions")
+    .select("id, phase, discussion_ends_at")
+    .eq("id", room.current_game_id)
+    .maybeSingle();
+
+  if (!game) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  if (game.phase !== "discussion") {
+    return { ok: true };
+  }
+
+  if (!game.discussion_ends_at || new Date(game.discussion_ends_at).getTime() > Date.now()) {
+    return { ok: true };
+  }
+
+  await maybeAutoAdvancePhase(supabase, room, players, "discussion");
+  await safeBroadcastWolfPlayUpdate(room.code);
+
+  return { ok: true };
+}
+
 export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationResult> {
   const sessionId = await getPlayerSessionId();
   const { supabase, room } = await getRoomByCode(roomCode);
@@ -2548,18 +2595,13 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const { data: game } = await supabase
-    .from("wolf_game_sessions")
-    .select("phase")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
 
   if (!currentPlayer) {
     return { ok: false, error: "Bạn chưa ở trong phòng này." };
   }
 
-  if (!isHost(currentPlayer, room) && game?.phase !== "result") {
-    return { ok: false, error: "Chỉ chủ phòng mới được kết thúc ván trước phase kết quả." };
+  if (!isHost(currentPlayer, room)) {
+    return { ok: false, error: "Chỉ chủ phòng mới được đưa mọi người về phòng chờ." };
   }
 
   await supabase

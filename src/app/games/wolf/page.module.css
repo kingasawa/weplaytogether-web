@@ -1287,17 +1287,10 @@
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
-.resultMovementIntro {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.resultMovementIntro strong,
 .resultMovementStep strong {
   font-size: 0.92rem;
 }
 
-.resultMovementIntro p,
 .resultMovementStep p,
 .resultMovementEmpty {
   color: var(--text-secondary);
@@ -1447,17 +1440,38 @@
 }
 
 .roleDeckTile {
+  position: relative;
   display: grid;
   min-width: 0;
-  min-height: 4.1rem;
+  min-height: 4.8rem;
   align-content: center;
   gap: 0.2rem;
-  padding: 0.55rem 0.45rem;
+  padding: 1.6rem 0.45rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--bg-card) 80%, transparent);
   color: var(--text);
   text-align: center;
+}
+
+.roleDeckInfoButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary-light);
+  cursor: pointer;
+}
+
+.roleDeckInfoButton svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .roleDeckTile strong {
@@ -1479,6 +1493,35 @@
 .roleDeckTileWolf {
   border-color: color-mix(in srgb, var(--danger) 38%, transparent);
   background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
+}
+
+.roleGuideModal {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.roleGuideSection {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-secondary) 54%, transparent);
+}
+
+.roleGuideSection span {
+  color: var(--primary-light);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.roleGuideSection p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .playWaitingStatusResult {
