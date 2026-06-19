@@ -216,6 +216,10 @@ export type WolfCenterRevealResult =
       ok: true;
       centerIndex: number;
       role: WolfRole;
+      werewolfTeammates?: Array<{
+        playerId: string;
+        playerName: string;
+      }>;
     }
   | {
       ok: false;
@@ -590,10 +594,35 @@ function isWerewolfRole(role?: WolfRole | null) {
   return role === "werewolf" || role === "werewolf_seer";
 }
 
-function getOriginalWerewolfPlayerIds(cards: CardRow[]) {
-  return cards
-    .filter((card) => card.player_id && isWerewolfRole(card.original_role))
-    .map((card) => card.player_id as string);
+function getRoleByPlayerIdAfterCopycat(cards: CardRow[], actions: ActionRow[]) {
+  const actionByPlayerId = new Map(actions.map((action) => [action.player_id, action]));
+  const roleByPlayerId = new Map(
+    cards
+      .filter((card) => card.player_id)
+      .map((card) => [card.player_id as string, card.original_role])
+  );
+
+  for (const card of cards.filter((card) => card.player_id && card.original_role === "copycat")) {
+    const action = actionByPlayerId.get(card.player_id as string);
+
+    if (!action || !validateCenterIndex(action.target_center_index)) {
+      continue;
+    }
+
+    const copiedCard = getCenterCard(cards, action.target_center_index as number);
+
+    if (copiedCard) {
+      roleByPlayerId.set(card.player_id as string, copiedCard.original_role);
+    }
+  }
+
+  return roleByPlayerId;
+}
+
+function getWerewolfPlayerIdsAfterCopycat(cards: CardRow[], actions: ActionRow[]) {
+  return Array.from(getRoleByPlayerIdAfterCopycat(cards, actions).entries())
+    .filter(([, role]) => isWerewolfRole(role))
+    .map(([playerId]) => playerId);
 }
 
 function buildNightReviewMessages(
@@ -649,7 +678,7 @@ function buildNightReviewMessages(
   }
 
   if (action.action_type === "werewolf") {
-    const werewolfTeammateNames = getOriginalWerewolfPlayerIds(cards)
+    const werewolfTeammateNames = getWerewolfPlayerIdsAfterCopycat(cards, actions)
       .filter((playerId) => playerId !== currentPlayer.id)
       .map((playerId) => getPlayerName(players, playerId));
 
@@ -722,6 +751,18 @@ function buildNightReviewMessages(
 
     const copiedCard = getCenterCard(cards, action.target_center_index as number);
     const copiedRole = copiedCard ? getRoleReviewLabel(copiedCard.original_role) : "không rõ";
+
+    if (copiedCard?.original_role === "werewolf") {
+      const werewolfTeammateNames = getWerewolfPlayerIdsAfterCopycat(cards, actions)
+        .filter((playerId) => playerId !== currentPlayer.id)
+        .map((playerId) => getPlayerName(players, playerId));
+
+      return [
+        werewolfTeammateNames.length > 0
+          ? `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}.`
+          : `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn không thấy Ma Sói cùng phe.`,
+      ];
+    }
 
     if (copiedCard?.original_role === "robber" && action.target_player_id) {
       const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
@@ -961,9 +1002,14 @@ function simulateNightResolution(
 
       if (role === "werewolf") {
         const actorName = getPlayerName(players, card.player_id);
-        const werewolfTeammateNames = getOriginalWerewolfPlayerIds(cards)
-          .filter((playerId) => playerId !== card.player_id)
-          .map((playerId) => getPlayerName(players, playerId));
+        const werewolfTeammateNames = cards
+          .filter(
+            (possibleTeammateCard) =>
+              possibleTeammateCard.player_id &&
+              possibleTeammateCard.player_id !== card.player_id &&
+              isWerewolfRole(roleOfCard(possibleTeammateCard))
+          )
+          .map((possibleTeammateCard) => getPlayerName(players, possibleTeammateCard.player_id));
 
         if (werewolfTeammateNames.length > 0) {
           steps.push({
@@ -1058,9 +1104,10 @@ function simulateNightResolution(
           id: `${role}-${card.player_id}-${stepNumber}`,
           title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
           logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) copy ${WOLF_ROLE_LABELS[copiedRole]} từ ${getCardHolderLabel(copiedCenterCard, players)}`,
-          description: `${actorName} chọn ${getCardHolderLabel(copiedCenterCard, players)} và thực hiện ngay chức năng của ${WOLF_ROLE_LABELS[copiedRole]}.`,
+          description: `${actorName} chọn ${getCardHolderLabel(copiedCenterCard, players)}, nhận chức năng ${WOLF_ROLE_LABELS[copiedRole]}, rồi thực hiện ngay chức năng đó.`,
         });
         stepNumber += 1;
+        assignRole(card, copiedRole);
 
         if (copiedRole === "seer") {
           if (action.target_player_id) {
@@ -1951,10 +1998,14 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     ? await getPhaseConfirmations(supabase, game.id, game.phase)
     : [];
   const myCard = currentPlayer ? getPlayerCard(cards, currentPlayer.id) : null;
-  const originalWerewolfPlayerIds = getOriginalWerewolfPlayerIds(cards);
+  const roleByPlayerIdAfterCopycat = getRoleByPlayerIdAfterCopycat(cards, actions);
+  const werewolfPlayerIdsAfterCopycat = getWerewolfPlayerIdsAfterCopycat(cards, actions);
+  const currentPlayerRoleAfterCopycat = currentPlayer
+    ? roleByPlayerIdAfterCopycat.get(currentPlayer.id) ?? null
+    : null;
   const werewolfTeammates =
-    currentPlayer && isWerewolfRole(myCard?.original_role)
-      ? originalWerewolfPlayerIds
+    currentPlayer && isWerewolfRole(currentPlayerRoleAfterCopycat)
+      ? werewolfPlayerIdsAfterCopycat
           .filter((playerId) => playerId !== currentPlayer.id)
           .map((playerId) => ({
             playerId,
@@ -2017,7 +2068,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
   if (
     myAction?.action_type === "werewolf" &&
-    originalWerewolfPlayerIds.length === 1 &&
+    werewolfPlayerIdsAfterCopycat.length === 1 &&
     validateCenterIndex(myAction.target_center_index)
   ) {
     revealedCenterIndexes.add(myAction.target_center_index as number);
@@ -2135,10 +2186,15 @@ export async function revealWolfCenterCard(
     .from("wolf_game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
+  const { data: actionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .eq("game_id", room.current_game_id);
   const cards = (cardsData ?? []) as CardRow[];
+  const actions = (actionsData ?? []) as ActionRow[];
   const myCard = getPlayerCard(cards, currentPlayer.id);
   const myRole = myCard?.original_role;
-  const werewolfCount = cards.filter((card) => card.player_id && isWerewolfRole(card.original_role)).length;
+  const werewolfCount = getWerewolfPlayerIdsAfterCopycat(cards, actions).length;
   const canRevealCenter =
     myRole === "seer" ||
     myRole === "witch" ||
@@ -2155,10 +2211,36 @@ export async function revealWolfCenterCard(
     return { ok: false, error: "Không tìm thấy lá giữa đã chọn." };
   }
 
+  const actionAsCopycat = {
+    id: "",
+    game_id: room.current_game_id,
+    player_id: currentPlayer.id,
+    action_type: "copycat",
+    target_player_id: null,
+    target_player_id_2: null,
+    target_center_index: centerIndex,
+    target_center_index_2: null,
+    target_center_index_3: null,
+  } satisfies ActionRow;
+  const actionsWithCurrentReveal =
+    myRole === "copycat"
+      ? [...actions.filter((action) => action.player_id !== currentPlayer.id), actionAsCopycat]
+      : actions;
+  const werewolfTeammates =
+    myRole === "copycat" && isWerewolfRole(centerCard.original_role)
+      ? getWerewolfPlayerIdsAfterCopycat(cards, actionsWithCurrentReveal)
+          .filter((playerId) => playerId !== currentPlayer.id)
+          .map((playerId) => ({
+            playerId,
+            playerName: getPlayerName(players, playerId),
+          }))
+      : undefined;
+
   return {
     ok: true,
     centerIndex,
     role: centerCard.original_role,
+    werewolfTeammates,
   };
 }
 
@@ -2201,7 +2283,12 @@ export async function submitWolfNightAction(
     .from("wolf_game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
+  const { data: gameActionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .eq("game_id", room.current_game_id);
   const gameCards = (gameCardsData ?? []) as CardRow[];
+  const gameActions = (gameActionsData ?? []) as ActionRow[];
 
   if (!originalRole || input.actionType !== originalRole) {
     return { ok: false, error: "Hành động không khớp với vai trò của bạn." };
@@ -2237,7 +2324,7 @@ export async function submitWolfNightAction(
   }
 
   if (originalRole === "werewolf") {
-    const werewolfCount = gameCards.filter((card) => card.player_id && isWerewolfRole(card.original_role)).length;
+    const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
 
     if (werewolfCount > 1 && (input.targetCenterIndex != null || input.targetCenterIndex2 != null)) {
       return { ok: false, error: "Có từ 2 Ma Sói trở lên nên Ma Sói không được xem lá giữa bàn." };

@@ -141,7 +141,20 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const usesWitchSelection = myRole === "witch" || copycatCopiedRole === "witch";
   const playerPickerOptions = usesWitchSelection ? playState.players : otherPlayers;
   const hasWerewolfTeammates =
-    (myRole === "werewolf" || myRole === "werewolf_seer") && playState.werewolfTeammates.length > 0;
+    (myRole === "werewolf" || myRole === "werewolf_seer" || myRole === "copycat") &&
+    playState.werewolfTeammates.length > 0;
+  const copycatWerewolfTeammates =
+    myRole === "copycat" &&
+    copycatCopiedRole &&
+    WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves"
+      ? revealedCenterCards.find((card) => card.centerIndex === selectedCenterIndexes[0])?.werewolfTeammates ?? []
+      : [];
+  const shouldShowWerewolfTeammatePanel =
+    hasWerewolfTeammates ||
+    (myRole === "copycat" && copycatCopiedRole && WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves");
+  const werewolfTeammateNames = hasWerewolfTeammates
+    ? playState.werewolfTeammates.map((player) => player.playerName)
+    : copycatWerewolfTeammates.map((player) => player.playerName);
   const myActionSubmitted = Boolean(playState.myAction);
   const activeVoteTargetPlayerId =
     optimisticVoteTargetPlayerId ??
@@ -665,11 +678,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       copiedSeerCenterPathStarted;
     return (
       <>
-        {hasWerewolfTeammates && (
+        {shouldShowWerewolfTeammatePanel && (
           <div className={styles.werewolfTeammatePanel}>
             <span>Ma Sói cùng phe</span>
-            <strong>{playState.werewolfTeammates.map((player) => player.playerName).join(", ")}</strong>
-            <p>Vì có từ 2 Ma Sói trở lên, bạn không được xem lá giữa bàn.</p>
+            <strong>{werewolfTeammateNames.length > 0 ? werewolfTeammateNames.join(", ") : "Không có"}</strong>
+            <p>
+              {myRole === "copycat" && copycatCopiedRole && WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves"
+                ? "Bạn đã copy phe Ma Sói từ lá giữa bàn."
+                : "Vì có từ 2 Ma Sói trở lên, bạn không được xem lá giữa bàn."}
+            </p>
           </div>
         )}
 
