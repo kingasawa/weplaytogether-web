@@ -913,10 +913,8 @@ function buildGameResult(players: PlayerRow[], cards: CardRow[], votes: VoteRow[
   }));
   const maxVotes = Math.max(0, ...voteCounts.map((voteCount) => voteCount.votes));
   const skippedVoteCount = votes.filter((vote) => vote.is_skip || !vote.target_player_id).length;
-  const everyoneHasOneVote =
-    votes.length === players.length && voteCounts.every((voteCount) => voteCount.votes === 1);
   const eliminatedPlayerIds =
-    maxVotes > 0 && !everyoneHasOneVote
+    maxVotes > 0
       ? voteCounts
           .filter((voteCount) => voteCount.votes === maxVotes)
           .map((voteCount) => voteCount.playerId)

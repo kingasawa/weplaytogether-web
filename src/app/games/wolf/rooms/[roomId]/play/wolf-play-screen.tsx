@@ -582,6 +582,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   }
 
   function startPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
     setCoverPointerStartY(event.clientY);
     setCoverDragOffset(0);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -592,6 +593,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       return;
     }
 
+    event.preventDefault();
     const nextOffset = Math.min(0, event.clientY - coverPointerStartY);
     const maxLift = event.currentTarget.offsetHeight;
     if (coverPointerStartY - event.clientY >= 44 && privateRevealKey) {
@@ -633,6 +635,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           alt=""
           aria-hidden="true"
           className={styles.privateRevealCoverImage}
+          draggable={false}
           fill
           sizes="(max-width: 768px) 100vw, 30rem"
           src={PRIVATE_CARD_COVER_IMAGE_PATH}

@@ -1038,6 +1038,8 @@
 
 .privateRevealCoverImage {
   object-fit: cover;
+  pointer-events: none;
+  user-select: none;
 }
 
 .privateRevealHint {
@@ -1058,7 +1060,9 @@
   letter-spacing: 0.01em;
   line-height: 1.15;
   text-align: center;
+  pointer-events: none;
   transform: translateX(50%);
+  user-select: none;
   white-space: nowrap;
 }
 
