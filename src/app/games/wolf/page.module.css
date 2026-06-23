@@ -1582,6 +1582,22 @@
   height: 100%;
 }
 
+.focusedPlayPanel .nightReviewRevealStack {
+  min-height: 100%;
+  height: 100%;
+}
+
+.nightReviewRevealStack {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+}
+
+.nightReviewRevealStack .playCard {
+  min-height: 0;
+  height: 100%;
+}
+
 .nightReviewContent {
   display: grid;
   align-content: end;
@@ -1597,6 +1613,15 @@
 .nightReviewContent p {
   color: var(--text);
   font-weight: 800;
+}
+
+.nightReviewMessage {
+  padding: var(--spacing-md);
+  border-radius: 1rem;
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .cardRevealActionBar,

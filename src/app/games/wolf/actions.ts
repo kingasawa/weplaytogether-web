@@ -277,6 +277,7 @@ export type WolfPlayState = {
   myCard: {
     originalRole: WolfRole;
     currentRole: WolfRole | null;
+    nightReviewRole: WolfRole | null;
   } | null;
   werewolfTeammates: Array<{
     playerId: string;
@@ -779,6 +780,38 @@ function buildNightReviewMessages(
   }
 
   return ["Vai trò của bạn không có quyền xem thêm kết quả ban đêm."];
+}
+
+function getNightReviewRole(
+  currentPlayer: PlayerRow | null,
+  action: ActionRow | null,
+  cards: CardRow[],
+  players: PlayerRow[],
+  actions: ActionRow[]
+) {
+  if (!currentPlayer || !action) {
+    return null;
+  }
+
+  if (action.action_type === "insomniac") {
+    return getPlayerCard(cards, currentPlayer.id)?.current_role ?? null;
+  }
+
+  if (action.action_type === "robber") {
+    const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
+    return immediateRoleRevealByPlayerId.get(currentPlayer.id) ?? null;
+  }
+
+  if (action.action_type === "copycat" && validateCenterIndex(action.target_center_index)) {
+    const copiedCard = getCenterCard(cards, action.target_center_index as number);
+
+    if (copiedCard?.original_role === "robber") {
+      const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
+      return immediateRoleRevealByPlayerId.get(currentPlayer.id) ?? null;
+    }
+  }
+
+  return null;
 }
 
 function isConfirmablePhase(phase: WolfGamePhase) {
@@ -2101,6 +2134,10 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       ? {
           originalRole: myCard.original_role,
           currentRole: shouldRevealMyCurrentRole ? myCard.current_role : null,
+          nightReviewRole:
+            game.phase === "night_review"
+              ? getNightReviewRole(currentPlayer, myAction, cards, players, actions)
+              : null,
         }
       : null,
     werewolfTeammates,

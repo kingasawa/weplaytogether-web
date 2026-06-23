@@ -854,9 +854,26 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         {playState.game.phase === "night_review" && (
           <>
             <div className={styles.privateRevealBox}>
-              <div className={styles.nightReviewContent}>
+              <div
+                className={
+                  playState.myCard?.nightReviewRole
+                    ? styles.nightReviewRevealStack
+                    : styles.nightReviewContent
+                }
+              >
+                {playState.myCard?.nightReviewRole && (
+                  <RoleCard
+                    label={myRole === "insomniac" ? "Bài hiện tại" : "Lá vừa lấy"}
+                    role={playState.myCard.nightReviewRole}
+                  />
+                )}
                 {playState.nightReviewMessages.map((reviewMessage) => (
-                  <p key={reviewMessage}>{reviewMessage}</p>
+                  <p
+                    className={playState.myCard?.nightReviewRole ? styles.nightReviewMessage : undefined}
+                    key={reviewMessage}
+                  >
+                    {reviewMessage}
+                  </p>
                 ))}
               </div>
               {renderPrivateCover()}
