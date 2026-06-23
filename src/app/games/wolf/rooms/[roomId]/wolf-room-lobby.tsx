@@ -188,10 +188,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const allPlayersReady =
     lobbyState.players.length >= 3 && lobbyState.players.every((player) => player.isReady);
   const requiredRoleCount = lobbyState.players.length + 3;
-  const activeSelectedRoleOptionIds = isRoleSetupOpen
-    ? fitRoleOptionIds(selectedRoleOptionIds, requiredRoleCount)
-    : selectedRoleOptionIds;
-  const selectedRoles = activeSelectedRoleOptionIds
+  const selectedRoles = selectedRoleOptionIds
     .map((optionId) => ROLE_LABEL_OPTIONS.find((option) => option.id === optionId)?.role)
     .filter(Boolean) as WolfRole[];
   const selectedRoleTotal = selectedRoles.length;
@@ -426,15 +423,14 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
   function toggleSelectedRole(optionId: string) {
     setSelectedRoleOptionIds((currentOptionIds) => {
-      const fittedOptionIds = fitRoleOptionIds(currentOptionIds, requiredRoleCount);
       let nextOptionIds: string[];
 
-      if (fittedOptionIds.includes(optionId)) {
-        nextOptionIds = fittedOptionIds.filter((currentOptionId) => currentOptionId !== optionId);
-      } else if (fittedOptionIds.length >= requiredRoleCount) {
-        nextOptionIds = fittedOptionIds;
+      if (currentOptionIds.includes(optionId)) {
+        nextOptionIds = currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId);
+      } else if (currentOptionIds.length >= requiredRoleCount) {
+        nextOptionIds = currentOptionIds;
       } else {
-        nextOptionIds = [...fittedOptionIds, optionId];
+        nextOptionIds = [...currentOptionIds, optionId];
       }
 
       saveStoredRoleOptionIds(nextOptionIds);
@@ -463,7 +459,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     }
 
     startTransition(async () => {
-      saveStoredRoleOptionIds(activeSelectedRoleOptionIds);
+      saveStoredRoleOptionIds(selectedRoleOptionIds);
       const result = await startWolfGame(lobbyState.room.code, selectedRoles);
 
       if (!result.ok) {
@@ -553,7 +549,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 <div className={styles.roleBadgeRow} key={group.id}>
                   {group.options.map((option) => {
                     const isDeckFull = selectedRoleTotal >= requiredRoleCount;
-                    const isSelected = activeSelectedRoleOptionIds.includes(option.id);
+                    const isSelected = selectedRoleOptionIds.includes(option.id);
 
                     return (
                       <button
