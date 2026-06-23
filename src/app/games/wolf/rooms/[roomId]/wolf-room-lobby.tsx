@@ -74,6 +74,8 @@ const ROLE_LABEL_GROUPS: Array<{ id: string; options: RoleLabelOption[] }> = [
 ];
 
 const ROLE_LABEL_OPTIONS = ROLE_LABEL_GROUPS.flatMap((group) => group.options);
+const ROLE_OPTION_ID_SET = new Set(ROLE_LABEL_OPTIONS.map((option) => option.id));
+const STORED_ROLE_OPTION_IDS_KEY = "boardverse:wolf-role-option-ids";
 const BASIC_ROLE_OPTION_IDS = [
   "werewolf-1",
   "werewolf-2",
@@ -92,6 +94,65 @@ const BASIC_ROLE_OPTION_IDS = [
 
 function getDefaultRoleOptionIds(requiredRoleCount: number) {
   return BASIC_ROLE_OPTION_IDS.slice(0, requiredRoleCount);
+}
+
+function normalizeRoleOptionIds(optionIds: unknown) {
+  if (!Array.isArray(optionIds)) {
+    return [];
+  }
+
+  const normalizedOptionIds: string[] = [];
+
+  for (const optionId of optionIds) {
+    if (
+      typeof optionId === "string" &&
+      ROLE_OPTION_ID_SET.has(optionId) &&
+      !normalizedOptionIds.includes(optionId)
+    ) {
+      normalizedOptionIds.push(optionId);
+    }
+  }
+
+  return normalizedOptionIds;
+}
+
+function fitRoleOptionIds(optionIds: string[], requiredRoleCount: number) {
+  const selectedOptionIds = normalizeRoleOptionIds(optionIds).slice(0, requiredRoleCount);
+
+  if (selectedOptionIds.length >= requiredRoleCount) {
+    return selectedOptionIds;
+  }
+
+  for (const optionId of getDefaultRoleOptionIds(BASIC_ROLE_OPTION_IDS.length)) {
+    if (!selectedOptionIds.includes(optionId)) {
+      selectedOptionIds.push(optionId);
+    }
+
+    if (selectedOptionIds.length >= requiredRoleCount) {
+      break;
+    }
+  }
+
+  return selectedOptionIds;
+}
+
+function readStoredRoleOptionIds(requiredRoleCount: number) {
+  try {
+    return fitRoleOptionIds(
+      JSON.parse(window.localStorage.getItem(STORED_ROLE_OPTION_IDS_KEY) ?? "[]"),
+      requiredRoleCount
+    );
+  } catch {
+    return getDefaultRoleOptionIds(requiredRoleCount);
+  }
+}
+
+function saveStoredRoleOptionIds(optionIds: string[]) {
+  try {
+    window.localStorage.setItem(STORED_ROLE_OPTION_IDS_KEY, JSON.stringify(normalizeRoleOptionIds(optionIds)));
+  } catch {
+    // Storage can be unavailable in private browsing or restricted webviews.
+  }
 }
 
 type WolfRoomLobbyProps = {
@@ -127,7 +188,10 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const allPlayersReady =
     lobbyState.players.length >= 3 && lobbyState.players.every((player) => player.isReady);
   const requiredRoleCount = lobbyState.players.length + 3;
-  const selectedRoles = selectedRoleOptionIds
+  const activeSelectedRoleOptionIds = isRoleSetupOpen
+    ? fitRoleOptionIds(selectedRoleOptionIds, requiredRoleCount)
+    : selectedRoleOptionIds;
+  const selectedRoles = activeSelectedRoleOptionIds
     .map((optionId) => ROLE_LABEL_OPTIONS.find((option) => option.id === optionId)?.role)
     .filter(Boolean) as WolfRole[];
   const selectedRoleTotal = selectedRoles.length;
@@ -362,15 +426,19 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
   function toggleSelectedRole(optionId: string) {
     setSelectedRoleOptionIds((currentOptionIds) => {
-      if (currentOptionIds.includes(optionId)) {
-        return currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId);
+      const fittedOptionIds = fitRoleOptionIds(currentOptionIds, requiredRoleCount);
+      let nextOptionIds: string[];
+
+      if (fittedOptionIds.includes(optionId)) {
+        nextOptionIds = fittedOptionIds.filter((currentOptionId) => currentOptionId !== optionId);
+      } else if (fittedOptionIds.length >= requiredRoleCount) {
+        nextOptionIds = fittedOptionIds;
+      } else {
+        nextOptionIds = [...fittedOptionIds, optionId];
       }
 
-      if (currentOptionIds.length >= requiredRoleCount) {
-        return currentOptionIds;
-      }
-
-      return [...currentOptionIds, optionId];
+      saveStoredRoleOptionIds(nextOptionIds);
+      return nextOptionIds;
     });
   }
 
@@ -383,7 +451,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     }
 
     setIsRoleSetupOpen(true);
-    setSelectedRoleOptionIds(getDefaultRoleOptionIds(requiredRoleCount));
+    setSelectedRoleOptionIds(readStoredRoleOptionIds(requiredRoleCount));
   }
 
   function startGame() {
@@ -395,6 +463,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     }
 
     startTransition(async () => {
+      saveStoredRoleOptionIds(activeSelectedRoleOptionIds);
       const result = await startWolfGame(lobbyState.room.code, selectedRoles);
 
       if (!result.ok) {
@@ -484,7 +553,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 <div className={styles.roleBadgeRow} key={group.id}>
                   {group.options.map((option) => {
                     const isDeckFull = selectedRoleTotal >= requiredRoleCount;
-                    const isSelected = selectedRoleOptionIds.includes(option.id);
+                    const isSelected = activeSelectedRoleOptionIds.includes(option.id);
 
                     return (
                       <button
