@@ -300,6 +300,7 @@ export type WolfPlayState = {
     activeRole: WolfRole;
     isCopycatCopiedRole: boolean;
   } | null;
+  isNightTurnInProgress: boolean;
   isCurrentPlayerPhaseReady: boolean;
   phaseReadyPlayerIds: string[];
   nightReviewMessages: string[];
@@ -1031,7 +1032,10 @@ async function maybeAutoAdvancePhase(
       await resolveNightActions(room.current_game_id);
       await supabase
         .from("wolf_game_sessions")
-        .update({ phase: "night_review" })
+        .update({
+          phase: "discussion",
+          discussion_ends_at: new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+        })
         .eq("id", room.current_game_id);
     }
 
@@ -2216,7 +2220,11 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
         }
       : null,
     myVoteTargetPlayerId: myVote?.target_player_id ?? null,
-    activeNightTurn,
+    activeNightTurn:
+      currentPlayer && activeNightTurn?.playerId === currentPlayer.id
+        ? activeNightTurn
+        : null,
+    isNightTurnInProgress: Boolean(activeNightTurn),
     isCurrentPlayerPhaseReady: currentPlayer ? phaseReadyPlayerIdSet.has(currentPlayer.id) : false,
     phaseReadyPlayerIds,
     nightReviewMessages: buildNightReviewMessages(currentPlayer, myAction, cards, players, actions),
@@ -2705,15 +2713,6 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
 
   if (game.phase === "night") {
     await resolveNightActions(game.id);
-    await supabase
-      .from("wolf_game_sessions")
-      .update({ phase: "night_review" })
-      .eq("id", game.id);
-    await safeBroadcastWolfPlayUpdate(room.code);
-    return { ok: true };
-  }
-
-  if (game.phase === "night_review") {
     await supabase
       .from("wolf_game_sessions")
       .update({

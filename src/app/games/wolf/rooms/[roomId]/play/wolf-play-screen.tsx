@@ -274,9 +274,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     if (playState.game.phase === "night") {
-      return activeNightTurn
-        ? playState.players.filter((player) => player.id === activeNightTurn.playerId)
-        : [];
+      return [];
     }
 
     if (playState.game.phase === "discussion") {
@@ -297,8 +295,14 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       return "Ván đã có kết quả.";
     }
 
-    if (playState.game.phase === "night" && activeNightTurn) {
-      return `${activeNightTurn.playerName} đang thực hiện ${WOLF_ROLE_LABELS[activeNightTurn.activeRole]}`;
+    if (playState.game.phase === "night") {
+      if (activeNightTurn) {
+        return "Đến lượt bạn thực hiện chức năng.";
+      }
+
+      return playState.isNightTurnInProgress
+        ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
+        : "Tất cả lượt ban đêm đã hoàn tất.";
     }
 
     if (waitingPlayers.length === 0) {
@@ -704,11 +708,9 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         <div className={styles.nightTurnWaiting}>
           <span>Lượt hiện tại</span>
           <strong>
-            {activeNightTurn
-              ? `${activeNightTurn.playerName} - ${WOLF_ROLE_LABELS[activeNightTurn.activeRole]}`
-              : "Đang chuyển lượt"}
+            {activeNightTurn ? "Đến lượt bạn" : "Đang chờ lượt ban đêm"}
           </strong>
-          <p>Màn hình chung sẽ giữ trạng thái chờ cho đến khi tới lượt của bạn.</p>
+          <p>Người chơi đang hành động được giữ kín cho đến khi ván kết thúc.</p>
         </div>
       );
     }
@@ -869,9 +871,9 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <p>
             {isMyNightTurn && nightActionRole
               ? WOLF_ROLE_DESCRIPTIONS[nightActionRole]
-              : activeNightTurn
-                ? `Đang chờ ${activeNightTurn.playerName} thực hiện ${WOLF_ROLE_LABELS[activeNightTurn.activeRole]}.`
-                : "Đang chuyển sang lượt tiếp theo."}
+              : playState.isNightTurnInProgress
+                ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
+                : "Tất cả lượt ban đêm đã hoàn tất."}
           </p>
         )}
         {isNightReviewPhase && (
