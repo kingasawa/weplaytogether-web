@@ -1000,6 +1000,7 @@ function simulateNightResolution(
   const actionByPlayerId = new Map(actions.map((action) => [action.player_id, action]));
   const currentRoleByCardId = new Map(cards.map((card) => [card.id, card.original_role]));
   const immediateRoleRevealByPlayerId = new Map<string, WolfRole>();
+  const copiedRoleByCopycatPlayerId = new Map<string, WolfRole>();
   const steps: WolfCardMovementStep[] = [];
   let stepNumber = 1;
 
@@ -1022,7 +1023,13 @@ function simulateNightResolution(
   };
 
   for (const role of ROLE_RESOLUTION_ORDER) {
-    const roleCards = cards.filter((card) => card.player_id && card.original_role === role);
+    const roleCards = cards.filter(
+      (card) =>
+        card.player_id &&
+        (card.original_role === role ||
+          (card.original_role === "copycat" &&
+            copiedRoleByCopycatPlayerId.get(card.player_id as string) === role))
+    );
 
     for (const card of roleCards) {
       const action = actionByPlayerId.get(card.player_id as string);
@@ -1030,6 +1037,21 @@ function simulateNightResolution(
       if (!action) {
         continue;
       }
+
+      const isCopycatCopiedRoleAction = card.original_role === "copycat" && role !== "copycat";
+      const actorRoleLabel = isCopycatCopiedRoleAction
+        ? `${WOLF_ROLE_LABELS.copycat} → ${WOLF_ROLE_LABELS[role]}`
+        : WOLF_ROLE_LABELS[role];
+      const getActionTitle = (actorName: string) =>
+        isCopycatCopiedRoleAction
+          ? `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[role]}`
+          : `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`;
+      const primaryCenterIndex = isCopycatCopiedRoleAction
+        ? action.target_center_index_2
+        : action.target_center_index;
+      const secondaryCenterIndex = isCopycatCopiedRoleAction
+        ? action.target_center_index_3
+        : action.target_center_index_2;
 
       if (role === "werewolf") {
         const actorName = getPlayerName(players, card.player_id);
@@ -1045,26 +1067,26 @@ function simulateNightResolution(
         if (werewolfTeammateNames.length > 0) {
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) thấy Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) thấy Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}`,
             description: `${actorName} có đồng đội Ma Sói nên không xem lá giữa bàn trong lượt này.`,
           });
           stepNumber += 1;
-        } else if (validateCenterIndex(action.target_center_index)) {
-          const centerCard = getCenterCard(cards, action.target_center_index as number);
+        } else if (validateCenterIndex(primaryCenterIndex)) {
+          const centerCard = getCenterCard(cards, primaryCenterIndex as number);
 
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard?.original_role)})`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard?.original_role)})`,
             description: `${actorName} là Ma Sói đơn nên được xem một lá giữa bàn. Hành động này không làm đổi vị trí lá bài.`,
           });
           stepNumber += 1;
         } else {
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) hoàn tất lượt mà không xem lá giữa bàn`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) hoàn tất lượt mà không xem lá giữa bàn`,
             description: `${actorName} không chọn xem lá giữa bàn trong lượt Ma Sói. Hành động này không làm đổi vị trí lá bài.`,
           });
           stepNumber += 1;
@@ -1078,8 +1100,8 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
           description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
         });
         stepNumber += 1;
@@ -1094,13 +1116,13 @@ function simulateNightResolution(
 
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
             description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
           });
           stepNumber += 1;
         } else {
-          const centerIndexes = [action.target_center_index, action.target_center_index_2].filter(
+          const centerIndexes = [primaryCenterIndex, secondaryCenterIndex].filter(
             validateCenterIndex
           ) as number[];
           const revealedCenters = centerIndexes.map((centerIndex) => {
@@ -1112,8 +1134,8 @@ function simulateNightResolution(
           if (revealedCenters.length > 0) {
             steps.push({
               id: `${role}-${card.player_id}-${stepNumber}`,
-              title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-              logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) soi ${revealedCenters.join(" và ")}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${actorRoleLabel}) soi ${revealedCenters.join(" và ")}`,
               description: `${actorName} xem các lá giữa đã chọn. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
             });
             stepNumber += 1;
@@ -1135,146 +1157,13 @@ function simulateNightResolution(
           id: `${role}-${card.player_id}-${stepNumber}`,
           title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
           logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) copy ${WOLF_ROLE_LABELS[copiedRole]} từ ${getCardHolderLabel(copiedCenterCard, players)}`,
-          description: `${actorName} chọn ${getCardHolderLabel(copiedCenterCard, players)}, nhận chức năng ${WOLF_ROLE_LABELS[copiedRole]}, rồi thực hiện ngay chức năng đó.`,
+          description: `${actorName} chọn ${getCardHolderLabel(copiedCenterCard, players)}, nhận chức năng ${WOLF_ROLE_LABELS[copiedRole]}, rồi thực hiện chức năng đó theo đúng lượt trong đêm.`,
         });
         stepNumber += 1;
+        copiedRoleByCopycatPlayerId.set(card.player_id as string, copiedRole);
         assignRole(card, copiedRole);
 
-        if (copiedRole === "seer") {
-          if (action.target_player_id) {
-            const targetCard = getPlayerCard(cards, action.target_player_id);
-            const targetName = getPlayerName(players, action.target_player_id);
-
-            steps.push({
-              id: `${role}-${card.player_id}-${stepNumber}`,
-              title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-              logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
-              description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
-            });
-            stepNumber += 1;
-          } else {
-            const centerIndexes = [action.target_center_index_2, action.target_center_index_3].filter(
-              validateCenterIndex
-            ) as number[];
-            const revealedCenters = centerIndexes.map((centerIndex) => {
-              const centerCard = getCenterCard(cards, centerIndex);
-
-              return `${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard?.original_role)})`;
-            });
-
-            if (revealedCenters.length > 0) {
-              steps.push({
-                id: `${role}-${card.player_id}-${stepNumber}`,
-                title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-                logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) soi ${revealedCenters.join(" và ")}`,
-                description: `${actorName} xem các lá giữa đã chọn sau lá dùng để copy. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
-              });
-              stepNumber += 1;
-            }
-          }
-        }
-
-        if (copiedRole === "werewolf_seer" && action.target_player_id) {
-          const targetCard = getPlayerCard(cards, action.target_player_id);
-          const targetName = getPlayerName(players, action.target_player_id);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
-            description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
-          });
-          stepNumber += 1;
-        }
-
-        if (copiedRole === "robber" && action.target_player_id) {
-          const targetCard = getPlayerCard(cards, action.target_player_id);
-
-          if (!targetCard) {
-            continue;
-          }
-
-          const targetName = getCardHolderLabel(targetCard, players);
-          const actorRoleBefore = roleOfCard(card);
-          const targetRoleBefore = roleOfCard(targetCard);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) đổi bài với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
-            description: `${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} và ${targetName} đang giữ lá ${getRoleReviewLabel(targetRoleBefore)}. Hai lá được đổi chỗ.`,
-          });
-          stepNumber += 1;
-          immediateRoleRevealByPlayerId.set(card.player_id as string, targetRoleBefore);
-          swapCards(card, targetCard);
-        }
-
-        if (copiedRole === "troublemaker" && action.target_player_id && action.target_player_id_2) {
-          const firstTargetCard = getPlayerCard(cards, action.target_player_id);
-          const secondTargetCard = getPlayerCard(cards, action.target_player_id_2);
-
-          if (!firstTargetCard || !secondTargetCard) {
-            continue;
-          }
-
-          const firstTargetName = getCardHolderLabel(firstTargetCard, players);
-          const secondTargetName = getCardHolderLabel(secondTargetCard, players);
-          const firstRoleBefore = roleOfCard(firstTargetCard);
-          const secondRoleBefore = roleOfCard(secondTargetCard);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) đổi bài của ${firstTargetName} (${getRoleReviewLabel(firstRoleBefore)}) với ${secondTargetName} (${getRoleReviewLabel(secondRoleBefore)})`,
-            description: `${firstTargetName} và ${secondTargetName} được đổi chỗ hai lá đang giữ tại thời điểm Copy Cat thực hiện.`,
-          });
-          stepNumber += 1;
-          swapCards(firstTargetCard, secondTargetCard);
-        }
-
-        if (copiedRole === "witch" && validateCenterIndex(action.target_center_index_2) && action.target_player_id) {
-          const centerCard = getCenterCard(cards, action.target_center_index_2 as number);
-          const targetCard = getPlayerCard(cards, action.target_player_id);
-
-          if (!centerCard || !targetCard) {
-            continue;
-          }
-
-          const centerLabel = getCardHolderLabel(centerCard, players);
-          const targetName = getCardHolderLabel(targetCard, players);
-          const centerRoleBefore = roleOfCard(centerCard);
-          const targetRoleBefore = roleOfCard(targetCard);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel} cho ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
-            description: `${targetName} nhận chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel}. ${centerLabel} vẫn ở giữa bàn; chức năng cũ ${getRoleReviewLabel(targetRoleBefore)} của ${targetName} không được chuyển vào giữa.`,
-          });
-          stepNumber += 1;
-          assignRole(targetCard, centerRoleBefore);
-        }
-
-        if (copiedRole === "drunk" && validateCenterIndex(action.target_center_index_2)) {
-          const centerCard = getCenterCard(cards, action.target_center_index_2 as number);
-
-          if (!centerCard) {
-            continue;
-          }
-
-          const actorRoleBefore = roleOfCard(card);
-          const centerRoleBefore = roleOfCard(centerCard);
-          const centerLabel = getCardHolderLabel(centerCard, players);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: `Bước ${stepNumber}: ${actorName} thực hiện ${WOLF_ROLE_LABELS[copiedRole]}`,
-            logText: `${actorName} (${WOLF_ROLE_LABELS[role]} → ${WOLF_ROLE_LABELS[copiedRole]}) đổi bài với ${centerLabel} (${getRoleReviewLabel(centerRoleBefore)})`,
-            description: `Lá ${getRoleReviewLabel(actorRoleBefore)} của ${actorName} đi vào ${centerLabel}; lá ${getRoleReviewLabel(centerRoleBefore)} chuyển cho ${actorName}.`,
-          });
-          stepNumber += 1;
-          swapCards(card, centerCard);
-        }
+        continue;
       }
 
       if (role === "robber" && action.target_player_id) {
@@ -1291,8 +1180,8 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) đổi bài với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) đổi bài với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
           description: `Trước bước này, ${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} và ${targetName} đang giữ lá ${getRoleReviewLabel(targetRoleBefore)}. ${actorName} đổi bài với ${targetName}: lá ${getRoleReviewLabel(actorRoleBefore)} chuyển sang ${targetName}, còn lá ${getRoleReviewLabel(targetRoleBefore)} chuyển sang ${actorName}.`,
         });
         stepNumber += 1;
@@ -1316,16 +1205,18 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) đổi bài của ${firstTargetName} (${getRoleReviewLabel(firstRoleBefore)}) với ${secondTargetName} (${getRoleReviewLabel(secondRoleBefore)})`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) đổi bài của ${firstTargetName} (${getRoleReviewLabel(firstRoleBefore)}) với ${secondTargetName} (${getRoleReviewLabel(secondRoleBefore)})`,
           description: `Ở thời điểm ${actorName} hành động, ${firstTargetName} đang giữ lá ${getRoleReviewLabel(firstRoleBefore)} và ${secondTargetName} đang giữ lá ${getRoleReviewLabel(secondRoleBefore)}. ${actorName} đổi chỗ hai lá này: lá ${getRoleReviewLabel(firstRoleBefore)} chuyển sang ${secondTargetName}, còn lá ${getRoleReviewLabel(secondRoleBefore)} chuyển sang ${firstTargetName}.`,
         });
         stepNumber += 1;
         swapCards(firstTargetCard, secondTargetCard);
       }
 
-      if (role === "witch" && validateCenterIndex(action.target_center_index) && action.target_player_id) {
-        const centerCard = getCenterCard(cards, action.target_center_index as number);
+      const witchCenterIndex = primaryCenterIndex;
+
+      if (role === "witch" && validateCenterIndex(witchCenterIndex) && action.target_player_id) {
+        const centerCard = getCenterCard(cards, witchCenterIndex as number);
         const targetCard = getPlayerCard(cards, action.target_player_id);
 
         if (!centerCard || !targetCard) {
@@ -1340,16 +1231,16 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel} cho ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel} cho ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
           description: `${targetName} nhận chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel}. ${centerLabel} vẫn ở giữa bàn; chức năng cũ ${getRoleReviewLabel(targetRoleBefore)} của ${targetName} không được chuyển vào giữa.`,
         });
         stepNumber += 1;
         assignRole(targetCard, centerRoleBefore);
       }
 
-      if (role === "drunk" && validateCenterIndex(action.target_center_index)) {
-        const centerCard = getCenterCard(cards, action.target_center_index as number);
+      if (role === "drunk" && validateCenterIndex(primaryCenterIndex)) {
+        const centerCard = getCenterCard(cards, primaryCenterIndex as number);
 
         if (!centerCard) {
           continue;
@@ -1362,8 +1253,8 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) đổi bài với ${centerLabel} (${getRoleReviewLabel(centerRoleBefore)})`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) đổi bài với ${centerLabel} (${getRoleReviewLabel(centerRoleBefore)})`,
           description: `Khi ${actorName} đổi với ${centerLabel}, ${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} còn ${centerLabel} là lá ${getRoleReviewLabel(centerRoleBefore)}. Sau khi đổi, lá ${getRoleReviewLabel(actorRoleBefore)} đi vào ${centerLabel}, còn lá ${getRoleReviewLabel(centerRoleBefore)} chuyển cho ${actorName}.`,
         });
         stepNumber += 1;
@@ -1376,8 +1267,8 @@ function simulateNightResolution(
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
-          title: `Bước ${stepNumber}: ${actorName} hành động bằng vai ban đầu ${WOLF_ROLE_LABELS[role]}`,
-          logText: `${actorName} (${WOLF_ROLE_LABELS[role]}) xem lại bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) xem lại bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
           description: `${actorName} xem lá mình đang giữ sau khi các hành động đổi bài trước đó đã được xử lý.`,
         });
         stepNumber += 1;
@@ -1390,8 +1281,8 @@ function simulateNightResolution(
     cardMovementSummary: {
       orderText:
         steps.length > 0
-          ? `Log được xử lý theo vai ban đầu của từng người chơi. Thứ tự hành động trong đêm là ${getNightActionResolutionOrderText()}.`
-          : `Đêm này không có vai nào thực hiện hành động. Nếu có hành động, hệ thống sẽ xử lý theo vai ban đầu với thứ tự ${getNightActionResolutionOrderText()}.`,
+          ? `Log được xử lý theo thứ tự hành động trong đêm: ${getNightActionResolutionOrderText()}. Copy Cat copy trước, rồi chức năng đã copy chạy ở đúng lượt của role đó.`
+          : `Đêm này không có vai nào thực hiện hành động. Nếu có hành động, hệ thống sẽ xử lý theo thứ tự ${getNightActionResolutionOrderText()}.`,
       steps,
     },
     immediateRoleRevealByPlayerId,

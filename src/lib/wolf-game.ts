@@ -23,7 +23,7 @@ export const WOLF_ROLE_DESCRIPTIONS: Record<WolfRole, string> = {
   witch: "Mở một lá giữa bàn và gán chức năng đó cho mình hoặc một người chơi khác.",
   drunk: "Đổi bài của mình với một lá giữa bàn nhưng không được xem lá mới.",
   insomniac: "Sau các hành động ban đêm, được biết lá bài hiện tại của mình.",
-  copycat: "Chọn một lá giữa bàn rồi thực hiện ngay chức năng của role đó.",
+  copycat: "Chọn một lá giữa bàn rồi thực hiện chức năng của role đó theo đúng lượt trong đêm.",
 };
 
 export const WOLF_PHASE_LABELS: Record<WolfGamePhase, string> = {
