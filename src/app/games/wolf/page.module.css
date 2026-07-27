@@ -1622,6 +1622,13 @@
   gap: var(--spacing-sm);
 }
 
+.playerRevealGrid {
+  display: grid;
+  min-height: 0;
+  gap: var(--spacing-sm);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+}
+
 .nightReviewRevealStack .playCard {
   min-height: 0;
   height: 100%;

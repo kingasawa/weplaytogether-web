@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-06-12 -->
+﻿<!-- Last updated: 2026-07-27 -->
 
 # Database Schema
 
@@ -12,6 +12,8 @@ On 2026-06-12, `public.wolf_role` was updated and verified through Supabase CLI 
 
 On 2026-06-12, `public.wolf_game_actions.target_center_index_3` and its 0-2 check constraint were added and verified through Supabase CLI `db query`.
 
+On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was created to add the pending `doppelganger` enum value and `wolf_game_actions.target_player_id_3` for Nhân Bản copying Kẻ Gây Rối.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -24,6 +26,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202606040001_wolf_player_avatars.sql`
 - `supabase/migrations/202606040002_wolf_vote_skip.sql`
 - `supabase/migrations/202606050001_wolf_cleanup_old_rooms.sql`
+- `supabase/migrations/202607270001_wolf_doppelganger_role.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -31,7 +34,7 @@ Local migration file created in this task and still pending manual remote apply:
 
 - `public.wolf_room_status`: `waiting`, `playing`, `finished`
 - `public.wolf_game_phase`: `card_reveal`, `night`, `night_review`, `discussion`, `voting`, `result`
-- `public.wolf_role`: `werewolf`, `werewolf_seer`, `villager`, `seer`, `robber`, `troublemaker`, `witch`, `drunk`, `insomniac`, `copycat`
+- `public.wolf_role`: `werewolf`, `werewolf_seer`, `villager`, `seer`, `robber`, `troublemaker`, `witch`, `drunk`, `insomniac`, `doppelganger`, `copycat`
 
 ### Tables
 
@@ -85,6 +88,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `action_type text not null`
 - `target_player_id uuid null references public.wolf_room_players(id) on delete set null`
 - `target_player_id_2 uuid null references public.wolf_room_players(id) on delete set null`
+- `target_player_id_3 uuid null references public.wolf_room_players(id) on delete set null`
 - `target_center_index integer null`, constrained to 0-2
 - `target_center_index_2 integer null`, constrained to 0-2
 - `target_center_index_3 integer null`, constrained to 0-2
@@ -143,5 +147,3 @@ Local migration file created in this task and still pending manual remote apply:
 ## Remote Apply Notes
 
 Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
-
-
