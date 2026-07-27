@@ -1208,6 +1208,35 @@
   line-height: 1.55;
 }
 
+.nightTurnWaiting {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: 0.9rem;
+  border: 0.0625rem solid color-mix(in srgb, var(--primary) 24%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+}
+
+.nightTurnWaiting span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nightTurnWaiting strong {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+}
+
+.nightTurnWaiting p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
 .playOption,
 .playOptionActive {
   display: inline-flex;
@@ -1591,6 +1620,13 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
+}
+
+.playerRevealGrid {
+  display: grid;
+  min-height: 0;
+  gap: var(--spacing-sm);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
 }
 
 .nightReviewRevealStack .playCard {

@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-06-12 -->
+﻿<!-- Last updated: 2026-07-27 -->
 
 # Migrations
 
@@ -138,6 +138,20 @@ Purpose:
 - Allow Copy Cat copying Tiên Tri to copy one center card, then inspect two additional center cards.
 - Constrain the third center target to index 0-2 when present.
 
+## 202607270001_wolf_doppelganger_role.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202607270001_wolf_doppelganger_role.sql`
+
+Purpose:
+
+- Add `doppelganger` to `public.wolf_role` for Nhân Bản.
+- Add `target_player_id_3` to `public.wolf_game_actions` so Nhân Bản copying Kẻ Gây Rối can store two copied-role targets while `target_player_id` stores the copied player.
+- Keep the new target linked to `wolf_room_players(id)` with `on delete set null`.
+- This migration depends on `202606030002_wolf_gameplay.sql`; apply base gameplay migrations first on a fresh database.
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -156,6 +170,5 @@ Remote execution update on 2026-06-12:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, and `202606050001_wolf_cleanup_old_rooms.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, and `202607270001_wolf_doppelganger_role.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
-

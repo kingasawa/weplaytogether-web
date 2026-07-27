@@ -25,10 +25,12 @@ const ROLE_DECK_ORDER: WolfRole[] = [
   "drunk",
   "werewolf_seer",
   "witch",
+  "doppelganger",
   "copycat",
 ];
 
 const ROLE_RESOLUTION_ORDER: WolfRole[] = [
+  "doppelganger",
   "copycat",
   "werewolf",
   "werewolf_seer",
@@ -42,6 +44,7 @@ const ROLE_RESOLUTION_ORDER: WolfRole[] = [
 ];
 
 const NIGHT_ACTION_ROLES = new Set<WolfRole>([
+  "doppelganger",
   "copycat",
   "werewolf",
   "werewolf_seer",
@@ -65,6 +68,7 @@ const ROLE_SELECTION_LIMITS: Record<WolfRole, number> = {
   witch: 1,
   drunk: 1,
   insomniac: 1,
+  doppelganger: 1,
   copycat: 1,
 };
 
@@ -111,6 +115,7 @@ type ActionRow = {
   action_type: string;
   target_player_id: string | null;
   target_player_id_2: string | null;
+  target_player_id_3: string | null;
   target_center_index: number | null;
   target_center_index_2: number | null;
   target_center_index_3: number | null;
@@ -129,6 +134,17 @@ type PhaseConfirmationRow = {
   game_id: string;
   player_id: string;
   phase: WolfGamePhase;
+};
+
+type NightTurnConfirmationSet = Set<string>;
+
+type NightTurnState = {
+  playerId: string;
+  playerName: string;
+  originalRole: WolfRole;
+  activeRole: WolfRole;
+  copiedRole: WolfRole | null;
+  isCopycatCopiedRole: boolean;
 };
 
 type DatabaseMutationError = {
@@ -215,7 +231,8 @@ export type WolfCenterRevealResult =
   | {
       ok: true;
       centerIndex: number;
-      role: WolfRole;
+      role: WolfRole | null;
+      isWerewolf: boolean | null;
       werewolfTeammates?: Array<{
         playerId: string;
         playerName: string;
@@ -226,9 +243,28 @@ export type WolfCenterRevealResult =
       error: string;
     };
 
+export type WolfPlayerRevealResult =
+  | {
+      ok: true;
+      playerId: string;
+      playerName: string;
+      role: WolfRole;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
 export type WolfCenterCardState = {
   index: number;
   role: WolfRole | null;
+  isWerewolf: boolean | null;
+};
+
+export type WolfPlayerRevealState = {
+  playerId: string;
+  playerName: string;
+  role: WolfRole;
 };
 
 export type WolfPlayPlayer = WolfLobbyPlayer & {
@@ -284,15 +320,20 @@ export type WolfPlayState = {
     playerName: string;
   }>;
   centerCards: WolfCenterCardState[];
+  playerReveals: WolfPlayerRevealState[];
   myAction: {
     actionType: string;
     targetPlayerId: string | null;
     targetPlayerId2: string | null;
+    targetPlayerId3: string | null;
     targetCenterIndex: number | null;
     targetCenterIndex2: number | null;
     targetCenterIndex3: number | null;
   } | null;
   myVoteTargetPlayerId: string | null;
+  activeNightTurn: NightTurnState | null;
+  isCurrentNightTurnActionSubmitted: boolean;
+  isNightTurnInProgress: boolean;
   isCurrentPlayerPhaseReady: boolean;
   phaseReadyPlayerIds: string[];
   nightReviewMessages: string[];
@@ -314,6 +355,7 @@ export type WolfNightActionInput = {
   actionType: string;
   targetPlayerId?: string | null;
   targetPlayerId2?: string | null;
+  targetPlayerId3?: string | null;
   targetCenterIndex?: number | null;
   targetCenterIndex2?: number | null;
   targetCenterIndex3?: number | null;
@@ -583,6 +625,341 @@ function getNightActionResolutionOrderText() {
     .join(" → ");
 }
 
+function getCopiedRoleFromAction(cards: CardRow[], action: ActionRow | null) {
+  if (!action || action.action_type !== "copycat" || !validateCenterIndex(action.target_center_index)) {
+    return null;
+  }
+
+  return getCenterCard(cards, action.target_center_index as number)?.original_role ?? null;
+}
+
+function getDoppelgangerCopiedRole(cards: CardRow[], action: ActionRow | null) {
+  if (!action || action.action_type !== "doppelganger" || !action.target_player_id) {
+    return null;
+  }
+
+  return getPlayerCard(cards, action.target_player_id)?.original_role ?? null;
+}
+
+function getCenterIsWerewolf(cards: CardRow[], centerIndex: number | null) {
+  if (!validateCenterIndex(centerIndex)) {
+    return null;
+  }
+
+  const centerCard = getCenterCard(cards, centerIndex as number);
+
+  return centerCard ? isWerewolfRole(centerCard.original_role) : null;
+}
+
+function getWolfCheckLabel(isWerewolf: boolean | null | undefined) {
+  return isWerewolf ? "Sói" : "Không phải Sói";
+}
+
+function isSeerCenterSubmissionComplete(
+  cards: CardRow[],
+  firstCenterIndex: number | null,
+  secondCenterIndex: number | null,
+  excludedCenterIndex: number | null = null
+) {
+  if (
+    !validateCenterIndex(firstCenterIndex) ||
+    firstCenterIndex === excludedCenterIndex
+  ) {
+    return false;
+  }
+
+  if (getCenterIsWerewolf(cards, firstCenterIndex as number)) {
+    return !validateCenterIndex(secondCenterIndex);
+  }
+
+  return Boolean(
+    validateCenterIndex(secondCenterIndex) &&
+      secondCenterIndex !== firstCenterIndex &&
+      secondCenterIndex !== excludedCenterIndex
+  );
+}
+
+function getSeerCenterIndexesForAction(
+  cards: CardRow[],
+  firstCenterIndex: number | null,
+  secondCenterIndex: number | null,
+  excludedCenterIndex: number | null = null
+) {
+  if (
+    !validateCenterIndex(firstCenterIndex) ||
+    firstCenterIndex === excludedCenterIndex
+  ) {
+    return [];
+  }
+
+  const firstIndex = firstCenterIndex as number;
+
+  if (getCenterIsWerewolf(cards, firstIndex)) {
+    return [firstIndex];
+  }
+
+  return validateCenterIndex(secondCenterIndex) &&
+    secondCenterIndex !== firstCenterIndex &&
+    secondCenterIndex !== excludedCenterIndex
+    ? [firstIndex, secondCenterIndex as number]
+    : [firstIndex];
+}
+
+function isDoppelgangerCopiedRoleComplete(copiedRole: WolfRole, action: ActionRow | null, cards: CardRow[]) {
+  if (!action?.target_player_id) {
+    return false;
+  }
+
+  if (
+    copiedRole === "villager" ||
+    copiedRole === "werewolf" ||
+    copiedRole === "insomniac" ||
+    copiedRole === "doppelganger" ||
+    copiedRole === "copycat"
+  ) {
+    return true;
+  }
+
+  if (copiedRole === "seer") {
+    return isSeerCenterSubmissionComplete(cards, action.target_center_index, action.target_center_index_2);
+  }
+
+  if (copiedRole === "werewolf_seer" || copiedRole === "robber") {
+    return Boolean(action.target_player_id_2);
+  }
+
+  if (copiedRole === "troublemaker") {
+    return Boolean(
+      action.target_player_id_2 &&
+        action.target_player_id_3 &&
+        action.target_player_id_2 !== action.target_player_id_3
+    );
+  }
+
+  if (copiedRole === "witch") {
+    return validateCenterIndex(action.target_center_index) && Boolean(action.target_player_id_2);
+  }
+
+  if (copiedRole === "drunk") {
+    return validateCenterIndex(action.target_center_index);
+  }
+
+  return true;
+}
+
+function isOriginalNightActionComplete(role: WolfRole, action: ActionRow | null, cards: CardRow[]) {
+  if (!action) {
+    return false;
+  }
+
+  if (role === "copycat") {
+    return validateCenterIndex(action.target_center_index);
+  }
+
+  if (role === "villager" || role === "werewolf" || role === "insomniac") {
+    return true;
+  }
+
+  if (role === "seer") {
+    return isSeerCenterSubmissionComplete(cards, action.target_center_index, action.target_center_index_2);
+  }
+
+  if (role === "werewolf_seer" || role === "robber") {
+    return Boolean(action.target_player_id);
+  }
+
+  if (role === "troublemaker") {
+    return Boolean(
+      action.target_player_id &&
+        action.target_player_id_2 &&
+        action.target_player_id !== action.target_player_id_2
+    );
+  }
+
+  if (role === "witch") {
+    return validateCenterIndex(action.target_center_index) && Boolean(action.target_player_id);
+  }
+
+  if (role === "drunk") {
+    return validateCenterIndex(action.target_center_index);
+  }
+
+  return true;
+}
+
+function isCopycatCopiedRoleComplete(copiedRole: WolfRole, action: ActionRow | null, cards: CardRow[]) {
+  if (!action || !validateCenterIndex(action.target_center_index)) {
+    return false;
+  }
+
+  if (copiedRole === "werewolf") {
+    return Boolean(action.target_player_id_2) || validateCenterIndex(action.target_center_index_2);
+  }
+
+  if (copiedRole === "seer") {
+    return isSeerCenterSubmissionComplete(
+      cards,
+      action.target_center_index_2,
+      action.target_center_index_3,
+      action.target_center_index
+    );
+  }
+
+  if (copiedRole === "werewolf_seer" || copiedRole === "robber") {
+    return Boolean(action.target_player_id);
+  }
+
+  if (copiedRole === "troublemaker") {
+    return Boolean(
+      action.target_player_id &&
+        action.target_player_id_2 &&
+        action.target_player_id !== action.target_player_id_2
+    );
+  }
+
+  if (copiedRole === "witch") {
+    return validateCenterIndex(action.target_center_index_2) && Boolean(action.target_player_id);
+  }
+
+  if (copiedRole === "drunk") {
+    return validateCenterIndex(action.target_center_index_2);
+  }
+
+  return true;
+}
+
+function needsCopycatCopiedRoleTurn(copiedRole: WolfRole | null) {
+  return Boolean(
+      copiedRole &&
+      copiedRole !== "copycat" &&
+      copiedRole !== "villager" &&
+      copiedRole !== "insomniac"
+  );
+}
+
+function isNightTurnActionSubmitted(activeNightTurn: NightTurnState | null, action: ActionRow | null, cards: CardRow[]) {
+  if (!activeNightTurn) {
+    return false;
+  }
+
+  return activeNightTurn.isCopycatCopiedRole
+    ? isCopycatCopiedRoleComplete(activeNightTurn.activeRole, action, cards)
+    : activeNightTurn.activeRole === "doppelganger" && activeNightTurn.copiedRole
+      ? isDoppelgangerCopiedRoleComplete(activeNightTurn.copiedRole, action, cards)
+    : isOriginalNightActionComplete(activeNightTurn.activeRole, action, cards);
+}
+
+function doesNightTurnRequireResultConfirmation(
+  activeNightTurn: NightTurnState,
+  action: ActionRow | null,
+  cards: CardRow[]
+) {
+  if (!isNightTurnActionSubmitted(activeNightTurn, action, cards)) {
+    return false;
+  }
+
+  if (activeNightTurn.activeRole === "robber") {
+    return true;
+  }
+
+  if (activeNightTurn.activeRole === "werewolf_seer") {
+    return Boolean(action?.target_player_id);
+  }
+
+  if (activeNightTurn.activeRole === "doppelganger" && activeNightTurn.copiedRole) {
+    if (activeNightTurn.copiedRole === "robber" || activeNightTurn.copiedRole === "insomniac") {
+      return true;
+    }
+
+    if (activeNightTurn.copiedRole === "werewolf_seer") {
+      return Boolean(action?.target_player_id_2);
+    }
+  }
+
+  return false;
+}
+
+function getActiveNightTurn(
+  players: PlayerRow[],
+  cards: CardRow[],
+  actions: ActionRow[],
+  confirmedNightPlayerIds: NightTurnConfirmationSet = new Set()
+) {
+  const actionByPlayerId = new Map(actions.map((action) => [action.player_id, action]));
+  const playerCardById = new Map(
+    cards.filter((card) => card.player_id).map((card) => [card.player_id as string, card])
+  );
+
+  for (const role of ROLE_RESOLUTION_ORDER) {
+    for (const player of players) {
+      const card = playerCardById.get(player.id);
+
+      if (!card) {
+        continue;
+      }
+
+      const action = actionByPlayerId.get(player.id) ?? null;
+      const isNightResultConfirmed = confirmedNightPlayerIds.has(player.id);
+
+      if (card.original_role === "doppelganger") {
+        const copiedRole = getDoppelgangerCopiedRole(cards, action);
+        const isDoppelgangerComplete = copiedRole
+          ? isDoppelgangerCopiedRoleComplete(copiedRole, action, cards)
+          : false;
+
+        if (!isDoppelgangerComplete || !isNightResultConfirmed) {
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            originalRole: card.original_role,
+            activeRole: "doppelganger" as const,
+            copiedRole,
+            isCopycatCopiedRole: false,
+          };
+        }
+      }
+
+      if (
+        card.original_role === role &&
+        card.original_role !== "doppelganger" &&
+        (!isOriginalNightActionComplete(role, action, cards) || !isNightResultConfirmed)
+      ) {
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          originalRole: card.original_role,
+          activeRole: role,
+          copiedRole: null,
+          isCopycatCopiedRole: false,
+        };
+      }
+
+      if (card.original_role !== "copycat") {
+        continue;
+      }
+
+      const copiedRole = getCopiedRoleFromAction(cards, action);
+
+      if (
+        copiedRole === role &&
+        needsCopycatCopiedRoleTurn(copiedRole) &&
+        (!isCopycatCopiedRoleComplete(copiedRole, action, cards) || !isNightResultConfirmed)
+      ) {
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          originalRole: card.original_role,
+          activeRole: copiedRole,
+          copiedRole,
+          isCopycatCopiedRole: true,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 function getCenterCard(cards: CardRow[], centerIndex: number) {
   return cards.find((card) => card.center_index === centerIndex) ?? null;
 }
@@ -602,6 +979,15 @@ function getRoleByPlayerIdAfterCopycat(cards: CardRow[], actions: ActionRow[]) {
       .filter((card) => card.player_id)
       .map((card) => [card.player_id as string, card.original_role])
   );
+
+  for (const card of cards.filter((card) => card.player_id && card.original_role === "doppelganger")) {
+    const action = actionByPlayerId.get(card.player_id as string);
+    const copiedRole = getDoppelgangerCopiedRole(cards, action ?? null);
+
+    if (copiedRole) {
+      roleByPlayerId.set(card.player_id as string, copiedRole);
+    }
+  }
 
   for (const card of cards.filter((card) => card.player_id && card.original_role === "copycat")) {
     const action = actionByPlayerId.get(card.player_id as string);
@@ -642,23 +1028,13 @@ function buildNightReviewMessages(
   }
 
   if (action.action_type === "seer") {
-    if (action.target_player_id) {
-      const targetCard = getPlayerCard(cards, action.target_player_id);
-
-      return [
-        `Bạn đã soi ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
-          targetCard?.original_role
-        )}.`,
-      ];
-    }
-
-    const centerIndexes = [action.target_center_index, action.target_center_index_2].filter(
-      validateCenterIndex
-    ) as number[];
+    const centerIndexes = getSeerCenterIndexesForAction(
+      cards,
+      action.target_center_index,
+      action.target_center_index_2
+    );
     const revealedCards = centerIndexes.map((centerIndex) => {
-      const centerCard = getCenterCard(cards, centerIndex);
-
-      return `Lá giữa ${centerIndex + 1}: ${getRoleReviewLabel(centerCard?.original_role)}`;
+      return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
     });
 
     return revealedCards.length > 0 ? [`Bạn đã soi ${revealedCards.join(", ")}.`] : ["Bạn chưa chọn lá để soi."];
@@ -741,8 +1117,13 @@ function buildNightReviewMessages(
 
   if (action.action_type === "insomniac") {
     const myCard = getPlayerCard(cards, currentPlayer.id);
+    const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
 
-    return [`Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(myCard?.current_role)}.`];
+    return [
+      `Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(
+        myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null
+      )}.`,
+    ];
   }
 
   if (action.action_type === "copycat") {
@@ -765,6 +1146,22 @@ function buildNightReviewMessages(
       ];
     }
 
+    if (copiedCard?.original_role === "seer") {
+      const centerIndexes = getSeerCenterIndexesForAction(
+        cards,
+        action.target_center_index_2,
+        action.target_center_index_3,
+        action.target_center_index
+      );
+      const revealedCards = centerIndexes.map((centerIndex) => {
+        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+      });
+
+      return [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã soi ${revealedCards.join(", ")}.`,
+      ];
+    }
+
     if (copiedCard?.original_role === "robber" && action.target_player_id) {
       const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
       const revealedRole = immediateRoleRevealByPlayerId.get(currentPlayer.id);
@@ -777,6 +1174,62 @@ function buildNightReviewMessages(
     }
 
     return [`Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}.`];
+  }
+
+  if (action.action_type === "doppelganger") {
+    const copiedRole = getDoppelgangerCopiedRole(cards, action);
+
+    if (!copiedRole) {
+      return ["Nhân Bản chưa chọn người chơi để copy."];
+    }
+
+    if (copiedRole === "robber" && action.target_player_id_2) {
+      const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
+      const revealedRole = immediateRoleRevealByPlayerId.get(currentPlayer.id);
+
+      return [
+        `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)} (${getRoleReviewLabel(
+          copiedRole
+        )}) và đổi bài với ${getPlayerName(players, action.target_player_id_2)}. Bài bạn nhận được lúc đổi là ${getRoleReviewLabel(
+          revealedRole
+        )}.`,
+      ];
+    }
+
+    if (copiedRole === "seer") {
+      const centerIndexes = getSeerCenterIndexesForAction(
+        cards,
+        action.target_center_index,
+        action.target_center_index_2
+      );
+      const revealedCards = centerIndexes.map((centerIndex) => {
+        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+      });
+
+      return [
+        `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)} (${getRoleReviewLabel(
+          copiedRole
+        )}) và soi ${revealedCards.join(", ")}.`,
+      ];
+    }
+
+    if (copiedRole === "werewolf_seer" && action.target_player_id_2) {
+      const targetCard = getPlayerCard(cards, action.target_player_id_2);
+
+      return [
+        `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)} (${getRoleReviewLabel(
+          copiedRole
+        )}) và soi ${getPlayerName(players, action.target_player_id_2)}: ${getRoleReviewLabel(
+          targetCard?.original_role
+        )}.`,
+      ];
+    }
+
+    return [
+      `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
+        copiedRole
+      )}.`,
+    ];
   }
 
   return ["Vai trò của bạn không có quyền xem thêm kết quả ban đêm."];
@@ -794,7 +1247,10 @@ function getNightReviewRole(
   }
 
   if (action.action_type === "insomniac") {
-    return getPlayerCard(cards, currentPlayer.id)?.current_role ?? null;
+    const myCard = getPlayerCard(cards, currentPlayer.id);
+    const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+    return myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null;
   }
 
   if (action.action_type === "robber") {
@@ -811,11 +1267,102 @@ function getNightReviewRole(
     }
   }
 
+  if (action.action_type === "doppelganger") {
+    const copiedRole = getDoppelgangerCopiedRole(cards, action);
+
+    if (copiedRole === "robber") {
+      const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
+      return immediateRoleRevealByPlayerId.get(currentPlayer.id) ?? null;
+    }
+
+    if (copiedRole === "insomniac") {
+      return getInsomniacCurrentRole(currentPlayer, cards, actions, players);
+    }
+  }
+
   return null;
 }
 
+function getInsomniacCurrentRole(currentPlayer: PlayerRow | null, cards: CardRow[], actions: ActionRow[], players: PlayerRow[]) {
+  if (!currentPlayer) {
+    return null;
+  }
+
+  const myCard = getPlayerCard(cards, currentPlayer.id);
+  const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+  return myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null;
+}
+
+function buildPlayerReveals(
+  currentPlayer: PlayerRow | null,
+  action: ActionRow | null,
+  cards: CardRow[],
+  players: PlayerRow[]
+): WolfPlayerRevealState[] {
+  if (!currentPlayer || !action?.target_player_id) {
+    return [];
+  }
+
+  if (action.action_type === "doppelganger") {
+    const copiedRole = getDoppelgangerCopiedRole(cards, action);
+    const clonedCard = getPlayerCard(cards, action.target_player_id);
+    const reveals: WolfPlayerRevealState[] = clonedCard?.player_id
+      ? [
+          {
+            playerId: clonedCard.player_id,
+            playerName: getPlayerName(players, clonedCard.player_id),
+            role: clonedCard.original_role,
+          },
+        ]
+      : [];
+
+    if (
+      copiedRole === "werewolf_seer" &&
+      action.target_player_id_2
+    ) {
+      const targetCard = getPlayerCard(cards, action.target_player_id_2);
+
+      if (targetCard?.player_id) {
+        reveals.push({
+          playerId: targetCard.player_id,
+          playerName: getPlayerName(players, targetCard.player_id),
+          role: targetCard.original_role,
+        });
+      }
+    }
+
+    return reveals;
+  }
+
+  let shouldRevealTargetRole = action.action_type === "werewolf_seer";
+
+  if (action.action_type === "copycat" && validateCenterIndex(action.target_center_index)) {
+    const copiedCard = getCenterCard(cards, action.target_center_index as number);
+    shouldRevealTargetRole = copiedCard?.original_role === "werewolf_seer";
+  }
+
+  if (!shouldRevealTargetRole) {
+    return [];
+  }
+
+  const targetCard = getPlayerCard(cards, action.target_player_id);
+
+  if (!targetCard?.player_id) {
+    return [];
+  }
+
+  return [
+    {
+      playerId: targetCard.player_id,
+      playerName: getPlayerName(players, targetCard.player_id),
+      role: targetCard.original_role,
+    },
+  ];
+}
+
 function isConfirmablePhase(phase: WolfGamePhase) {
-  return phase === "card_reveal" || phase === "night_review" || phase === "discussion";
+  return phase === "card_reveal" || phase === "night" || phase === "night_review" || phase === "discussion";
 }
 
 async function getPhaseConfirmations(
@@ -858,15 +1405,25 @@ async function maybeAutoAdvancePhase(
   if (phase === "night") {
     const { data: actionsData } = await supabase
       .from("wolf_game_actions")
-      .select("player_id")
+      .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
       .eq("game_id", room.current_game_id);
-    const actionPlayerIds = new Set((actionsData ?? []).map((action) => action.player_id));
+    const { data: cardsData } = await supabase
+      .from("wolf_game_cards")
+      .select("id, game_id, player_id, center_index, original_role, current_role")
+      .eq("game_id", room.current_game_id);
+    const actions = (actionsData ?? []) as ActionRow[];
+    const cards = (cardsData ?? []) as CardRow[];
+    const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
+    const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
 
-    if (players.every((player) => actionPlayerIds.has(player.id))) {
+    if (!getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds)) {
       await resolveNightActions(room.current_game_id);
       await supabase
         .from("wolf_game_sessions")
-        .update({ phase: "night_review" })
+        .update({
+          phase: "discussion",
+          discussion_ends_at: new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+        })
         .eq("id", room.current_game_id);
     }
 
@@ -1053,6 +1610,119 @@ function simulateNightResolution(
         ? action.target_center_index_3
         : action.target_center_index_2;
 
+      if (role === "doppelganger" && action.target_player_id) {
+        const actorName = getPlayerName(players, card.player_id);
+        const copiedRole = getDoppelgangerCopiedRole(cards, action);
+        const copiedTargetName = getPlayerName(players, action.target_player_id);
+
+        if (!copiedRole) {
+          continue;
+        }
+
+        steps.push({
+          id: `${role}-${card.player_id}-${stepNumber}`,
+          title: getActionTitle(actorName),
+          logText: `${actorName} (${actorRoleLabel}) nhân bản ${copiedTargetName} (${getRoleReviewLabel(copiedRole)})`,
+          description: `${actorName} xem chức năng của ${copiedTargetName}, trở thành ${getRoleReviewLabel(copiedRole)} và thực hiện chức năng đó ngay trong lượt Nhân Bản.`,
+        });
+        stepNumber += 1;
+        assignRole(card, copiedRole);
+
+        const copiedPrimaryTargetId = action.target_player_id_2;
+        const copiedSecondaryTargetId = action.target_player_id_3;
+
+        if (copiedRole === "robber" && copiedPrimaryTargetId) {
+          const targetCard = getPlayerCard(cards, copiedPrimaryTargetId);
+
+          if (targetCard) {
+            const targetName = getCardHolderLabel(targetCard, players);
+            const targetRoleBefore = roleOfCard(targetCard);
+            const targetRevealRole =
+              targetCard.original_role === "doppelganger" || targetCard.original_role === "copycat"
+                ? targetCard.original_role
+                : targetRoleBefore;
+
+            steps.push({
+              id: `${role}-${card.player_id}-${stepNumber}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.robber}) đổi bài với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
+              description: `${actorName} nhân bản Kẻ Trộm và đổi bài với ${targetName}.`,
+            });
+            stepNumber += 1;
+            immediateRoleRevealByPlayerId.set(card.player_id as string, targetRevealRole);
+            swapCards(card, targetCard);
+          }
+        }
+
+        if (copiedRole === "troublemaker" && copiedPrimaryTargetId && copiedSecondaryTargetId) {
+          const firstTargetCard = getPlayerCard(cards, copiedPrimaryTargetId);
+          const secondTargetCard = getPlayerCard(cards, copiedSecondaryTargetId);
+
+          if (firstTargetCard && secondTargetCard) {
+            const firstTargetName = getCardHolderLabel(firstTargetCard, players);
+            const secondTargetName = getCardHolderLabel(secondTargetCard, players);
+            const firstRoleBefore = roleOfCard(firstTargetCard);
+            const secondRoleBefore = roleOfCard(secondTargetCard);
+
+            steps.push({
+              id: `${role}-${card.player_id}-${stepNumber}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.troublemaker}) đổi bài của ${firstTargetName} (${getRoleReviewLabel(firstRoleBefore)}) với ${secondTargetName} (${getRoleReviewLabel(secondRoleBefore)})`,
+              description: `${actorName} nhân bản Kẻ Gây Rối và đổi chỗ hai lá này ngay trong lượt Nhân Bản.`,
+            });
+            stepNumber += 1;
+            swapCards(firstTargetCard, secondTargetCard);
+          }
+        }
+
+        if (copiedRole === "witch" && validateCenterIndex(action.target_center_index) && copiedPrimaryTargetId) {
+          const centerCard = getCenterCard(cards, action.target_center_index as number);
+          const targetCard = getPlayerCard(cards, copiedPrimaryTargetId);
+
+          if (centerCard && targetCard) {
+            const centerRoleBefore = roleOfCard(centerCard);
+
+            steps.push({
+              id: `${role}-${card.player_id}-${stepNumber}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.witch}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} cho ${getCardHolderLabel(targetCard, players)}`,
+              description: `${actorName} nhân bản Phù Thuỷ, mở một lá giữa bàn và gán chức năng đó ngay trong lượt Nhân Bản.`,
+            });
+            stepNumber += 1;
+            assignRole(targetCard, centerRoleBefore);
+          }
+        }
+
+        if (copiedRole === "drunk" && validateCenterIndex(action.target_center_index)) {
+          const centerCard = getCenterCard(cards, action.target_center_index as number);
+
+          if (centerCard) {
+            steps.push({
+              id: `${role}-${card.player_id}-${stepNumber}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.drunk}) đổi bài với ${getCardHolderLabel(centerCard, players)}`,
+              description: `${actorName} nhân bản Say Rượu và đổi bài với lá giữa đã chọn nhưng không xem lá mới.`,
+            });
+            stepNumber += 1;
+            swapCards(card, centerCard);
+          }
+        }
+
+        if (copiedRole === "insomniac") {
+          const currentRole = roleOfCard(card);
+
+          steps.push({
+            id: `${role}-${card.player_id}-${stepNumber}`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.insomniac}) xem bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
+            description: `${actorName} nhân bản Mất Ngủ và biết lá mình đang giữ ngay trong lượt Nhân Bản.`,
+          });
+          stepNumber += 1;
+        }
+
+        continue;
+      }
+
       if (role === "werewolf") {
         const actorName = getPlayerName(players, card.player_id);
         const werewolfTeammateNames = cards
@@ -1109,37 +1779,21 @@ function simulateNightResolution(
 
       if (role === "seer") {
         const actorName = getPlayerName(players, card.player_id);
+        const centerIndexes = getSeerCenterIndexesForAction(cards, primaryCenterIndex, secondaryCenterIndex);
+        const revealedCenters = centerIndexes.map((centerIndex) => {
+          const centerCard = getCenterCard(cards, centerIndex);
 
-        if (action.target_player_id) {
-          const targetCard = getPlayerCard(cards, action.target_player_id);
-          const targetName = getPlayerName(players, action.target_player_id);
+          return `${getCardHolderLabel(centerCard, players)} (${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))})`;
+        });
 
+        if (revealedCenters.length > 0) {
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
             title: getActionTitle(actorName),
-            logText: `${actorName} (${actorRoleLabel}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
-            description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
+            logText: `${actorName} (${actorRoleLabel}) soi ${revealedCenters.join(" và ")}`,
+            description: `${actorName} kiểm tra các lá giữa đã chọn là Sói hay không phải Sói. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
           });
           stepNumber += 1;
-        } else {
-          const centerIndexes = [primaryCenterIndex, secondaryCenterIndex].filter(
-            validateCenterIndex
-          ) as number[];
-          const revealedCenters = centerIndexes.map((centerIndex) => {
-            const centerCard = getCenterCard(cards, centerIndex);
-
-            return `${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard?.original_role)})`;
-          });
-
-          if (revealedCenters.length > 0) {
-            steps.push({
-              id: `${role}-${card.player_id}-${stepNumber}`,
-              title: getActionTitle(actorName),
-              logText: `${actorName} (${actorRoleLabel}) soi ${revealedCenters.join(" và ")}`,
-              description: `${actorName} xem các lá giữa đã chọn. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
-            });
-            stepNumber += 1;
-          }
         }
       }
 
@@ -1177,6 +1831,10 @@ function simulateNightResolution(
         const targetName = getCardHolderLabel(targetCard, players);
         const actorRoleBefore = roleOfCard(card);
         const targetRoleBefore = roleOfCard(targetCard);
+        const targetRevealRole =
+          targetCard.original_role === "doppelganger" || targetCard.original_role === "copycat"
+            ? targetCard.original_role
+            : targetRoleBefore;
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
@@ -1185,7 +1843,7 @@ function simulateNightResolution(
           description: `Trước bước này, ${actorName} đang giữ lá ${getRoleReviewLabel(actorRoleBefore)} và ${targetName} đang giữ lá ${getRoleReviewLabel(targetRoleBefore)}. ${actorName} đổi bài với ${targetName}: lá ${getRoleReviewLabel(actorRoleBefore)} chuyển sang ${targetName}, còn lá ${getRoleReviewLabel(targetRoleBefore)} chuyển sang ${actorName}.`,
         });
         stepNumber += 1;
-        immediateRoleRevealByPlayerId.set(card.player_id as string, targetRoleBefore);
+        immediateRoleRevealByPlayerId.set(card.player_id as string, targetRevealRole);
         swapCards(card, targetCard);
       }
 
@@ -1297,7 +1955,7 @@ async function resolveNightActions(gameId: string) {
     .eq("game_id", gameId);
   const { data: actionsData } = await supabase
     .from("wolf_game_actions")
-    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", gameId);
 
   const cards = (cardsData ?? []) as CardRow[];
@@ -1902,7 +2560,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     .eq("game_id", game.id);
   const { data: actionsData } = await supabase
     .from("wolf_game_actions")
-    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", game.id);
   const { data: votesData } = await supabase
     .from("wolf_game_votes")
@@ -1950,23 +2608,30 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   const votePlayerIds = new Set(votes.map((vote) => vote.voter_player_id));
   const phaseReadyPlayerIds = phaseConfirmations.map((confirmation) => confirmation.player_id);
   const phaseReadyPlayerIdSet = new Set(phaseReadyPlayerIds);
+  const activeNightTurn =
+    game.phase === "night" ? getActiveNightTurn(players, cards, actions, phaseReadyPlayerIdSet) : null;
   const playerCardsById = new Map(
     cards
       .filter((card) => card.player_id)
       .map((card) => [card.player_id as string, card])
   );
   const shouldRevealMyCurrentRole = shouldRevealAll;
+  const shouldRevealInsomniacCurrentRole =
+    game.phase === "night" &&
+    currentPlayer &&
+    activeNightTurn?.playerId === currentPlayer.id &&
+    activeNightTurn.activeRole === "insomniac";
   const revealedCenterIndexes = new Set<number>();
+  const seerWolfCheckCenterIndexes = new Set<number>();
 
   if (myAction?.action_type === "seer") {
-    if (validateCenterIndex(myAction.target_center_index)) {
-      revealedCenterIndexes.add(myAction.target_center_index as number);
-    }
-    if (validateCenterIndex(myAction.target_center_index_2)) {
-      revealedCenterIndexes.add(myAction.target_center_index_2 as number);
-    }
-    if (validateCenterIndex(myAction.target_center_index_3)) {
-      revealedCenterIndexes.add(myAction.target_center_index_3 as number);
+    for (const centerIndex of getSeerCenterIndexesForAction(
+      cards,
+      myAction.target_center_index,
+      myAction.target_center_index_2
+    )) {
+      revealedCenterIndexes.add(centerIndex);
+      seerWolfCheckCenterIndexes.add(centerIndex);
     }
   }
 
@@ -1975,12 +2640,49 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     validateCenterIndex(myAction.target_center_index)
   ) {
     revealedCenterIndexes.add(myAction.target_center_index as number);
+    const copiedCard = getCenterCard(cards, myAction.target_center_index as number);
 
-    if (validateCenterIndex(myAction.target_center_index_2)) {
-      revealedCenterIndexes.add(myAction.target_center_index_2 as number);
+    if (copiedCard?.original_role === "seer") {
+      for (const centerIndex of getSeerCenterIndexesForAction(
+        cards,
+        myAction.target_center_index_2,
+        myAction.target_center_index_3,
+        myAction.target_center_index
+      )) {
+        revealedCenterIndexes.add(centerIndex);
+        seerWolfCheckCenterIndexes.add(centerIndex);
+      }
+    } else {
+      if (validateCenterIndex(myAction.target_center_index_2)) {
+        revealedCenterIndexes.add(myAction.target_center_index_2 as number);
+      }
+      if (validateCenterIndex(myAction.target_center_index_3)) {
+        revealedCenterIndexes.add(myAction.target_center_index_3 as number);
+      }
     }
-    if (validateCenterIndex(myAction.target_center_index_3)) {
-      revealedCenterIndexes.add(myAction.target_center_index_3 as number);
+  }
+
+  if (myAction?.action_type === "doppelganger") {
+    const copiedRole = getDoppelgangerCopiedRole(cards, myAction);
+
+    if (copiedRole === "seer") {
+      for (const centerIndex of getSeerCenterIndexesForAction(
+        cards,
+        myAction.target_center_index,
+        myAction.target_center_index_2
+      )) {
+        revealedCenterIndexes.add(centerIndex);
+        seerWolfCheckCenterIndexes.add(centerIndex);
+      }
+    } else if (copiedRole !== "copycat" && validateCenterIndex(myAction.target_center_index)) {
+      revealedCenterIndexes.add(myAction.target_center_index as number);
+
+      if (validateCenterIndex(myAction.target_center_index_2)) {
+        revealedCenterIndexes.add(myAction.target_center_index_2 as number);
+      }
+      if (validateCenterIndex(myAction.target_center_index_3)) {
+        revealedCenterIndexes.add(myAction.target_center_index_3 as number);
+      }
     }
   }
 
@@ -2026,7 +2728,9 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
           originalRole: myCard.original_role,
           currentRole: shouldRevealMyCurrentRole ? myCard.current_role : null,
           nightReviewRole:
-            game.phase === "night_review"
+            shouldRevealInsomniacCurrentRole
+              ? getInsomniacCurrentRole(currentPlayer, cards, actions, players)
+              : game.phase === "night" || game.phase === "night_review"
               ? getNightReviewRole(currentPlayer, myAction, cards, players, actions)
               : null,
         }
@@ -2034,26 +2738,45 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     werewolfTeammates,
     centerCards: [0, 1, 2].map((index) => {
       const centerCard = getCenterCard(cards, index);
+      const isSeerWolfCheck = seerWolfCheckCenterIndexes.has(index);
       return {
         index,
-        role: shouldRevealAll || revealedCenterIndexes.has(index) ? centerCard?.original_role ?? null : null,
+        role:
+          (shouldRevealAll || (revealedCenterIndexes.has(index) && !isSeerWolfCheck))
+            ? centerCard?.original_role ?? null
+            : null,
+        isWerewolf:
+          !shouldRevealAll && isSeerWolfCheck
+            ? getCenterIsWerewolf(cards, index)
+            : null,
       };
     }),
+    playerReveals: shouldRevealAll ? [] : buildPlayerReveals(currentPlayer, myAction, cards, players),
     myAction: myAction
       ? {
           actionType: myAction.action_type,
           targetPlayerId: myAction.target_player_id,
           targetPlayerId2: myAction.target_player_id_2,
+          targetPlayerId3: myAction.target_player_id_3,
           targetCenterIndex: myAction.target_center_index,
           targetCenterIndex2: myAction.target_center_index_2,
           targetCenterIndex3: myAction.target_center_index_3,
         }
       : null,
     myVoteTargetPlayerId: myVote?.target_player_id ?? null,
+    activeNightTurn:
+      currentPlayer && activeNightTurn?.playerId === currentPlayer.id
+        ? activeNightTurn
+        : null,
+    isCurrentNightTurnActionSubmitted:
+      currentPlayer && activeNightTurn?.playerId === currentPlayer.id
+        ? isNightTurnActionSubmitted(activeNightTurn, myAction, cards)
+        : false,
+    isNightTurnInProgress: Boolean(activeNightTurn),
     isCurrentPlayerPhaseReady: currentPlayer ? phaseReadyPlayerIdSet.has(currentPlayer.id) : false,
     phaseReadyPlayerIds,
     nightReviewMessages: buildNightReviewMessages(currentPlayer, myAction, cards, players, actions),
-    allNightActionsSubmitted: players.every((player) => actionPlayerIds.has(player.id)),
+    allNightActionsSubmitted: game.phase === "night" ? !activeNightTurn : players.every((player) => actionPlayerIds.has(player.id)),
     allVotesSubmitted: players.every((player) => voteByVoterId.has(player.id)),
     allPhaseConfirmationsSubmitted:
       isConfirmablePhase(game.phase) && players.every((player) => phaseReadyPlayerIdSet.has(player.id)),
@@ -2078,7 +2801,9 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
 export async function revealWolfCenterCard(
   roomCode: string,
-  centerIndex: number
+  centerIndex: number,
+  revealAsRole?: WolfRole | null,
+  doppelgangerTargetPlayerId?: string | null
 ): Promise<WolfCenterRevealResult> {
   const state = await getWolfPlayState(roomCode);
   const sessionId = await getPlayerSessionId();
@@ -2114,18 +2839,48 @@ export async function revealWolfCenterCard(
     .eq("game_id", room.current_game_id);
   const { data: actionsData } = await supabase
     .from("wolf_game_actions")
-    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const cards = (cardsData ?? []) as CardRow[];
   const actions = (actionsData ?? []) as ActionRow[];
+  const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
+  const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
   const myCard = getPlayerCard(cards, currentPlayer.id);
   const myRole = myCard?.original_role;
+  const activeNightTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+
+  if (!activeNightTurn || activeNightTurn.playerId !== currentPlayer.id) {
+    return { ok: false, error: "Chưa tới lượt của bạn." };
+  }
+
+  const activeRole = activeNightTurn.activeRole;
+  const doppelgangerTargetRole =
+    activeRole === "doppelganger" && doppelgangerTargetPlayerId
+      ? getPlayerCard(cards, doppelgangerTargetPlayerId)?.original_role ?? null
+      : null;
+  const doppelgangerCopiedRole =
+    activeRole === "doppelganger" ? activeNightTurn.copiedRole ?? doppelgangerTargetRole : null;
+
+  if (
+    activeRole === "doppelganger" &&
+    revealAsRole &&
+    doppelgangerCopiedRole !== revealAsRole
+  ) {
+    return { ok: false, error: "Chức năng Nhân Bản không khớp với người chơi đã chọn." };
+  }
+
+  const revealAsSeer = activeRole === "seer" || doppelgangerCopiedRole === "seer";
   const werewolfCount = getWerewolfPlayerIdsAfterCopycat(cards, actions).length;
   const canRevealCenter =
-    myRole === "seer" ||
-    myRole === "witch" ||
-    myRole === "copycat" ||
-    (myRole === "werewolf" && werewolfCount === 1);
+    (activeRole === "doppelganger" &&
+      (doppelgangerCopiedRole === "seer" ||
+        doppelgangerCopiedRole === "witch" ||
+        doppelgangerCopiedRole === "drunk")) ||
+    activeRole === "seer" ||
+    activeRole === "witch" ||
+    activeRole === "drunk" ||
+    activeRole === "copycat" ||
+    (activeRole === "werewolf" && werewolfCount === 1);
 
   if (!canRevealCenter) {
     return { ok: false, error: "Vai trò của bạn không được xem lá giữa bàn lúc này." };
@@ -2144,16 +2899,17 @@ export async function revealWolfCenterCard(
     action_type: "copycat",
     target_player_id: null,
     target_player_id_2: null,
+    target_player_id_3: null,
     target_center_index: centerIndex,
     target_center_index_2: null,
     target_center_index_3: null,
   } satisfies ActionRow;
   const actionsWithCurrentReveal =
-    myRole === "copycat"
+    myRole === "copycat" && activeRole === "copycat"
       ? [...actions.filter((action) => action.player_id !== currentPlayer.id), actionAsCopycat]
       : actions;
   const werewolfTeammates =
-    myRole === "copycat" && isWerewolfRole(centerCard.original_role)
+    myRole === "copycat" && activeRole === "copycat" && isWerewolfRole(centerCard.original_role)
       ? getWerewolfPlayerIdsAfterCopycat(cards, actionsWithCurrentReveal)
           .filter((playerId) => playerId !== currentPlayer.id)
           .map((playerId) => ({
@@ -2165,8 +2921,80 @@ export async function revealWolfCenterCard(
   return {
     ok: true,
     centerIndex,
-    role: centerCard.original_role,
+    role: revealAsSeer ? null : centerCard.original_role,
+    isWerewolf: revealAsSeer ? isWerewolfRole(centerCard.original_role) : null,
     werewolfTeammates,
+  };
+}
+
+export async function revealWolfPlayerCard(
+  roomCode: string,
+  targetPlayerId: string
+): Promise<WolfPlayerRevealResult> {
+  const state = await getWolfPlayState(roomCode);
+  const sessionId = await getPlayerSessionId();
+
+  if (!state || !sessionId) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  if (state.game.phase !== "night") {
+    return { ok: false, error: "Chỉ được nhân bản trong giai đoạn ban đêm." };
+  }
+
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  if (targetPlayerId === currentPlayer.id || !players.some((player) => player.id === targetPlayerId)) {
+    return { ok: false, error: "Người chơi được chọn không hợp lệ." };
+  }
+
+  const { data: cardsData } = await supabase
+    .from("wolf_game_cards")
+    .select("id, game_id, player_id, center_index, original_role, current_role")
+    .eq("game_id", room.current_game_id);
+  const { data: actionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
+    .eq("game_id", room.current_game_id);
+  const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
+  const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
+  const cards = (cardsData ?? []) as CardRow[];
+  const actions = (actionsData ?? []) as ActionRow[];
+  const activeNightTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+  const myCard = getPlayerCard(cards, currentPlayer.id);
+
+  if (
+    !myCard ||
+    myCard.original_role !== "doppelganger" ||
+    !activeNightTurn ||
+    activeNightTurn.playerId !== currentPlayer.id ||
+    activeNightTurn.activeRole !== "doppelganger"
+  ) {
+    return { ok: false, error: "Chưa tới lượt Nhân Bản của bạn." };
+  }
+
+  const targetCard = getPlayerCard(cards, targetPlayerId);
+
+  if (!targetCard) {
+    return { ok: false, error: "Không tìm thấy bài của người chơi đã chọn." };
+  }
+
+  return {
+    ok: true,
+    playerId: targetPlayerId,
+    playerName: getPlayerName(players, targetPlayerId),
+    role: targetCard.original_role,
   };
 }
 
@@ -2211,16 +3039,37 @@ export async function submitWolfNightAction(
     .eq("game_id", room.current_game_id);
   const { data: gameActionsData } = await supabase
     .from("wolf_game_actions")
-    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_center_index, target_center_index_2, target_center_index_3")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const gameCards = (gameCardsData ?? []) as CardRow[];
   const gameActions = (gameActionsData ?? []) as ActionRow[];
+  const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
+  const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
+  const activeNightTurn = getActiveNightTurn(players, gameCards, gameActions, confirmedNightPlayerIds);
+  const existingAction = gameActions.find((action) => action.player_id === currentPlayer.id) ?? null;
 
   if (!originalRole || input.actionType !== originalRole) {
     return { ok: false, error: "Hành động không khớp với vai trò của bạn." };
   }
 
-  const targetPlayerIds = [input.targetPlayerId, input.targetPlayerId2].filter(Boolean) as string[];
+  if (!activeNightTurn || activeNightTurn.playerId !== currentPlayer.id) {
+    return { ok: false, error: "Chưa tới lượt của bạn." };
+  }
+
+  if (originalRole !== "copycat" && activeNightTurn.activeRole !== originalRole) {
+    return { ok: false, error: "Chưa tới lượt vai trò của bạn." };
+  }
+
+  const isCopycatCopyTurn = originalRole === "copycat" && activeNightTurn.activeRole === "copycat";
+  const isCopycatCopiedRoleTurn = originalRole === "copycat" && activeNightTurn.isCopycatCopiedRole;
+  const savedTargetCenterIndex =
+    isCopycatCopiedRoleTurn && validateCenterIndex(existingAction?.target_center_index)
+      ? existingAction?.target_center_index
+      : input.targetCenterIndex;
+
+  const targetPlayerIds = [input.targetPlayerId, input.targetPlayerId2, input.targetPlayerId3].filter(
+    Boolean
+  ) as string[];
   const activePlayerIds = new Set(players.map((player) => player.id));
   const otherPlayerIds = new Set(
     players.filter((player) => player.id !== currentPlayer.id).map((player) => player.id)
@@ -2228,6 +3077,10 @@ export async function submitWolfNightAction(
 
   if (targetPlayerIds.some((playerId) => !activePlayerIds.has(playerId))) {
     return { ok: false, error: "Người chơi được chọn không hợp lệ." };
+  }
+
+  if (isCopycatCopyTurn && !validateCenterIndex(input.targetCenterIndex)) {
+    return { ok: false, error: "Copy Cat phải chọn một lá giữa bàn để copy." };
   }
 
   if (originalRole === "robber" && (!input.targetPlayerId || !otherPlayerIds.has(input.targetPlayerId))) {
@@ -2265,21 +3118,83 @@ export async function submitWolfNightAction(
     }
   }
 
-  if (originalRole === "seer") {
-    const isViewingPlayer = Boolean(input.targetPlayerId);
-    const isViewingCenter = input.targetCenterIndex != null || input.targetCenterIndex2 != null;
+  if (originalRole === "doppelganger") {
+    if (!input.targetPlayerId || !otherPlayerIds.has(input.targetPlayerId)) {
+      return { ok: false, error: "Nhân Bản phải chọn một người chơi khác để copy." };
+    }
 
-    if (isViewingPlayer && isViewingCenter) {
-      return { ok: false, error: "Tiên Tri chỉ được chọn xem một người chơi hoặc hai lá giữa bàn." };
+    const copiedCard = getPlayerCard(gameCards, input.targetPlayerId);
+    const copiedRole = copiedCard?.original_role;
+
+    if (!copiedRole) {
+      return { ok: false, error: "Không tìm thấy chức năng của người chơi được nhân bản." };
     }
 
     if (
-      !isViewingPlayer &&
-      (!validateCenterIndex(input.targetCenterIndex) ||
-        !validateCenterIndex(input.targetCenterIndex2) ||
-        input.targetCenterIndex === input.targetCenterIndex2)
+      copiedRole === "seer" &&
+      Boolean(input.targetPlayerId2)
     ) {
-      return { ok: false, error: "Tiên Tri phải chọn một người chơi hoặc hai lá giữa bàn." };
+      return { ok: false, error: "Nhân Bản copy Tiên Tri chỉ được chọn lá giữa bàn." };
+    }
+
+    if (
+      copiedRole === "seer" &&
+      !isSeerCenterSubmissionComplete(gameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)
+    ) {
+      return { ok: false, error: "Nhân Bản copy Tiên Tri phải chọn lá giữa theo thứ tự, và dừng ngay nếu lần đầu thấy Sói." };
+    }
+
+    if (
+      copiedRole === "werewolf_seer" &&
+      (!input.targetPlayerId2 || !activePlayerIds.has(input.targetPlayerId2))
+    ) {
+      return { ok: false, error: "Nhân Bản copy Sói Tiên Tri phải chọn một người chơi để soi." };
+    }
+
+    if (copiedRole === "robber" && (!input.targetPlayerId2 || !otherPlayerIds.has(input.targetPlayerId2))) {
+      return { ok: false, error: "Nhân Bản copy Kẻ Trộm phải chọn một người chơi khác để đổi bài." };
+    }
+
+    if (
+      copiedRole === "troublemaker" &&
+      (!input.targetPlayerId2 ||
+        !input.targetPlayerId3 ||
+        input.targetPlayerId2 === input.targetPlayerId3 ||
+        !otherPlayerIds.has(input.targetPlayerId2) ||
+        !otherPlayerIds.has(input.targetPlayerId3))
+    ) {
+      return { ok: false, error: "Nhân Bản copy Kẻ Gây Rối phải chọn hai người chơi khác nhau." };
+    }
+
+    if (
+      copiedRole === "witch" &&
+      (!validateCenterIndex(input.targetCenterIndex) ||
+        !input.targetPlayerId2 ||
+        !activePlayerIds.has(input.targetPlayerId2))
+    ) {
+      return { ok: false, error: "Nhân Bản copy Phù Thuỷ phải chọn một lá giữa bàn và một người nhận." };
+    }
+
+    if (copiedRole === "drunk" && !validateCenterIndex(input.targetCenterIndex)) {
+      return { ok: false, error: "Nhân Bản copy Say Rượu phải chọn một lá giữa bàn." };
+    }
+
+    if (copiedRole === "copycat") {
+      input.targetPlayerId2 = null;
+      input.targetPlayerId3 = null;
+      input.targetCenterIndex = null;
+      input.targetCenterIndex2 = null;
+      input.targetCenterIndex3 = null;
+    }
+  }
+
+  if (originalRole === "seer") {
+    if (Boolean(input.targetPlayerId)) {
+      return { ok: false, error: "Tiên Tri chỉ được chọn lá giữa bàn." };
+    }
+
+    if (!isSeerCenterSubmissionComplete(gameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)) {
+      return { ok: false, error: "Tiên Tri phải chọn lá giữa theo thứ tự, và dừng ngay nếu lần đầu thấy Sói." };
     }
   }
 
@@ -2296,16 +3211,38 @@ export async function submitWolfNightAction(
     return { ok: false, error: "Phù Thuỷ phải chọn một lá giữa bàn và một người nhận." };
   }
 
-  if (originalRole === "copycat") {
-    if (!validateCenterIndex(input.targetCenterIndex)) {
+  if (originalRole === "copycat" && !isCopycatCopyTurn) {
+    if (!validateCenterIndex(savedTargetCenterIndex)) {
       return { ok: false, error: "Copy Cat phải chọn một lá giữa bàn để copy." };
     }
 
-    const copiedCard = getCenterCard(gameCards, input.targetCenterIndex as number);
+    const copiedCard = getCenterCard(gameCards, savedTargetCenterIndex as number);
     const copiedRole = copiedCard?.original_role;
 
     if (!copiedRole) {
       return { ok: false, error: "Lá giữa Copy Cat chọn không hợp lệ." };
+    }
+
+    if (isCopycatCopiedRoleTurn && copiedRole !== activeNightTurn.activeRole) {
+      return { ok: false, error: "Chưa tới lượt chức năng Copy Cat đã copy." };
+    }
+
+    if (copiedRole === "werewolf") {
+      const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
+
+      if (werewolfCount > 1 && (input.targetCenterIndex2 != null || input.targetCenterIndex3 != null)) {
+        return { ok: false, error: "Có từ 2 Ma Sói trở lên nên Copy Cat copy Ma Sói không được xem lá giữa bàn." };
+      }
+
+      if (
+        werewolfCount === 1 &&
+        ((input.targetCenterIndex2 != null &&
+          (!validateCenterIndex(input.targetCenterIndex2) ||
+            input.targetCenterIndex2 === savedTargetCenterIndex)) ||
+          input.targetCenterIndex3 != null)
+      ) {
+        return { ok: false, error: "Copy Cat copy Ma Sói đơn chỉ được xem tối đa một lá giữa bàn khác lá đã copy." };
+      }
     }
 
     if (copiedRole === "robber" && (!input.targetPlayerId || !otherPlayerIds.has(input.targetPlayerId))) {
@@ -2337,22 +3274,19 @@ export async function submitWolfNightAction(
     }
 
     if (copiedRole === "seer") {
-      const isViewingPlayer = Boolean(input.targetPlayerId);
-      const isViewingCenter = input.targetCenterIndex2 != null || input.targetCenterIndex3 != null;
-
-      if (isViewingPlayer && isViewingCenter) {
-        return { ok: false, error: "Copy Cat copy Tiên Tri chỉ được chọn xem người chơi hoặc hai lá giữa bàn." };
+      if (Boolean(input.targetPlayerId)) {
+        return { ok: false, error: "Copy Cat copy Tiên Tri chỉ được chọn lá giữa bàn." };
       }
 
       if (
-        !isViewingPlayer &&
-        (!validateCenterIndex(input.targetCenterIndex2) ||
-          !validateCenterIndex(input.targetCenterIndex3) ||
-          input.targetCenterIndex2 === input.targetCenterIndex3 ||
-          input.targetCenterIndex === input.targetCenterIndex2 ||
-          input.targetCenterIndex === input.targetCenterIndex3)
+        !isSeerCenterSubmissionComplete(
+          gameCards,
+          input.targetCenterIndex2 ?? null,
+          input.targetCenterIndex3 ?? null,
+          savedTargetCenterIndex ?? null
+        )
       ) {
-        return { ok: false, error: "Copy Cat copy Tiên Tri phải chọn hai lá giữa khác lá đã copy." };
+        return { ok: false, error: "Copy Cat copy Tiên Tri phải chọn lá giữa khác lá đã copy, và dừng ngay nếu lần đầu thấy Sói." };
       }
     }
 
@@ -2361,24 +3295,144 @@ export async function submitWolfNightAction(
     }
   }
 
+  if (isCopycatCopiedRoleTurn) {
+    const { error: resetConfirmationError } = await supabase
+      .from("wolf_game_phase_confirmations")
+      .delete()
+      .eq("game_id", room.current_game_id)
+      .eq("player_id", currentPlayer.id)
+      .eq("phase", "night");
+
+    if (resetConfirmationError) {
+      return { ok: false, error: "Không thể chuẩn bị lượt chức năng Copy Cat." };
+    }
+  }
+
+  const copycatCopiedWerewolfTurn =
+    isCopycatCopiedRoleTurn && activeNightTurn.activeRole === "werewolf";
+  const submittedActionPayload = {
+    game_id: room.current_game_id,
+    player_id: currentPlayer.id,
+    action_type: originalRole,
+    target_player_id: input.targetPlayerId ?? null,
+    target_player_id_2:
+      copycatCopiedWerewolfTurn &&
+      !input.targetPlayerId2 &&
+      !validateCenterIndex(input.targetCenterIndex2)
+        ? currentPlayer.id
+        : input.targetPlayerId2 ?? null,
+    target_player_id_3: input.targetPlayerId3 ?? null,
+    target_center_index: savedTargetCenterIndex ?? null,
+    target_center_index_2: input.targetCenterIndex2 ?? null,
+    target_center_index_3: input.targetCenterIndex3 ?? null,
+  };
+  const submittedAction = {
+    id: existingAction?.id ?? "",
+    ...submittedActionPayload,
+  } satisfies ActionRow;
+  const submittedActiveNightTurn =
+    originalRole === "doppelganger"
+      ? {
+          ...activeNightTurn,
+          copiedRole: getDoppelgangerCopiedRole(gameCards, submittedAction),
+        }
+      : activeNightTurn;
+
   const { error } = await supabase
     .from("wolf_game_actions")
     .upsert(
-      {
-        game_id: room.current_game_id,
-        player_id: currentPlayer.id,
-        action_type: originalRole,
-        target_player_id: input.targetPlayerId ?? null,
-        target_player_id_2: input.targetPlayerId2 ?? null,
-        target_center_index: input.targetCenterIndex ?? null,
-        target_center_index_2: input.targetCenterIndex2 ?? null,
-        target_center_index_3: input.targetCenterIndex3 ?? null,
-      },
+      submittedActionPayload,
       { onConflict: "game_id,player_id" }
     );
 
   if (error) {
     return { ok: false, error: "Không thể lưu hành động ban đêm." };
+  }
+
+  if (!doesNightTurnRequireResultConfirmation(submittedActiveNightTurn, submittedAction, gameCards)) {
+    const { error: confirmationError } = await supabase
+      .from("wolf_game_phase_confirmations")
+      .upsert(
+        {
+          game_id: room.current_game_id,
+          player_id: currentPlayer.id,
+          phase: "night",
+        },
+        { onConflict: "game_id,player_id,phase" }
+      );
+
+    if (confirmationError) {
+      return { ok: false, error: "Không thể xác nhận hoàn tất lượt đêm." };
+    }
+  }
+
+  await maybeAutoAdvancePhase(supabase, room, players, "night");
+  await safeBroadcastWolfPlayUpdate(room.code);
+
+  return { ok: true };
+}
+
+export async function confirmWolfNightActionResult(roomCode: string): Promise<WolfMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  const { data: game } = await supabase
+    .from("wolf_game_sessions")
+    .select("id, phase")
+    .eq("id", room.current_game_id)
+    .maybeSingle();
+
+  if (!game || game.phase !== "night") {
+    return { ok: false, error: "Không còn ở giai đoạn ban đêm." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const { data: cardsData } = await supabase
+    .from("wolf_game_cards")
+    .select("id, game_id, player_id, center_index, original_role, current_role")
+    .eq("game_id", room.current_game_id);
+  const { data: actionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
+    .eq("game_id", room.current_game_id);
+  const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
+  const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
+  const cards = (cardsData ?? []) as CardRow[];
+  const actions = (actionsData ?? []) as ActionRow[];
+  const activeNightTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+  const myAction = actions.find((action) => action.player_id === currentPlayer.id) ?? null;
+
+  if (!activeNightTurn || activeNightTurn.playerId !== currentPlayer.id) {
+    return { ok: false, error: "Chưa tới lượt xác nhận của bạn." };
+  }
+
+  if (!isNightTurnActionSubmitted(activeNightTurn, myAction, cards)) {
+    return { ok: false, error: "Bạn cần hoàn tất hành động trước khi xác nhận kết quả." };
+  }
+
+  const { error } = await supabase
+    .from("wolf_game_phase_confirmations")
+    .upsert(
+      {
+        game_id: room.current_game_id,
+        player_id: currentPlayer.id,
+        phase: "night",
+      },
+      { onConflict: "game_id,player_id,phase" }
+    );
+
+  if (error) {
+    return { ok: false, error: "Không thể xác nhận kết quả lượt đêm." };
   }
 
   await maybeAutoAdvancePhase(supabase, room, players, "night");
@@ -2505,15 +3559,6 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
 
   if (game.phase === "night") {
     await resolveNightActions(game.id);
-    await supabase
-      .from("wolf_game_sessions")
-      .update({ phase: "night_review" })
-      .eq("id", game.id);
-    await safeBroadcastWolfPlayUpdate(room.code);
-    return { ok: true };
-  }
-
-  if (game.phase === "night_review") {
     await supabase
       .from("wolf_game_sessions")
       .update({

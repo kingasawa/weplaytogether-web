@@ -70,6 +70,7 @@ const ROLE_LABEL_GROUPS: Array<{ id: string; options: RoleLabelOption[] }> = [
   { id: "witch", options: [{ id: "witch", role: "witch" }] },
   { id: "drunk", options: [{ id: "drunk", role: "drunk" }] },
   { id: "insomniac", options: [{ id: "insomniac", role: "insomniac" }] },
+  { id: "doppelganger", options: [{ id: "doppelganger", role: "doppelganger" }] },
   { id: "copycat", options: [{ id: "copycat", role: "copycat" }] },
 ];
 
@@ -89,6 +90,7 @@ const BASIC_ROLE_OPTION_IDS = [
   "drunk",
   "werewolf-seer",
   "witch",
+  "doppelganger",
   "copycat",
 ];
 

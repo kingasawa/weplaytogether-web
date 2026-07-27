@@ -14,10 +14,12 @@ import {
 } from "@/lib/wolf-game";
 import {
   advanceWolfDiscussionIfExpired,
+  confirmWolfNightActionResult,
   finishWolfGame,
   getWolfPlayState,
   leaveWolfRoom,
   revealWolfCenterCard,
+  revealWolfPlayerCard,
   submitWolfPhaseConfirmation,
   submitWolfNightAction,
   submitWolfVote,
@@ -25,6 +27,7 @@ import {
   type WolfGameResult,
   type WolfPlayPlayer,
   type WolfPlayState,
+  type WolfPlayerRevealResult,
 } from "../../../actions";
 import styles from "../../../page.module.css";
 
@@ -36,6 +39,7 @@ const VOTE_SKIP_KEY = "__skip_vote__";
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
 
 type RevealedCenterCard = Extract<WolfCenterRevealResult, { ok: true }>;
+type RevealedPlayerCard = Extract<WolfPlayerRevealResult, { ok: true }>;
 type WolfTeam = WolfGameResult["winnerTeam"];
 
 const WOLF_ROLE_TEAMS: Record<WolfRole, WolfTeam> = {
@@ -48,6 +52,7 @@ const WOLF_ROLE_TEAMS: Record<WolfRole, WolfTeam> = {
   witch: "villagers",
   drunk: "villagers",
   insomniac: "villagers",
+  doppelganger: "villagers",
   copycat: "villagers",
 };
 
@@ -61,6 +66,7 @@ const WOLF_ROLE_WIN_CONDITIONS: Record<WolfRole, string> = {
   witch: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
   drunk: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
   insomniac: "Thắng cùng phe dân: dân làng thắng khi treo được Ma Sói. Nếu không có Ma Sói, dân thắng khi không ai bị treo.",
+  doppelganger: "Thắng theo chức năng đã nhân bản trong đêm.",
   copycat: "Thắng cùng phe dân theo luật hiện tại của game.",
 };
 
@@ -109,6 +115,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCenterIndexes, setSelectedCenterIndexes] = useState<number[]>([]);
   const [revealedCenterCards, setRevealedCenterCards] = useState<RevealedCenterCard[]>([]);
+  const [revealedPlayerCards, setRevealedPlayerCards] = useState<RevealedPlayerCard[]>([]);
   const [revealingCenterIndexes, setRevealingCenterIndexes] = useState<number[]>([]);
   const [message, setMessage] = useState("");
   const [pendingLabel, setPendingLabel] = useState("");
@@ -124,30 +131,108 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [isPending, startTransition] = useTransition();
 
   const myRole = playState.myCard?.originalRole ?? null;
+  const activeNightTurn = playState.activeNightTurn;
+  const isMyNightTurn = Boolean(
+    playState.game.phase === "night" &&
+      activeNightTurn &&
+      activeNightTurn.playerId === playState.currentPlayerId
+  );
+  const nightActionRole = isMyNightTurn ? activeNightTurn?.activeRole ?? myRole : myRole;
+  const isCopycatCopyTurn = Boolean(isMyNightTurn && myRole === "copycat" && nightActionRole === "copycat");
+  const isCopycatCopiedRoleTurn = Boolean(
+    isMyNightTurn && myRole === "copycat" && activeNightTurn?.isCopycatCopiedRole
+  );
   const otherPlayers = playState.players.filter((player) => player.id !== playState.currentPlayerId);
   const getRevealedCenterRole = (centerIndex: number) =>
     revealedCenterCards.find((card) => card.centerIndex === centerIndex)?.role ??
     playState.centerCards.find((card) => card.index === centerIndex)?.role ??
     null;
-  const hasCenterReveal = (centerIndex: number) => Boolean(getRevealedCenterRole(centerIndex));
+  const getCenterWolfCheck = (centerIndex: number) => {
+    const localReveal = revealedCenterCards.find((card) => card.centerIndex === centerIndex);
+
+    if (typeof localReveal?.isWerewolf === "boolean") {
+      return localReveal.isWerewolf;
+    }
+
+    const stateReveal = playState.centerCards.find((card) => card.index === centerIndex);
+
+    return typeof stateReveal?.isWerewolf === "boolean" ? stateReveal.isWerewolf : null;
+  };
+  const getCenterRevealLabel = (centerIndex: number) => {
+    const role = getRevealedCenterRole(centerIndex);
+
+    if (role) {
+      return WOLF_ROLE_LABELS[role];
+    }
+
+    const isWerewolf = getCenterWolfCheck(centerIndex);
+
+    if (typeof isWerewolf === "boolean") {
+      return isWerewolf ? "Sói" : "Không phải Sói";
+    }
+
+    return null;
+  };
+  const hasCenterReveal = (centerIndex: number) => Boolean(getRevealedCenterRole(centerIndex)) || typeof getCenterWolfCheck(centerIndex) === "boolean";
   const viewedCenterIndexes = playState.centerCards
     .filter((card) => hasCenterReveal(card.index))
     .map((card) => card.index);
-  const copycatCopiedRole =
-    myRole === "copycat" && selectedCenterIndexes.length > 0
-      ? getRevealedCenterRole(selectedCenterIndexes[0])
+  const copiedCenterIndex =
+    myRole === "copycat"
+      ? isCopycatCopiedRoleTurn
+        ? playState.myAction?.targetCenterIndex ?? null
+        : selectedCenterIndexes[0] ?? playState.myAction?.targetCenterIndex ?? null
       : null;
-  const usesTroublemakerSelection = myRole === "troublemaker" || copycatCopiedRole === "troublemaker";
-  const usesWitchSelection = myRole === "witch" || copycatCopiedRole === "witch";
+  const copycatCopiedRole =
+    myRole === "copycat" && copiedCenterIndex != null
+      ? getRevealedCenterRole(copiedCenterIndex)
+      : null;
+  const currentTurnViewedCenterIndexes =
+    isCopycatCopiedRoleTurn && copiedCenterIndex != null
+      ? viewedCenterIndexes.filter((centerIndex) => centerIndex !== copiedCenterIndex)
+      : viewedCenterIndexes;
+  const doppelgangerCopiedPlayerId =
+    myRole === "doppelganger" ? selectedPlayerIds[0] ?? playState.myAction?.targetPlayerId ?? null : null;
+  const doppelgangerCopiedRole =
+    myRole === "doppelganger" && doppelgangerCopiedPlayerId
+      ? revealedPlayerCards.find((card) => card.playerId === doppelgangerCopiedPlayerId)?.role ??
+        playState.playerReveals.find((card) => card.playerId === doppelgangerCopiedPlayerId)?.role ??
+        playState.activeNightTurn?.copiedRole ??
+        null
+      : null;
+  const doppelgangerActionTargetIds = myRole === "doppelganger" ? selectedPlayerIds.slice(1) : [];
+  const activeActionTargetIds = myRole === "doppelganger" ? doppelgangerActionTargetIds : selectedPlayerIds;
+  const effectiveNightActionRole =
+    nightActionRole === "doppelganger" && doppelgangerCopiedRole ? doppelgangerCopiedRole : nightActionRole;
+  const isDoppelgangerCopycatOnly = myRole === "doppelganger" && doppelgangerCopiedRole === "copycat";
+  const isSeerEffect = effectiveNightActionRole === "seer";
+  const selectedSeerFoundWolf = selectedCenterIndexes.some((centerIndex) => getCenterWolfCheck(centerIndex) === true);
+  const isSeerSelectionComplete = (centerIndexes: number[]) => {
+    const firstCenterIndex = centerIndexes[0];
+
+    if (firstCenterIndex == null) {
+      return false;
+    }
+
+    const firstWolfCheck = getCenterWolfCheck(firstCenterIndex);
+
+    if (firstWolfCheck === true) {
+      return centerIndexes.length === 1;
+    }
+
+    return firstWolfCheck === false && centerIndexes.length === 2;
+  };
+  const usesTroublemakerSelection = effectiveNightActionRole === "troublemaker";
+  const usesWitchSelection = effectiveNightActionRole === "witch";
   const playerPickerOptions = usesWitchSelection ? playState.players : otherPlayers;
   const hasWerewolfTeammates =
-    (myRole === "werewolf" || myRole === "werewolf_seer" || myRole === "copycat") &&
+    (myRole === "werewolf" || myRole === "werewolf_seer" || myRole === "copycat" || myRole === "doppelganger") &&
     playState.werewolfTeammates.length > 0;
   const copycatWerewolfTeammates =
     myRole === "copycat" &&
     copycatCopiedRole &&
     WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves"
-      ? revealedCenterCards.find((card) => card.centerIndex === selectedCenterIndexes[0])?.werewolfTeammates ?? []
+      ? revealedCenterCards.find((card) => card.centerIndex === copiedCenterIndex)?.werewolfTeammates ?? []
       : [];
   const shouldShowWerewolfTeammatePanel =
     hasWerewolfTeammates ||
@@ -155,7 +240,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const werewolfTeammateNames = hasWerewolfTeammates
     ? playState.werewolfTeammates.map((player) => player.playerName)
     : copycatWerewolfTeammates.map((player) => player.playerName);
-  const myActionSubmitted = Boolean(playState.myAction);
   const activeVoteTargetPlayerId =
     optimisticVoteTargetPlayerId ??
     (playState.players.find((player) => player.id === playState.currentPlayerId)?.hasSkippedVote
@@ -202,26 +286,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const copiedSeerCenterPathStarted =
     myRole === "copycat" &&
     copycatCopiedRole === "seer" &&
-    viewedCenterIndexes.length > 1;
+    currentTurnViewedCenterIndexes.length > 0;
   const centerRevealLimit =
-    myRole === "seer"
+    effectiveNightActionRole === "seer"
       ? 2
-      : myRole === "witch"
+      : effectiveNightActionRole === "witch"
         ? 1
-        : myRole === "werewolf" && !hasWerewolfTeammates
+        : effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates
           ? 1
-          : myRole === "copycat" &&
-            (selectedCenterIndexes.length === 0 ||
-              !copycatCopiedRole ||
-              copycatCopiedRole === "seer" ||
-              copycatCopiedRole === "witch")
-            ? copycatCopiedRole === "seer"
-              ? 3
-              : copycatCopiedRole === "witch"
-                ? 2
-                : 1
+          : effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly
+            ? 1
             : 0;
-
   const refreshPlayState = useCallback(async () => {
     const nextState = await getWolfPlayState(playState.room.code);
 
@@ -259,7 +334,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     if (playState.game.phase === "night") {
-      return playState.players.filter((player) => !player.hasNightAction);
+      return [];
     }
 
     if (playState.game.phase === "discussion") {
@@ -278,6 +353,16 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
     if (playState.game.phase === "result") {
       return "Ván đã có kết quả.";
+    }
+
+    if (playState.game.phase === "night") {
+      if (activeNightTurn) {
+        return "Đến lượt bạn thực hiện chức năng.";
+      }
+
+      return playState.isNightTurnInProgress
+        ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
+        : "Tất cả lượt ban đêm đã hoàn tất.";
     }
 
     if (waitingPlayers.length === 0) {
@@ -331,8 +416,60 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     refreshPlayState,
   ]);
 
+  async function revealPlayerCard(playerId: string) {
+    try {
+      const result = await revealWolfPlayerCard(playState.room.code, playerId);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        return;
+      }
+
+      setRevealedPlayerCards((current) => [
+        ...current.filter((card) => card.playerId !== result.playerId),
+        result,
+      ]);
+    } catch {
+      setMessage("Không thể nhân bản người chơi đã chọn. Vui lòng thử lại.");
+    }
+  }
+
   function togglePlayerSelection(playerId: string) {
     setMessage("");
+    if (myRole === "doppelganger") {
+      const copiedPlayerId = selectedPlayerIds[0] ?? null;
+      const isChoosingCopiedPlayer = !copiedPlayerId || !doppelgangerCopiedRole;
+
+      if (isChoosingCopiedPlayer) {
+        setSelectedPlayerIds([playerId]);
+        setSelectedCenterIndexes([]);
+        setRevealedCenterCards([]);
+        void revealPlayerCard(playerId);
+        return;
+      }
+
+      if (doppelgangerCopiedRole === "seer" && viewedCenterIndexes.length > 0) {
+        setMessage("Nhân Bản copy Tiên Tri đã xem lá giữa thì không thể chuyển sang xem người chơi.");
+        return;
+      }
+
+      setSelectedPlayerIds((current) => {
+        const copiedId = current[0] ?? copiedPlayerId;
+        const targets = current.slice(1);
+
+        if (usesTroublemakerSelection) {
+          if (targets.includes(playerId)) {
+            return [copiedId, ...targets.filter((id) => id !== playerId)];
+          }
+
+          return [copiedId, ...[...targets, playerId].slice(-2)];
+        }
+
+        return targets.includes(playerId) ? [copiedId] : [copiedId, playerId];
+      });
+      return;
+    }
+
     if (myRole === "seer" && viewedCenterIndexes.length > 0) {
       setMessage("Tiên Tri đã xem lá giữa thì không thể chuyển sang xem người chơi.");
       return;
@@ -365,6 +502,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   }
 
   async function revealCenterCard(centerIndex: number) {
+    if (!isMyNightTurn) {
+      setMessage("Chưa tới lượt của bạn.");
+      return;
+    }
+
     if (hasCenterReveal(centerIndex) || revealingCenterIndexes.includes(centerIndex)) {
       return;
     }
@@ -373,7 +515,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       current.includes(centerIndex) ? current : [...current, centerIndex]
     );
     try {
-      const result = await revealWolfCenterCard(playState.room.code, centerIndex);
+      const result = await revealWolfCenterCard(
+        playState.room.code,
+        centerIndex,
+        effectiveNightActionRole,
+        doppelgangerCopiedPlayerId
+      );
 
       if (!result.ok) {
         setMessage(result.error);
@@ -395,22 +542,33 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   function toggleCenterSelection(centerIndex: number) {
     setMessage("");
     const canRevealCenterImmediately =
-      myRole === "seer" ||
-      myRole === "witch" ||
+      effectiveNightActionRole === "seer" ||
+      effectiveNightActionRole === "witch" ||
       (myRole === "copycat" &&
-        (selectedCenterIndexes.length === 0 ||
-          copycatCopiedRole === "seer" ||
-          copycatCopiedRole === "witch")) ||
-      (myRole === "werewolf" && !hasWerewolfTeammates);
+        ((isCopycatCopyTurn && selectedCenterIndexes.length === 0) ||
+          (isCopycatCopiedRoleTurn &&
+            (copycatCopiedRole === "seer" || copycatCopiedRole === "witch")))) ||
+      (effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates);
     const isDeselecting = selectedCenterIndexes.includes(centerIndex);
+    const isCopycatCopiedCenter = isCopycatCopiedRoleTurn && copiedCenterIndex === centerIndex;
 
-    if (myRole === "witch") {
+    if (isCopycatCopiedCenter && !isDeselecting) {
+      setMessage("Hãy chọn lá giữa khác lá Copy Cat đã copy.");
+      return;
+    }
+
+    if (!isDeselecting && isSeerEffect && selectedSeerFoundWolf) {
+      setMessage("Tiên Tri đã thấy Sói nên phải bấm OK để kết thúc lượt.");
+      return;
+    }
+
+    if (effectiveNightActionRole === "witch") {
       if (isDeselecting && hasCenterReveal(centerIndex)) {
         setMessage("Lá giữa đã xem sẽ được giữ để Phù Thuỷ gán cho người nhận.");
         return;
       }
 
-      if (!isDeselecting && viewedCenterIndexes.length >= 1 && !hasCenterReveal(centerIndex)) {
+      if (!isDeselecting && currentTurnViewedCenterIndexes.length >= 1 && !hasCenterReveal(centerIndex)) {
         setMessage("Phù Thuỷ chỉ được xem một lá giữa bàn.");
         return;
       }
@@ -424,19 +582,36 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       return;
     }
 
-    if (myRole === "seer" || (myRole === "copycat" && copycatCopiedRole === "seer")) {
-      if (!isDeselecting && selectedPlayerIds.length > 0) {
+    if (
+      effectiveNightActionRole === "seer" ||
+      (myRole === "copycat" && copycatCopiedRole === "seer")
+    ) {
+      if (!isDeselecting && activeActionTargetIds.length > 0) {
         setMessage("Bạn đã chọn xem người chơi nên không thể xem thêm lá giữa.");
         return;
       }
 
-      setSelectedPlayerIds([]);
+      setSelectedPlayerIds((current) => (myRole === "doppelganger" ? current.slice(0, 1) : []));
     }
 
     const maxCenterSelections =
-      myRole === "copycat" && copycatCopiedRole === "seer" ? 3 : 2;
+      myRole === "doppelganger"
+        ? effectiveNightActionRole === "seer"
+          ? 2
+          : 1
+        : myRole === "copycat"
+        ? isCopycatCopyTurn
+          ? 1
+          : copycatCopiedRole === "seer"
+            ? 2
+            : 1
+        : 2;
 
-    if (!isDeselecting && (myRole === "seer" || myRole === "copycat") && selectedCenterIndexes.length >= maxCenterSelections) {
+    if (
+      !isDeselecting &&
+      (effectiveNightActionRole === "seer" || myRole === "copycat" || myRole === "doppelganger") &&
+      selectedCenterIndexes.length >= maxCenterSelections
+    ) {
       setMessage("Bạn đã chọn đủ số lá giữa cho hành động này.");
       return;
     }
@@ -445,7 +620,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       !isDeselecting &&
       canRevealCenterImmediately &&
       !hasCenterReveal(centerIndex) &&
-      viewedCenterIndexes.length >= centerRevealLimit
+      currentTurnViewedCenterIndexes.length >= centerRevealLimit
     ) {
       setMessage(`Bạn chỉ được xem tối đa ${centerRevealLimit} lá giữa bàn trong lượt này.`);
       return;
@@ -464,13 +639,13 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       if (
         canRevealCenterImmediately &&
         !hasCenterReveal(centerIndex) &&
-        viewedCenterIndexes.length >= centerRevealLimit
+        currentTurnViewedCenterIndexes.length >= centerRevealLimit
       ) {
         setMessage(`Bạn chỉ được xem tối đa ${centerRevealLimit} lá giữa bàn trong lượt này.`);
         return current;
       }
 
-      if (myRole === "seer" || myRole === "copycat") {
+      if (effectiveNightActionRole === "seer" || myRole === "copycat" || myRole === "doppelganger") {
         if (current.length >= maxCenterSelections) {
           setMessage("Bạn đã chọn đủ số lá giữa cho hành động này.");
           return current;
@@ -492,16 +667,48 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       return;
     }
 
+    if (!isMyNightTurn) {
+      setMessage("Chưa tới lượt của bạn.");
+      return;
+    }
+
     setMessage("");
     setPendingLabel("Đang lưu hành động ban đêm...");
     startTransition(async () => {
+      const submittedCenterIndexes =
+        myRole === "copycat" &&
+        activeNightTurn?.isCopycatCopiedRole &&
+        playState.myAction?.targetCenterIndex != null
+          ? [
+              playState.myAction.targetCenterIndex,
+              ...selectedCenterIndexes.filter((index) => index !== playState.myAction?.targetCenterIndex),
+            ]
+          : selectedCenterIndexes;
+      const isSubmittingCopycatCopiedRole =
+        myRole === "copycat" && Boolean(activeNightTurn?.isCopycatCopiedRole);
       const result = await submitWolfNightAction(playState.room.code, {
         actionType: myRole,
         targetPlayerId: selectedPlayerIds[0] ?? null,
-        targetPlayerId2: selectedPlayerIds[1] ?? null,
-        targetCenterIndex: hasWerewolfTeammates ? null : selectedCenterIndexes[0] ?? null,
-        targetCenterIndex2: hasWerewolfTeammates ? null : selectedCenterIndexes[1] ?? null,
-        targetCenterIndex3: hasWerewolfTeammates ? null : selectedCenterIndexes[2] ?? null,
+        targetPlayerId2:
+          myRole === "doppelganger"
+            ? doppelgangerActionTargetIds[0] ?? null
+            : selectedPlayerIds[1] ?? null,
+        targetPlayerId3:
+          myRole === "doppelganger"
+            ? doppelgangerActionTargetIds[1] ?? null
+            : null,
+        targetCenterIndex:
+          hasWerewolfTeammates && !isSubmittingCopycatCopiedRole
+            ? null
+            : submittedCenterIndexes[0] ?? null,
+        targetCenterIndex2:
+          hasWerewolfTeammates
+            ? null
+            : submittedCenterIndexes[1] ?? null,
+        targetCenterIndex3:
+          hasWerewolfTeammates
+            ? null
+            : submittedCenterIndexes[2] ?? null,
       });
 
       if (!result.ok) {
@@ -514,6 +721,23 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       setSelectedPlayerIds([]);
       setSelectedCenterIndexes([]);
       setRevealedCenterCards([]);
+      await refreshPlayState();
+      setPendingLabel("");
+    });
+  }
+
+  function confirmNightActionResult() {
+    setMessage("");
+    setPendingLabel("Đang xác nhận kết quả lượt đêm...");
+    startTransition(async () => {
+      const result = await confirmWolfNightActionResult(playState.room.code);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        setPendingLabel("");
+        return;
+      }
+
       await refreshPlayState();
       setPendingLabel("");
     });
@@ -648,46 +872,141 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     );
   }
 
+  function renderKnownNightCards() {
+    const revealedCenterCardsFromState = playState.centerCards.filter(
+      (card) => card.role || typeof card.isWerewolf === "boolean"
+    );
+    const hasKnownCards = Boolean(
+      playState.myCard?.nightReviewRole ||
+        playState.playerReveals.length > 0 ||
+        revealedCenterCardsFromState.length > 0
+    );
+
+    if (!hasKnownCards) {
+      return null;
+    }
+
+    return (
+      <div className={styles.playerRevealGrid}>
+        {playState.myCard?.nightReviewRole && (
+          <RoleCard
+            label={myRole === "insomniac" ? "Bài hiện tại" : "Lá vừa lấy"}
+            role={playState.myCard.nightReviewRole}
+          />
+        )}
+        {playState.playerReveals.map((playerReveal) => (
+          <RoleCard
+            key={playerReveal.playerId}
+            label={`Soi ${playerReveal.playerName}`}
+            role={playerReveal.role}
+          />
+        ))}
+        {revealedCenterCardsFromState.map((centerCard) =>
+          centerCard.role ? (
+            <RoleCard
+              key={`center-${centerCard.index}`}
+              label={`Lá giữa ${centerCard.index + 1}`}
+              role={centerCard.role}
+            />
+          ) : (
+            <article className={styles.playCard} key={`center-${centerCard.index}`}>
+              <span>{`Lá giữa ${centerCard.index + 1}`}</span>
+              <strong>{centerCard.isWerewolf ? "Sói" : "Không phải Sói"}</strong>
+            </article>
+          )
+        )}
+      </div>
+    );
+  }
+
   function renderNightActions() {
     if (!myRole) {
       return <p>Bạn chưa có bài trong ván này.</p>;
     }
 
-    if (myActionSubmitted) {
-      return <p>Hành động của bạn đã được lưu. Chờ các người chơi khác hoàn tất.</p>;
+    if (!isMyNightTurn) {
+      return (
+        <div className={styles.nightTurnWaiting}>
+          <span>Lượt hiện tại</span>
+          <strong>
+            {activeNightTurn ? "Đến lượt bạn" : "Đang chờ lượt ban đêm"}
+          </strong>
+          <p>Người chơi đang hành động được giữ kín cho đến khi ván kết thúc.</p>
+        </div>
+      );
     }
 
+    if (playState.isCurrentNightTurnActionSubmitted) {
+      return (
+        <>
+          {renderKnownNightCards()}
+          <div className={styles.nightTurnWaiting}>
+            <span>Kết quả lượt</span>
+            <strong>Hãy ghi nhớ thông tin của bạn</strong>
+            {playState.nightReviewMessages.map((reviewMessage) => (
+              <p key={reviewMessage}>{reviewMessage}</p>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    if (nightActionRole === "insomniac") {
+      return (
+        <>
+          {renderKnownNightCards()}
+          <div className={styles.nightTurnWaiting}>
+            <span>Lượt Mất Ngủ</span>
+            <strong>Đây là bài hiện tại của bạn</strong>
+            <p>Ghi nhớ lá bài này rồi bấm OK để kết thúc lượt đêm.</p>
+          </div>
+        </>
+      );
+    }
+
+    const isChoosingDoppelgangerTarget = nightActionRole === "doppelganger" && !doppelgangerCopiedRole;
     const needsPlayerPicker =
-      myRole === "seer" ||
-      myRole === "werewolf_seer" ||
-      myRole === "robber" ||
-      myRole === "troublemaker" ||
-      myRole === "witch" ||
-      (myRole === "copycat" &&
-        (copycatCopiedRole === "seer" ||
-          copycatCopiedRole === "werewolf_seer" ||
-          copycatCopiedRole === "robber" ||
-          copycatCopiedRole === "troublemaker" ||
-          copycatCopiedRole === "witch"));
+      isChoosingDoppelgangerTarget ||
+      effectiveNightActionRole === "werewolf_seer" ||
+      effectiveNightActionRole === "robber" ||
+      effectiveNightActionRole === "troublemaker" ||
+      effectiveNightActionRole === "witch";
     const needsCenterPicker =
-      myRole === "seer" ||
-      myRole === "witch" ||
-      myRole === "drunk" ||
-      myRole === "copycat" ||
-      (myRole === "werewolf" && !hasWerewolfTeammates);
+      effectiveNightActionRole === "seer" ||
+      effectiveNightActionRole === "witch" ||
+      effectiveNightActionRole === "drunk" ||
+      (effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly) ||
+      (effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates);
     const isPlayerPickerDisabled =
       isCenterRevealPending ||
-      (myRole === "seer" && viewedCenterIndexes.length > 0) ||
       copiedSeerCenterPathStarted;
+    const selectedPickerPlayerIds =
+      myRole === "doppelganger" && doppelgangerCopiedRole ? doppelgangerActionTargetIds : selectedPlayerIds;
+    const playerPickerLabel = isChoosingDoppelgangerTarget
+      ? "Chọn người để nhân bản"
+      : nightActionRole === "doppelganger" && doppelgangerCopiedRole
+        ? `Thực hiện ${WOLF_ROLE_LABELS[doppelgangerCopiedRole]}`
+        : "Chọn người chơi";
     return (
       <>
+        {nightActionRole === "doppelganger" && doppelgangerCopiedRole && (
+          <div className={styles.playerRevealGrid}>
+            <RoleCard
+              label={`Nhân bản ${getPlayerName(playState.players, doppelgangerCopiedPlayerId)}`}
+              role={doppelgangerCopiedRole}
+            />
+          </div>
+        )}
+
         {shouldShowWerewolfTeammatePanel && (
           <div className={styles.werewolfTeammatePanel}>
             <span>Ma Sói cùng phe</span>
             <strong>{werewolfTeammateNames.length > 0 ? werewolfTeammateNames.join(", ") : "Không có"}</strong>
             <p>
               {myRole === "copycat" && copycatCopiedRole && WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves"
-                ? "Bạn đã copy phe Ma Sói từ lá giữa bàn."
+                ? werewolfTeammateNames.length > 0
+                  ? "Bạn đã copy phe Ma Sói từ lá giữa bàn."
+                  : "Bạn đã copy Ma Sói và là Ma Sói một mình, được chọn 1 lá giữa bàn để xem."
                 : "Vì có từ 2 Ma Sói trở lên, bạn không được xem lá giữa bàn."}
             </p>
           </div>
@@ -695,10 +1014,10 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
         {needsPlayerPicker && (
           <div className={styles.playPicker}>
-            <span>Chọn người chơi</span>
+            <span>{playerPickerLabel}</span>
             {playerPickerOptions.map((player) => (
               <button
-                className={selectedPlayerIds.includes(player.id) ? styles.playOptionActive : styles.playOption}
+                className={selectedPickerPlayerIds.includes(player.id) ? styles.playOptionActive : styles.playOption}
                 key={player.id}
                 type="button"
                 disabled={isPending || isPlayerPickerDisabled}
@@ -715,9 +1034,9 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             <span>Chọn lá giữa bàn</span>
             {playState.centerCards.map((card) => {
               const isCenterLoading = revealingCenterIndexes.includes(card.index);
-              const revealedRole =
-                selectedCenterIndexes.includes(card.index) || card.role
-                  ? getRevealedCenterRole(card.index)
+              const revealLabel =
+                selectedCenterIndexes.includes(card.index) || card.role || typeof card.isWerewolf === "boolean"
+                  ? getCenterRevealLabel(card.index)
                   : null;
 
               return (
@@ -730,7 +1049,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                 >
                   {isCenterLoading && <LoaderCircle className={styles.playOptionSpinner} aria-hidden="true" />}
                   Lá {card.index + 1}
-                  {isCenterLoading ? " - Đang mở..." : revealedRole ? ` - ${WOLF_ROLE_LABELS[revealedRole]}` : ""}
+                  {isCenterLoading ? " - Đang mở..." : revealLabel ? ` - ${revealLabel}` : ""}
                 </button>
               );
             })}
@@ -742,64 +1061,103 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   }
 
   const selectedCenterRevealsLoaded =
-    myRole === "seer"
-      ? viewedCenterIndexes.length > 0
-        ? selectedCenterIndexes.length === 2 && selectedCenterIndexes.every(hasCenterReveal)
-        : selectedPlayerIds.length === 1 || selectedCenterIndexes.every(hasCenterReveal)
-      : myRole === "witch"
-        ? selectedCenterIndexes.length === 1 && selectedCenterIndexes[0] != null && hasCenterReveal(selectedCenterIndexes[0])
-        : myRole === "werewolf"
-          ? hasWerewolfTeammates ||
-            selectedCenterIndexes.length === 0 ||
-            (selectedCenterIndexes[0] != null && hasCenterReveal(selectedCenterIndexes[0]))
-          : myRole === "copycat"
-            ? selectedCenterIndexes.length >= 1 &&
-              selectedCenterIndexes[0] != null &&
-              hasCenterReveal(selectedCenterIndexes[0]) &&
-              (copycatCopiedRole === "seer"
-                ? selectedCenterIndexes.length < 3 ||
-                  ((selectedCenterIndexes[1] != null && hasCenterReveal(selectedCenterIndexes[1])) &&
-                    (selectedCenterIndexes[2] != null && hasCenterReveal(selectedCenterIndexes[2])))
-                : copycatCopiedRole === "witch"
-                  ? selectedCenterIndexes.length < 2 ||
-                    (selectedCenterIndexes[1] != null && hasCenterReveal(selectedCenterIndexes[1]))
+    myRole === "doppelganger"
+      ? Boolean(
+          doppelgangerCopiedRole &&
+            (doppelgangerCopiedRole === "seer"
+              ? isSeerSelectionComplete(selectedCenterIndexes) && selectedCenterIndexes.every(hasCenterReveal)
+              : doppelgangerCopiedRole === "witch"
+                ? selectedCenterIndexes.length === 1 && selectedCenterIndexes.every(hasCenterReveal)
                 : true)
+        )
+      : myRole === "copycat"
+      ? isCopycatCopyTurn
+        ? selectedCenterIndexes.length === 1 &&
+          selectedCenterIndexes[0] != null &&
+          hasCenterReveal(selectedCenterIndexes[0])
+        : copiedCenterIndex != null &&
+          hasCenterReveal(copiedCenterIndex) &&
+          (copycatCopiedRole === "seer"
+            ? isSeerSelectionComplete(selectedCenterIndexes) && selectedCenterIndexes.every(hasCenterReveal)
+            : copycatCopiedRole === "witch"
+              ? selectedCenterIndexes.length === 1 && selectedCenterIndexes.every(hasCenterReveal)
+              : copycatCopiedRole === "werewolf"
+                ? selectedCenterIndexes.length === 0 || selectedCenterIndexes.every(hasCenterReveal)
+              : true)
+      : nightActionRole === "seer"
+        ? viewedCenterIndexes.length > 0
+          ? isSeerSelectionComplete(selectedCenterIndexes) && selectedCenterIndexes.every(hasCenterReveal)
+          : selectedCenterIndexes.every(hasCenterReveal)
+        : nightActionRole === "witch"
+          ? selectedCenterIndexes.length === 1 && selectedCenterIndexes[0] != null && hasCenterReveal(selectedCenterIndexes[0])
+          : nightActionRole === "werewolf"
+            ? hasWerewolfTeammates ||
+              selectedCenterIndexes.length === 0 ||
+              (selectedCenterIndexes[0] != null && hasCenterReveal(selectedCenterIndexes[0]))
             : true;
   const canSubmitNightAction =
-    myRole === "villager" ||
-    myRole === "insomniac" ||
-    (myRole === "werewolf" && (hasWerewolfTeammates ? selectedCenterIndexes.length === 0 : selectedCenterIndexes.length <= 1)) ||
-    (myRole === "werewolf_seer" && selectedPlayerIds.length === 1) ||
-    (myRole === "robber" && selectedPlayerIds.length === 1) ||
-    (myRole === "troublemaker" && selectedPlayerIds.length === 2) ||
-    (myRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 1) ||
-    (myRole === "drunk" && selectedCenterIndexes.length === 1) ||
-    (myRole === "seer" &&
-      (viewedCenterIndexes.length > 0
-        ? selectedCenterIndexes.length === 2
-        : selectedPlayerIds.length === 1 || selectedCenterIndexes.length === 2)) ||
+    (myRole === "doppelganger" &&
+      Boolean(
+        doppelgangerCopiedRole &&
+          (doppelgangerCopiedRole === "villager" ||
+            doppelgangerCopiedRole === "insomniac" ||
+            doppelgangerCopiedRole === "werewolf" ||
+            doppelgangerCopiedRole === "doppelganger" ||
+            doppelgangerCopiedRole === "copycat" ||
+            (doppelgangerCopiedRole === "seer" &&
+              isSeerSelectionComplete(selectedCenterIndexes)) ||
+            (doppelgangerCopiedRole === "werewolf_seer" && doppelgangerActionTargetIds.length === 1) ||
+            (doppelgangerCopiedRole === "robber" && doppelgangerActionTargetIds.length === 1) ||
+            (doppelgangerCopiedRole === "troublemaker" && doppelgangerActionTargetIds.length === 2) ||
+            (doppelgangerCopiedRole === "witch" &&
+              doppelgangerActionTargetIds.length === 1 &&
+              selectedCenterIndexes.length === 1) ||
+            (doppelgangerCopiedRole === "drunk" && selectedCenterIndexes.length === 1))
+      )) ||
+    nightActionRole === "villager" ||
+    nightActionRole === "insomniac" ||
+    (nightActionRole === "werewolf" && (hasWerewolfTeammates ? selectedCenterIndexes.length === 0 : selectedCenterIndexes.length <= 1)) ||
+    (nightActionRole === "werewolf_seer" && selectedPlayerIds.length === 1) ||
+    (nightActionRole === "robber" && selectedPlayerIds.length === 1) ||
+    (nightActionRole === "troublemaker" && selectedPlayerIds.length === 2) ||
+    (nightActionRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 1) ||
+    (nightActionRole === "drunk" && selectedCenterIndexes.length === 1) ||
+    (nightActionRole === "seer" &&
+      isSeerSelectionComplete(selectedCenterIndexes)) ||
+    (isCopycatCopyTurn &&
+      selectedCenterIndexes.length === 1) ||
     (myRole === "copycat" &&
-      selectedCenterIndexes.length >= 1 &&
+      isCopycatCopiedRoleTurn &&
       (copycatCopiedRole === "villager" ||
         copycatCopiedRole === "insomniac" ||
         copycatCopiedRole === "werewolf" ||
         copycatCopiedRole === "copycat" ||
         (copycatCopiedRole === "seer" &&
-          (copiedSeerCenterPathStarted
-            ? selectedCenterIndexes.length === 3
-            : selectedPlayerIds.length === 1 || selectedCenterIndexes.length === 3)) ||
+          isSeerSelectionComplete(selectedCenterIndexes)) ||
         (copycatCopiedRole === "werewolf_seer" && selectedPlayerIds.length === 1) ||
         (copycatCopiedRole === "robber" && selectedPlayerIds.length === 1) ||
         (copycatCopiedRole === "troublemaker" && selectedPlayerIds.length === 2) ||
-        (copycatCopiedRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 2) ||
-        (copycatCopiedRole === "drunk" && selectedCenterIndexes.length === 2)));
+        (copycatCopiedRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 1) ||
+        (copycatCopiedRole === "drunk" && selectedCenterIndexes.length === 1)));
   const canSubmitResolvedNightAction =
     canSubmitNightAction && selectedCenterRevealsLoaded && !isCenterRevealPending;
+  const hasNightReviewCards = Boolean(
+    playState.myCard?.nightReviewRole ||
+      playState.playerReveals.length > 0 ||
+      playState.centerCards.some((card) => card.role || typeof card.isWerewolf === "boolean")
+  );
+  const nightActionButtonLabel = playState.isCurrentNightTurnActionSubmitted
+    ? "OK, tôi đã biết kết quả"
+    : nightActionRole === "insomniac"
+      ? "OK, tôi đã biết bài hiện tại"
+      : isSeerEffect && canSubmitResolvedNightAction
+        ? "OK, tôi đã biết kết quả"
+      : "Hoàn tất lượt đêm";
 
   return (
     <main
       className={`${styles.page} ${styles.playPage} ${usesFocusedRevealLayout ? styles.focusedPlayPage : ""} ${
-        (isNightPhase && !myActionSubmitted && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
+        (isNightPhase && isMyNightTurn && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
       } ${isVotingPhase ? styles.fixedBottomWaitingPage : ""}`}
     >
       <section className={styles.playHeader}>
@@ -812,7 +1170,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             Hãy xem kĩ lá bài của bạn và ghi nhớ nó
           </p>
         )}
-        {isNightPhase && <p>{myRole ? WOLF_ROLE_DESCRIPTIONS[myRole] : "Bạn chưa có bài trong ván này."}</p>}
+        {isNightPhase && (
+          <p>
+            {isMyNightTurn && nightActionRole
+              ? WOLF_ROLE_DESCRIPTIONS[nightActionRole]
+              : playState.isNightTurnInProgress
+                ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
+                : "Tất cả lượt ban đêm đã hoàn tất."}
+          </p>
+        )}
         {isNightReviewPhase && (
           <p>
             Xem lại kết quả hành động ban đêm của bạn. Khi tất cả người chơi hoàn tất, ván sẽ tự chuyển sang thảo luận.
@@ -856,17 +1222,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             <div className={styles.privateRevealBox}>
               <div
                 className={
-                  playState.myCard?.nightReviewRole
+                  hasNightReviewCards
                     ? styles.nightReviewRevealStack
                     : styles.nightReviewContent
                 }
               >
-                {playState.myCard?.nightReviewRole && (
-                  <RoleCard
-                    label={myRole === "insomniac" ? "Bài hiện tại" : "Lá vừa lấy"}
-                    role={playState.myCard.nightReviewRole}
-                  />
-                )}
+                {renderKnownNightCards()}
                 {playState.nightReviewMessages.map((reviewMessage) => (
                   <p
                     className={playState.myCard?.nightReviewRole ? styles.nightReviewMessage : undefined}
@@ -984,16 +1345,20 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         </section>
       )}
 
-      {isNightPhase && !myActionSubmitted && myRole && (
+      {isNightPhase && isMyNightTurn && myRole && (
         <section className={styles.cardRevealActionBar}>
           <button
             className={styles.primaryButton}
             type="button"
-            disabled={!canSubmitResolvedNightAction || isPending}
-            onClick={submitNightAction}
+            disabled={
+              playState.isCurrentNightTurnActionSubmitted
+                ? isPending
+                : !canSubmitResolvedNightAction || isPending
+            }
+            onClick={playState.isCurrentNightTurnActionSubmitted ? confirmNightActionResult : submitNightAction}
           >
             <Check aria-hidden="true" />
-            Hoàn tất lượt đêm
+            {nightActionButtonLabel}
           </button>
         </section>
       )}

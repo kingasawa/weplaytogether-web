@@ -16,6 +16,7 @@ export type WolfRole =
   | "witch"
   | "drunk"
   | "insomniac"
+  | "doppelganger"
   | "copycat";
 
 export type WolfRoomRow = {
@@ -67,6 +68,7 @@ export type WolfGameActionRow = {
   action_type: string;
   target_player_id: string | null;
   target_player_id_2: string | null;
+  target_player_id_3: string | null;
   target_center_index: number | null;
   target_center_index_2: number | null;
   target_center_index_3: number | null;
@@ -148,6 +150,7 @@ export type Database = {
             | "id"
             | "target_player_id"
             | "target_player_id_2"
+            | "target_player_id_3"
             | "target_center_index"
             | "target_center_index_2"
             | "target_center_index_3"
