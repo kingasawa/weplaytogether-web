@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-27 -->
+﻿<!-- Last updated: 2026-07-28 -->
 
 # Database Schema
 
@@ -14,6 +14,8 @@ On 2026-06-12, `public.wolf_game_actions.target_center_index_3` and its 0-2 chec
 
 On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was created to add the pending `doppelganger` enum value and `wolf_game_actions.target_player_id_3` for Nhân Bản copying Kẻ Gây Rối.
 
+On 2026-07-28, local migration `202607280001_classic_wolf_state.sql` was created to add the separate `classic_wolf_game_states` table for Ma Sói nhiều đêm state stored as JSON. This keeps one-night Ma Sói gameplay tables and constraints unchanged.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -27,6 +29,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202606040002_wolf_vote_skip.sql`
 - `supabase/migrations/202606050001_wolf_cleanup_old_rooms.sql`
 - `supabase/migrations/202607270001_wolf_doppelganger_role.sql`
+- `supabase/migrations/202607280001_classic_wolf_state.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -69,6 +72,14 @@ Local migration file created in this task and still pending manual remote apply:
 - `discussion_ends_at timestamptz null`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
+
+#### `public.classic_wolf_game_states`
+
+- `game_id uuid primary key references public.wolf_game_sessions(id) on delete cascade`
+- `state jsonb not null default '{}'::jsonb`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+- RLS enabled with no public read policy because this JSON contains secret Ma Sói nhiều đêm role/action state. Server actions read and write it with the service role.
 
 #### `public.wolf_game_cards`
 
@@ -120,6 +131,7 @@ Local migration file created in this task and still pending manual remote apply:
 - Unique room session: `wolf_room_players(room_id, session_id)`
 - Gameplay lookup indexes on `wolf_game_sessions.room_id`, `wolf_game_sessions.phase`, `wolf_game_cards.game_id`, `wolf_game_cards.player_id`, `wolf_game_actions.game_id`, `wolf_game_votes.game_id`
 - Phase confirmation lookup index on `wolf_game_phase_confirmations.game_id`
+- Classic Ma Sói state primary-key lookup on `classic_wolf_game_states.game_id`
 - Unique player card per game: `wolf_game_cards(game_id, player_id) where player_id is not null`
 - Unique center card per game: `wolf_game_cards(game_id, center_index) where center_index is not null`
 - Unique night action per game/player: `wolf_game_actions(game_id, player_id)`
@@ -147,3 +159,4 @@ Local migration file created in this task and still pending manual remote apply:
 ## Remote Apply Notes
 
 Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
+

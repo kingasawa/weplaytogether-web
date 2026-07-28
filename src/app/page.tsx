@@ -35,6 +35,14 @@ const featuredGames: FeaturedGame[] = [
     featured: true,
   },
   {
+    name: "Ma Sói Nhiều Đêm",
+    players: "4 - 10 người",
+    category: "Suy luận",
+    image: "/images/boards/wolf.png",
+    href: "/games/wolf-classic",
+    featured: true,
+  },
+  {
     name: "Avalon",
     players: "5 - 10 người",
     category: "Suy luận",

@@ -1300,6 +1300,112 @@
   color: var(--danger);
 }
 
+.nightlyResultHeader {
+  display: grid;
+  gap: var(--spacing-sm);
+  justify-items: center;
+  width: 100%;
+}
+
+.nightlyResultTitleRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  align-items: center;
+  gap: var(--spacing-sm);
+  text-align: center;
+}
+
+.nightlyResultTitleRow h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 8vw, 2.7rem);
+  line-height: 1.05;
+}
+
+.nightlyResultTitleRow p {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.nightlyResultTitleRow svg {
+  width: 1.8rem;
+  min-width: 1.8rem;
+  color: var(--primary-light);
+}
+
+.nightlyResultPlayers {
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--bg-primary));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 68%, var(--bg-primary));
+}
+
+.nightlyResultPlayerRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.nightlyResultPlayerRow:last-child {
+  border-bottom: 0;
+}
+
+.nightlyResultAvatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
+  border-radius: 0.65rem;
+  background: var(--bg-primary);
+  object-fit: cover;
+}
+
+.nightlyResultPlayerInfo {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.nightlyResultPlayerInfo strong {
+  overflow: hidden;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nightlyResultAlive,
+.nightlyResultDead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.playPanel .nightlyResultAlive,
+.nightlyResultAlive {
+  color: var(--success);
+}
+
+.playPanel .nightlyResultDead,
+.nightlyResultDead {
+  color: var(--danger);
+}
+
+.nightlyResultDead svg {
+  width: 0.9rem;
+  min-width: 0.9rem;
+  color: currentColor;
+}
+
 .resultSummaryList {
   display: grid;
   gap: 0.4rem;
@@ -1361,6 +1467,7 @@
 
 .resultSummaryHeader {
   display: flex;
+  min-height: 1.75rem;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
@@ -1370,15 +1477,807 @@
   font-size: 0.78rem;
 }
 
+.nightHistoryGrid {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.nightHistoryRow {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--bg-primary));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-primary));
+}
+
+.nightHistoryNight {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary-light);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+}
+
+.nightHistoryNight svg {
+  width: 1.2rem;
+  min-width: 1.2rem;
+}
+
+.nightHistoryEvents {
+  display: grid;
+  padding: 0.45rem 0.65rem 0.65rem;
+}
+
+.nightHistoryEvent {
+  display: grid;
+  grid-template-columns: minmax(6.4rem, 0.45fr) minmax(0, 1fr);
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.nightHistoryEvent:last-child {
+  border-bottom: 0;
+}
+
+.nightHistoryResult {
+  color: var(--danger);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.nightHistoryRole {
+  display: inline-flex;
+  min-height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary-light);
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.nightHistoryRole svg {
+  width: 0.95rem;
+  min-width: 0.95rem;
+}
+
+.nightHistoryRoleGuard {
+  background: color-mix(in srgb, var(--primary-light) 18%, transparent);
+}
+
+.nightHistoryRoleWerewolf,
+.resultRoleTagWerewolf {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.nightHistoryRoleSeer {
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.nightHistoryRoleWitch,
+.resultRoleTagWitch {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
+.nightHistoryRoleVote {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+}
+
+.nightHistoryRoleResult {
+  background: color-mix(in srgb, var(--primary-light) 18%, transparent);
+  color: var(--text);
+}
+
+.classicWolfTheme {
+  position: relative;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 18%, transparent),
+      color-mix(in srgb, var(--bg-primary) 76%, transparent) 78%,
+      var(--bg-primary)
+    ),
+    url("/images/ui/wolf_game_bg.png") center / cover fixed no-repeat,
+    var(--bg-primary);
+  isolation: isolate;
+}
+
+.classicWolfTheme::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--danger) 20%, transparent), transparent 14rem),
+    radial-gradient(circle at 78% 12%, color-mix(in srgb, var(--primary-light) 18%, transparent), transparent 12rem),
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-primary) 70%, transparent));
+  content: "";
+  pointer-events: none;
+}
+
+.classicWolfTheme .hero,
+.classicWolfTheme .roomPanel,
+.classicWolfTheme .playHeader,
+.classicWolfTheme .playPanel,
+.classicWolfTheme .discussionRoleDeck,
+.classicWolfTheme .playPlayers,
+.classicWolfTheme .playWaitingStatus,
+.classicWolfTheme .modal {
+  border-color: color-mix(in srgb, var(--primary-light) 32%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 76%, transparent), color-mix(in srgb, var(--bg-primary) 88%, transparent));
+  box-shadow:
+    0 1px 2px 2px color-mix(in srgb, var(--primary) 20%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  backdrop-filter: blur(0.3rem);
+}
+
+.classicWolfTheme .playHeader {
+  position: relative;
+  min-height: clamp(12rem, 32svh, 18rem);
+  overflow: hidden;
+  justify-content: end;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 8%, transparent), color-mix(in srgb, var(--bg-primary) 80%, transparent)),
+    url("/images/ui/wolf_game_bg.png") center 8% / cover no-repeat,
+    var(--bg-secondary);
+}
+
+.classicWolfTheme .playHeader > * {
+  position: relative;
+  z-index: 1;
+}
+
+.classicWolfTheme .playHeader h1 {
+  color: var(--text);
+  font-size: clamp(2.4rem, 12vw, 4rem);
+  line-height: 0.98;
+  text-shadow: 0 0 1.1rem color-mix(in srgb, var(--primary-light) 45%, transparent);
+}
+
+.classicWolfTheme .playHeader span {
+  color: var(--text-secondary);
+}
+
+.classicWolfTheme .playHeader p {
+  max-width: 22rem;
+  color: var(--text-secondary);
+}
+
+.classicWolfTheme .discussionHeader {
+  gap: 0.85rem;
+}
+
+.classicWolfTheme .discussionHeader h1 {
+  font-size: clamp(3rem, 15vw, 5rem);
+}
+
+.classicWolfTheme .discussionHeader p {
+  max-width: 100%;
+}
+
+.classicWolfTheme .discussionHeader .playTimer {
+  width: 100%;
+  min-height: 3.15rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 38%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 0 1rem color-mix(in srgb, var(--primary) 22%, transparent);
+  font-size: clamp(1.8rem, 9vw, 2.45rem);
+}
+
+.classicWolfTheme .votingHeader {
+  gap: 0.85rem;
+}
+
+.classicWolfTheme .votingHeader p {
+  max-width: 100%;
+}
+
+.classicWolfTheme .votingHeader .playTimer {
+  width: 100%;
+  min-height: 3.15rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 38%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 0 1rem color-mix(in srgb, var(--primary) 22%, transparent);
+  font-size: clamp(1.8rem, 9vw, 2.45rem);
+}
+
+.classicWolfTheme .nightTurnWaiting {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 7.2rem;
+  padding: 1rem;
+  border-color: color-mix(in srgb, var(--primary-light) 34%, transparent);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at left, color-mix(in srgb, var(--primary) 18%, transparent), transparent 9rem),
+    color-mix(in srgb, var(--bg-primary) 74%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent),
+    0 0 1.5rem color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.classicWolfTheme .classicWolfNightPanel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.classicWolfTheme .nightTurnWaiting span {
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .nightTurnWaiting strong {
+  font-size: clamp(1.05rem, 5vw, 1.45rem);
+}
+
+.classicWolfTheme .classicWolfNightStatus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 3.2rem;
+  padding: 0.75rem 1rem;
+  border-color: color-mix(in srgb, var(--primary-light) 36%, transparent);
+  border-radius: 999rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 82%, transparent), color-mix(in srgb, var(--bg-primary) 88%, transparent));
+}
+
+.classicWolfTheme .classicWolfNightStatus span {
+  color: var(--text);
+}
+
+.classicWolfTheme .cardRevealActionBar {
+  border-color: color-mix(in srgb, var(--primary-light) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+  box-shadow:
+    0 1px 2px 2px color-mix(in srgb, var(--primary) 18%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.classicWolfTheme .classicWolfNightActionBar {
+  padding: 0.15rem;
+  border-color: color-mix(in srgb, var(--primary-light) 38%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+}
+
+.classicWolfTheme .classicWolfNightActionBar .primaryButton {
+  min-height: 3.25rem;
+  border: 0;
+  background:
+    linear-gradient(1deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--primary) 34%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--bg-primary) 34%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent)),
+    url("/images/ui/blue_bg_btn.png") center / 100% 100% no-repeat;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent),
+    0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
+  text-shadow: 0 0.08rem 0.2rem color-mix(in srgb, var(--bg-primary) 60%, transparent);
+}
+
+.classicWolfTheme .classicWolfNightActionBar .primaryButton svg {
+  width: 1.1rem;
+  min-width: 1.1rem;
+}
+
+.classicWolfTheme .classicWolfDiscussionActionBar {
+  padding: 0.15rem;
+  border-color: color-mix(in srgb, var(--primary-light) 38%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+}
+
+.classicWolfTheme .classicWolfDiscussionActionBar .primaryButton {
+  min-height: 3.25rem;
+  border: 0;
+  background:
+    linear-gradient(1deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--primary) 34%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--bg-primary) 34%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent)),
+    url("/images/ui/blue_bg_btn.png") center / 100% 100% no-repeat;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent),
+    0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
+  text-shadow: 0 0.08rem 0.2rem color-mix(in srgb, var(--bg-primary) 60%, transparent);
+}
+
+.classicWolfTheme .playerPicker .playOption,
+.classicWolfTheme .playerPicker .playOptionActive {
+  display: grid;
+  grid-template-columns: 2.55rem minmax(0, 1fr) 2.55rem;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.classicWolfTheme .playerPicker .playOptionActive {
+  border-color: color-mix(in srgb, var(--primary-light) 50%, transparent);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary-light) 16%, transparent),
+    0 0 0.8rem color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.classicWolfTheme .playerOptionText {
+  grid-column: 2;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  letter-spacing: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.classicWolfTheme .playerOptionIconWrap {
+  display: inline-flex;
+  grid-column: 3;
+  width: 2.35rem;
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  opacity: 0;
+}
+
+.classicWolfTheme .playerOptionIconWrapVisible {
+  opacity: 1;
+}
+
+.classicWolfTheme .playerOptionIconWrap svg {
+  width: 2.15rem;
+  min-width: 2.15rem;
+  color: currentColor;
+}
+
+.classicWolfTheme .playerOptionIconWrapGuard svg {
+  margin-right: 0.12rem;
+}
+
+.classicWolfTheme .playerPicker .playOptionActiveGuard {
+  border-color: color-mix(in srgb, var(--primary-light) 58%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .playerPicker .playOptionActiveDanger {
+  border-color: color-mix(in srgb, var(--danger) 58%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent),
+    0 0 0.9rem color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.classicWolfTheme .playerPicker .playOptionActiveHeal {
+  border-color: color-mix(in srgb, var(--success) 58%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--success) 18%, transparent),
+    0 0 0.9rem color-mix(in srgb, var(--success) 18%, transparent);
+}
+
+.classicWolfTheme .playerPicker .playOptionActiveSeer {
+  border-color: color-mix(in srgb, var(--text) 68%, transparent);
+  background: color-mix(in srgb, var(--text) 24%, transparent);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 24%, transparent),
+    0 0 1rem color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.classicWolfTheme .discussionPanel {
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.classicWolfTheme .discussionSectionTitle {
+  display: flex;
+  min-height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.classicWolfTheme .discussionSectionTitle span {
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.classicWolfTheme .discussionStatusGrid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.classicWolfTheme .discussionStatusRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 4.1rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-card) 58%, transparent);
+}
+
+.classicWolfTheme .discussionStatusIcon {
+  display: inline-flex;
+  width: 2.6rem;
+  min-width: 2.6rem;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .discussionStatusIcon svg {
+  width: 1.35rem;
+  min-width: 1.35rem;
+}
+
+.classicWolfTheme .discussionStatusContent {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.classicWolfTheme .discussionStatusContent span {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.classicWolfTheme .discussionStatusContent strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.classicWolfTheme .discussionStatusCount {
+  color: var(--primary-light);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.classicWolfTheme .discussionStatusDead .discussionStatusIcon,
+.classicWolfTheme .discussionStatusDead .discussionStatusCount {
+  color: var(--danger);
+}
+
+.classicWolfTheme .discussionStatusAlive .discussionStatusIcon,
+.classicWolfTheme .discussionStatusAlive .discussionStatusCount {
+  color: var(--success);
+}
+
+.classicWolfTheme .discussionRoleGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.classicWolfTheme .discussionRoleTile {
+  min-height: 6.25rem;
+  align-content: end;
+  justify-items: center;
+  padding: 0.85rem 0.45rem 0.7rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 58%, transparent);
+}
+
+.classicWolfTheme .discussionRoleIcon {
+  display: inline-flex;
+  width: 2.35rem;
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .discussionRoleIcon svg {
+  width: 2rem;
+  min-width: 2rem;
+}
+
+.classicWolfTheme .discussionHint {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-card) 52%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.classicWolfTheme .votingPanel {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.classicWolfTheme .votingTitle {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.classicWolfTheme .votingTitle strong {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.classicWolfTheme .votingTitle span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.classicWolfTheme .votingOptions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.classicWolfTheme .votingOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 2rem;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.classicWolfTheme .votingOption:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.classicWolfTheme .votingOption > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.94rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classicWolfTheme .votingOptionActive {
+  border-color: color-mix(in srgb, var(--primary-light) 58%, transparent);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary-light) 18%, transparent),
+    0 0 0.9rem color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.classicWolfTheme .votingOptionAvatar {
+  display: inline-flex;
+  width: 2.25rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary-light);
+  object-fit: cover;
+}
+
+.classicWolfTheme .votingOptionAvatar svg {
+  width: 1.15rem;
+  min-width: 1.15rem;
+}
+
+.classicWolfTheme .votingOptionCheck {
+  display: inline-flex;
+  min-width: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .votingOptionCheck svg {
+  width: 1.35rem;
+  min-width: 1.35rem;
+}
+
+.classicWolfTheme .votingConfirmButton {
+  display: inline-flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 999rem;
+  background:
+    linear-gradient(1deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--primary) 34%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--bg-primary) 34%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent)),
+    url("/images/ui/blue_bg_btn.png") center / 100% 100% no-repeat;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent),
+    0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
+}
+
+.classicWolfTheme .votingConfirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.classicWolfTheme .votingConfirmButton svg {
+  width: 1.15rem;
+  min-width: 1.15rem;
+}
+
+.classicWolfTheme .votingHint {
+  margin: -0.15rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.classicWolfTheme .votingStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.classicWolfTheme .votingStatCard {
+  display: grid;
+  min-width: 0;
+  min-height: 4rem;
+  justify-items: center;
+  gap: 0.12rem;
+  padding: 0.55rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 54%, transparent);
+  text-align: center;
+}
+
+.classicWolfTheme .votingStatCard svg {
+  width: 1.05rem;
+  min-width: 1.05rem;
+  color: var(--primary-light);
+}
+
+.classicWolfTheme .votingStatCard span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.classicWolfTheme .votingStatCard strong {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.resultRoleTagGuard {
+  background: color-mix(in srgb, var(--primary-light) 18%, transparent);
+}
+
+.resultRoleTagSeer {
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.nightHistoryEventText {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.nightHistoryIconStack {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nightHistoryIconBadge {
+  display: inline-flex;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary-light);
+}
+
+.nightHistoryIcon {
+  width: 1rem;
+  min-width: 1rem;
+}
+
 .resultRoleTag {
   display: inline-flex;
+  min-height: 1.5rem;
   align-items: center;
+  justify-content: center;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary-light);
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
   margin-left: auto;
 }
@@ -1781,6 +2680,7 @@
 .resultMovementCard,
 .resultMovementStep,
 .resultSummaryRow,
+.nightHistoryRow,
 .nightReviewContent,
 .cardRevealActionBar,
 .focusedWaitingStatus,
@@ -1893,6 +2793,10 @@
 
   .playPicker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nightHistoryEvents {
+    gap: 0.28rem;
   }
 
   .roleSetupHeader {

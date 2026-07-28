@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-06-03 -->
+﻿<!-- Last updated: 2026-07-28 -->
 
 # RLS Policies
 
@@ -30,6 +30,10 @@ The pending phase confirmation migration defines this read policy after enabling
 
 - `Public read wolf game phase confirmations` on `public.wolf_game_phase_confirmations`
 
+### `202607280001_classic_wolf_state.sql`
+
+The Ma Sói nhiều đêm state migration enables RLS on `public.classic_wolf_game_states` and intentionally adds no public read policy. The table stores secret role assignments, night actions, witch potion state, hunter shots, and winner state. Reads and writes are performed only through server actions using the service role key.
+
 ## Access Model
 
 The policies allow `anon` and `authenticated` clients to read room/game state for realtime updates.
@@ -39,3 +43,4 @@ Client writes are intentionally not granted. Room creation, lobby mutation, game
 ## Remote Apply Blocker
 
 The `wolf_game_phase_confirmations` policy remains pending until `202606030003_wolf_phase_confirmations.sql` is applied manually. Automated migration execution from this workspace remains unavailable with the current credentials/connectivity.
+

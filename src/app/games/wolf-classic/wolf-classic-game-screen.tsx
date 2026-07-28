@@ -1,0 +1,401 @@
+"use client";
+
+import { BookOpen, LogIn, Play, Plus, ShieldQuestion, UserRound, X } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  MAX_GUEST_PLAYER_NAME_LENGTH,
+  readStoredGuestPlayerAvatarKey,
+  readStoredGuestPlayerName,
+  saveStoredGuestPlayerAvatarKey,
+  saveStoredGuestPlayerName,
+} from "@/lib/guest-player";
+import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createClassicWolfRoom, joinClassicWolfRoom } from "./actions";
+import { PlayerAvatarPicker } from "../wolf/player-avatar-picker";
+import styles from "../wolf/page.module.css";
+
+const ROOM_ID_PATTERN = /^[a-z]{4}$/;
+type PendingIdentityAction = "create_room" | "open_join_room" | "join_room" | null;
+
+export default function ClassicWolfGameScreen() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isIdentityOpen, setIsIdentityOpen] = useState(false);
+  const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestNameInput, setGuestNameInput] = useState("");
+  const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestAvatarInput, setGuestAvatarInput] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestNameError, setGuestNameError] = useState("");
+  const [pendingIdentityAction, setPendingIdentityAction] = useState<PendingIdentityAction>(null);
+  const [roomCode, setRoomCode] = useState("");
+  const [roomCodeError, setRoomCodeError] = useState("");
+  const [actionError, setActionError] = useState("");
+
+  const normalizedRoomCode = useMemo(
+    () => roomCode.trim().toLowerCase().replace(/[^a-z]/g, "").slice(0, 4),
+    [roomCode]
+  );
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+
+    void supabase.auth.getSession().then(({ data }) => {
+      const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+
+      setGuestName(savedGuestName);
+      setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
+      setIsLoggedIn(Boolean(data.session));
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const savedGuestName = readStoredGuestPlayerName();
+      const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+
+      setIsLoggedIn(Boolean(session));
+      setGuestName(savedGuestName);
+      setGuestNameInput(savedGuestName);
+      setGuestAvatarKey(savedGuestAvatarKey);
+      setGuestAvatarInput(savedGuestAvatarKey);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  function getCurrentPlayerName() {
+    if (isLoggedIn) {
+      return undefined;
+    }
+
+    const normalizedGuestName = guestName.trim();
+    return normalizedGuestName || null;
+  }
+
+  function ensurePlayerIdentity(nextAction: Exclude<PendingIdentityAction, null>) {
+    const playerName = getCurrentPlayerName();
+
+    if (playerName === null) {
+      setPendingIdentityAction(nextAction);
+      setIsIdentityOpen(true);
+      setIsGuestFormOpen(true);
+      return null;
+    }
+
+    return playerName;
+  }
+
+  function getCurrentPlayerAvatarKey() {
+    return isLoggedIn ? undefined : guestAvatarKey;
+  }
+
+  function runCreateRoom(playerName?: string, avatarKey?: string) {
+    setActionError("");
+    startTransition(async () => {
+      const result = await createClassicWolfRoom(playerName, avatarKey);
+
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+
+      router.push(`/games/wolf-classic/rooms/${result.roomCode}`);
+    });
+  }
+
+  function runJoinRoom(playerName?: string, avatarKey?: string) {
+    if (!ROOM_ID_PATTERN.test(normalizedRoomCode)) {
+      setRoomCodeError("Mã phòng phải gồm đúng 4 chữ cái từ a đến z.");
+      return;
+    }
+
+    setRoomCodeError("");
+    startTransition(async () => {
+      const result = await joinClassicWolfRoom(normalizedRoomCode, playerName, avatarKey);
+
+      if (!result.ok) {
+        setRoomCodeError(result.error);
+        return;
+      }
+
+      router.push(`/games/wolf-classic/rooms/${result.roomCode}`);
+    });
+  }
+
+  function saveGuestName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalizedGuestName = guestNameInput.trim().slice(0, MAX_GUEST_PLAYER_NAME_LENGTH);
+
+    if (!normalizedGuestName) {
+      setGuestNameError("Vui lòng nhập tên để chơi với vai trò khách.");
+      return;
+    }
+
+    saveStoredGuestPlayerName(normalizedGuestName);
+    const savedAvatarKey = saveStoredGuestPlayerAvatarKey(guestAvatarInput);
+    setGuestName(normalizedGuestName);
+    setGuestNameInput(normalizedGuestName);
+    setGuestAvatarKey(savedAvatarKey);
+    setGuestAvatarInput(savedAvatarKey);
+    setGuestNameError("");
+    setIsGuestFormOpen(false);
+    setIsIdentityOpen(false);
+
+    const nextAction = pendingIdentityAction;
+    setPendingIdentityAction(null);
+
+    if (nextAction === "create_room") {
+      runCreateRoom(normalizedGuestName, savedAvatarKey);
+    }
+
+    if (nextAction === "open_join_room") {
+      setIsJoinOpen(true);
+    }
+
+    if (nextAction === "join_room") {
+      runJoinRoom(normalizedGuestName, savedAvatarKey);
+    }
+  }
+
+  function createRoom() {
+    const playerName = ensurePlayerIdentity("create_room");
+
+    if (playerName !== null) {
+      runCreateRoom(playerName, getCurrentPlayerAvatarKey());
+    }
+  }
+
+  function openJoinRoom() {
+    if (ensurePlayerIdentity("open_join_room") !== null) {
+      setIsJoinOpen(true);
+    }
+  }
+
+  function joinRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const playerName = ensurePlayerIdentity("join_room");
+
+    if (playerName !== null) {
+      runJoinRoom(playerName, getCurrentPlayerAvatarKey());
+    }
+  }
+
+  function openGuestProfileEditor() {
+    setPendingIdentityAction(null);
+    setGuestNameInput(guestName);
+    setGuestAvatarInput(guestAvatarKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
+  }
+
+  function closeIdentityModal() {
+    setIsIdentityOpen(false);
+    setIsGuestFormOpen(false);
+    setPendingIdentityAction(null);
+  }
+
+  const isEditingGuestProfile = isGuestFormOpen && pendingIdentityAction === null;
+
+  return (
+    <main className={`${styles.page} ${styles.classicWolfTheme}`}>
+      <section className={styles.hero}>
+        <div className={styles.heroImage}>
+          <Image
+            alt="Banner game Ma Sói Nhiều Đêm"
+            fill
+            priority
+            sizes="100vw"
+            src="/images/ui/wolf_game_bg.png"
+          />
+        </div>
+
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>
+            <ShieldQuestion aria-hidden="true" />
+            Suy luận xã hội
+          </p>
+          <p className={styles.heroTitle}>Ma Sói Nhiều Đêm</p>
+          <p className={styles.description}>
+            Chia phe bí mật, chơi qua nhiều đêm, công bố người chết sau mỗi vòng và tìm Sói trước khi quá muộn.
+          </p>
+
+          <div className={styles.actions} aria-label="Hành động chính">
+            <button
+              className={`${styles.secondaryButton} ${styles.createRoomButton}`}
+              type="button"
+              disabled={isPending}
+              onClick={createRoom}
+            >
+              <Plus aria-hidden="true" />
+              {isPending ? "ĐANG TẠO..." : "TẠO PHÒNG"}
+            </button>
+            <button
+              className={`${styles.primaryButton} ${styles.joinRoomButton}`}
+              type="button"
+              disabled={isPending}
+              onClick={openJoinRoom}
+            >
+              <Play aria-hidden="true" />
+              THAM GIA
+            </button>
+            {!isLoggedIn && (
+              <button
+                className={`${styles.ghostButton} ${styles.profileButton} ${styles.profileImageButton}`}
+                type="button"
+                onClick={openGuestProfileEditor}
+              >
+                <UserRound aria-hidden="true" />
+                TÊN & AVATAR
+              </button>
+            )}
+          </div>
+          {actionError && <p className={styles.inlineError}>{actionError}</p>}
+        </div>
+      </section>
+
+      <div className={styles.exitBar}>
+        <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
+          THOÁT
+        </Link>
+        <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
+          <BookOpen aria-hidden="true" />
+          HƯỚNG DẪN
+        </button>
+      </div>
+
+      {isJoinOpen && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section aria-labelledby="join-room-title" aria-modal="true" className={styles.modal} role="dialog">
+            <button
+              className={styles.closeButton}
+              type="button"
+              aria-label="Đóng nhập mã phòng"
+              onClick={() => setIsJoinOpen(false)}
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h2 id="join-room-title">Nhập mã phòng</h2>
+            <p>Mã phòng gồm 4 chữ cái thường, ví dụ: abcd.</p>
+            <form className={styles.joinForm} onSubmit={joinRoom}>
+              <label htmlFor="classic-wolf-room-code">Mã phòng</label>
+              <input
+                autoFocus
+                id="classic-wolf-room-code"
+                inputMode="text"
+                maxLength={4}
+                pattern="[a-zA-Z]{4}"
+                placeholder="abcd"
+                type="text"
+                value={normalizedRoomCode}
+                onChange={(event) => {
+                  setRoomCode(event.target.value);
+                  setRoomCodeError("");
+                }}
+              />
+              {roomCodeError && <span className={styles.errorText}>{roomCodeError}</span>}
+              <button className={styles.primaryButton} type="submit" disabled={isPending}>
+                <Play aria-hidden="true" />
+                {isPending ? "ĐANG VÀO..." : "VÀO PHÒNG"}
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {isIdentityOpen && (
+        <div className={styles.modalBackdrop} role="presentation" onClick={closeIdentityModal}>
+          <section
+            aria-labelledby="identity-title"
+            aria-modal="true"
+            className={styles.modal}
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="identity-title">{isEditingGuestProfile ? "Tên & avatar" : "Bạn chưa đăng nhập"}</h2>
+            <p>
+              {isEditingGuestProfile
+                ? "Thiết lập tên và avatar trước khi tạo hoặc tham gia phòng."
+                : "Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?"}
+            </p>
+
+            {!isEditingGuestProfile && (
+              <div className={styles.identityActions}>
+                <Link className={styles.primaryButton} href="/#login">
+                  <LogIn aria-hidden="true" />
+                  ĐĂNG NHẬP
+                </Link>
+                <button className={styles.secondaryButton} type="button" onClick={() => setIsGuestFormOpen(true)}>
+                  <UserRound aria-hidden="true" />
+                  CHƠI VỚI VAI TRÒ KHÁCH
+                </button>
+              </div>
+            )}
+
+            {isGuestFormOpen && (
+              <form className={styles.guestForm} onSubmit={saveGuestName}>
+                <label htmlFor="classic-wolf-guest-name">Tên hiển thị</label>
+                <input
+                  autoFocus
+                  id="classic-wolf-guest-name"
+                  maxLength={MAX_GUEST_PLAYER_NAME_LENGTH}
+                  placeholder="Nhập tên của bạn"
+                  type="text"
+                  value={guestNameInput}
+                  onChange={(event) => {
+                    setGuestNameInput(event.target.value);
+                    setGuestNameError("");
+                  }}
+                />
+                <PlayerAvatarPicker selectedAvatarKey={guestAvatarInput} onSelectAvatar={setGuestAvatarInput} />
+                {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
+                <button className={styles.primaryButton} type="submit">
+                  LƯU VÀ TIẾP TỤC
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
+
+      {isGuideOpen && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section
+            aria-labelledby="classic-wolf-guide-title"
+            aria-modal="true"
+            className={`${styles.modal} ${styles.guideModal}`}
+            role="dialog"
+          >
+            <button
+              className={styles.closeButton}
+              type="button"
+              aria-label="Đóng hướng dẫn"
+              onClick={() => setIsGuideOpen(false)}
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h2 id="classic-wolf-guide-title">Hướng dẫn Ma Sói Nhiều Đêm</h2>
+            <ol className={styles.guideList}>
+              <li>Mỗi người nhận một vai bí mật. Người sống chơi qua nhiều đêm và nhiều ngày.</li>
+              <li>Ban đêm, Ma Sói cắn, Tiên Tri soi, Bảo Vệ che chắn, Phù Thuỷ dùng thuốc nếu còn.</li>
+              <li>Sau mỗi đêm hoặc lượt treo cổ, phòng sẽ công bố người chết trước khi ván tiếp tục.</li>
+              <li>Dân thắng khi hết Sói. Sói thắng khi số Sói sống bằng hoặc nhiều hơn số người phe Dân còn sống.</li>
+            </ol>
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}

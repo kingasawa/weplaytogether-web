@@ -51,6 +51,13 @@ export type WolfGameSessionRow = {
   updated_at: string;
 };
 
+export type ClassicWolfGameStateRow = {
+  game_id: string;
+  state: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WolfGameCardRow = {
   id: string;
   game_id: string;
@@ -130,7 +137,12 @@ export type Database = {
         Insert: Partial<
           Pick<
             WolfGameSessionRow,
-            "id" | "phase" | "round_number" | "discussion_ends_at" | "created_at" | "updated_at"
+            | "id"
+            | "phase"
+            | "round_number"
+            | "discussion_ends_at"
+            | "created_at"
+            | "updated_at"
           >
         > &
           Pick<WolfGameSessionRow, "room_id">;
@@ -167,6 +179,12 @@ export type Database = {
           Pick<WolfGameVoteRow, "game_id" | "voter_player_id"> &
           Partial<Pick<WolfGameVoteRow, "target_player_id" | "is_skip">>;
         Update: Partial<Omit<WolfGameVoteRow, "id" | "game_id" | "voter_player_id" | "created_at">>;
+      };
+      classic_wolf_game_states: {
+        Row: ClassicWolfGameStateRow;
+        Insert: Partial<Pick<ClassicWolfGameStateRow, "created_at" | "updated_at">> &
+          Pick<ClassicWolfGameStateRow, "game_id" | "state">;
+        Update: Partial<Omit<ClassicWolfGameStateRow, "game_id" | "created_at">>;
       };
       wolf_game_phase_confirmations: {
         Row: WolfGamePhaseConfirmationRow;
