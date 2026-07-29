@@ -1057,8 +1057,12 @@ function resolveVote(players: PlayerRow[], state: ClassicWolfState) {
     phase: "day",
     playerIds: eliminatedPlayerIds,
     reason:
-      eliminatedPlayerIds.length > 0
-        ? `Sau ngày ${state.dayNumber}, phòng đã treo cổ người bị nhiều phiếu nhất.`
+      eliminatedPlayerIds.length === 1
+        ? `Sau ngày ${state.dayNumber}, ${getPlayerName(players, eliminatedPlayerIds[0], state)} nhận nhiều phiếu nhất (${maxVotes} phiếu) và bị treo cổ.`
+        : eliminatedPlayerIds.length > 1
+          ? `Sau ngày ${state.dayNumber}, ${eliminatedPlayerIds
+              .map((playerId) => getPlayerName(players, playerId, state))
+              .join(", ")} đồng hạng cao nhất (${maxVotes} phiếu) và bị treo cổ.`
         : `Sau ngày ${state.dayNumber}, không ai bị treo cổ.`,
   };
 
@@ -1088,6 +1092,7 @@ function maybeFinishOrContinueAfterReview(players: PlayerRow[], state: ClassicWo
       state: {
         ...state,
         nightNumber: state.nightNumber + 1,
+        dayNumber: state.dayNumber + 1,
         pendingDeathEvent: null,
       },
     };
@@ -1289,20 +1294,13 @@ async function maybeAutoAdvancePhase(
     if (votingExpired || alivePlayers.every((player) => Object.prototype.hasOwnProperty.call(votes, player.id))) {
       const voteReadyState = votingExpired ? completeMissingVotesAsSkip(players, state) : state;
       const nextState = resolveVote(players, voteReadyState);
-      const nextNightState = nextState.winnerTeam
-        ? nextState
-        : {
-            ...nextState,
-            nightNumber: nextState.nightNumber + 1,
-            dayNumber: nextState.dayNumber + 1,
-          };
 
       await saveClassicGameState(
         game.id,
-        nextNightState,
+        nextState,
         {
-          phase: nextNightState.winnerTeam ? "result" : "night",
-          round_number: nextNightState.nightNumber,
+          phase: "night_review",
+          round_number: nextState.nightNumber,
           discussion_ends_at: null,
         },
         supabase
@@ -2082,10 +2080,6 @@ export async function submitClassicWolfHunterShot(
 
   if (stateError || !state) {
     return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
-  }
-
-  if (!state.alivePlayerIds.includes(currentPlayer.id)) {
-    return { ok: false, error: "Người đã chết không thể thực hiện chức năng." };
   }
 
   const pendingHunterIds = getPendingHunterIds(players, state);

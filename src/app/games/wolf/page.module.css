@@ -2126,21 +2126,29 @@
   background: transparent;
   color: var(--text);
   cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
   text-align: left;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .classicWolfTheme .votingOption:disabled {
   cursor: not-allowed;
-  opacity: 0.68;
+  opacity: 1;
 }
 
 .classicWolfTheme .votingOption > span:nth-child(2) {
   min-width: 0;
   overflow: hidden;
   color: inherit;
-  font-size: 0.94rem;
-  font-weight: 800;
+  font-family: var(--font-body);
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2656,6 +2664,51 @@
 .nightReviewContent p {
   color: var(--text);
   font-weight: 800;
+}
+
+.nightReviewKicker {
+  color: var(--primary-light);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.reviewSummaryGrid {
+  display: grid;
+  gap: var(--spacing-sm);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
+
+.reviewSummaryItem {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-primary) 46%, transparent);
+}
+
+.reviewSummaryItem span {
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.reviewSummaryItem strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.96rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.35;
 }
 
 .nightReviewMessage {

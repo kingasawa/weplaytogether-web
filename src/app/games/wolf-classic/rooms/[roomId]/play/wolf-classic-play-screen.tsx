@@ -263,6 +263,24 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const isDiscussionPhase = playState.game.phase === "discussion";
   const isVotingPhase = playState.game.phase === "voting";
   const isResultPhase = playState.game.phase === "result";
+  const reviewEvent = playState.pendingDeathEvent;
+  const isDayReviewPhase = isNightReviewPhase && reviewEvent?.phase === "day";
+  const reviewNightDeathPlayerIds =
+    isDayReviewPhase && reviewEvent
+      ? Array.from(
+          new Set(
+            playState.deathEvents
+              .filter((deathEvent) => deathEvent.phase === "night" && deathEvent.roundNumber === reviewEvent.roundNumber)
+              .flatMap((deathEvent) => deathEvent.playerIds)
+          )
+        )
+      : [];
+  const reviewDayDeathPlayerIds = isDayReviewPhase && reviewEvent ? reviewEvent.playerIds : [];
+  const currentPhaseLabel = isDayReviewPhase
+    ? "Kết quả bỏ phiếu"
+    : isNightReviewPhase
+      ? "Thông báo ban đêm"
+      : PHASE_LABELS[playState.game.phase];
   const roleDeckSummary = useMemo(
     () =>
       playState.roleDeck.reduce<Array<{ role: ClassicWolfRole; count: number }>>((summary, role) => {
@@ -471,8 +489,8 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
       const waitingPlayers = alivePlayers.filter((player) => !player.isPhaseReady);
       return waitingPlayers.length > 0
-        ? `Đang chờ ${waitingPlayers.length} người xác nhận`
-        : "Tất cả người sống đã xác nhận.";
+        ? `Đang chờ ${waitingPlayers.length} người xác nhận ${isDayReviewPhase ? "kết quả" : "thông báo"}`
+        : `Tất cả người sống đã xác nhận ${isDayReviewPhase ? "kết quả" : "thông báo"}.`;
     }
 
     if (isVotingPhase) {
@@ -982,7 +1000,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       >
         <div>
           <span>Phòng {playState.room.code.toUpperCase()} · Đêm {playState.game.roundNumber}</span>
-          <h1>{PHASE_LABELS[playState.game.phase]}</h1>
+          <h1>{currentPhaseLabel}</h1>
         </div>
         {isCardRevealPhase && <p>Xem vai bí mật của bạn. Khi đã nhớ role, bấm OK.</p>}
         {isNightPhase && (
@@ -992,7 +1010,15 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
               : "Đêm đang diễn ra. Chờ đến lượt hoặc chờ hệ thống công bố kết quả."}
           </p>
         )}
-        {isNightReviewPhase && <p>Thông báo người chết. Nếu Thợ Săn chết, Thợ Săn được bắn trước khi tiếp tục.</p>}
+        {isNightReviewPhase && (
+          <p>
+            {isDayReviewPhase
+              ? `Kết quả của đêm ${reviewEvent?.roundNumber ?? playState.game.roundNumber} và ngày ${
+                  reviewEvent?.roundNumber ?? playState.game.roundNumber
+                }. Xác nhận xong mới sang đêm tiếp theo.`
+              : "Thông báo người chết. Nếu Thợ Săn chết, Thợ Săn được bắn trước khi tiếp tục."}
+          </p>
+        )}
         {isDiscussionPhase && (
           <>
             <p>Người sống thảo luận để tìm Ma Sói. Timer đề xuất là 5 phút.</p>
@@ -1038,12 +1064,37 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
           {isNightReviewPhase && (
             <>
               <div className={styles.nightReviewContent}>
-                <p>{playState.pendingDeathEvent?.reason ?? "Đêm đã kết thúc."}</p>
-                {playState.pendingDeathEvent && playState.pendingDeathEvent.playerIds.length > 0 ? (
+                <span className={styles.nightReviewKicker}>
+                  {isDayReviewPhase
+                    ? `Ngày ${reviewEvent?.roundNumber ?? playState.game.roundNumber}`
+                    : `Đêm ${reviewEvent?.roundNumber ?? playState.game.roundNumber}`}
+                </span>
+                <p>{reviewEvent?.reason ?? "Đêm đã kết thúc."}</p>
+                {isDayReviewPhase && (
+                  <div className={styles.reviewSummaryGrid}>
+                    <div className={styles.reviewSummaryItem}>
+                      <span>Đêm {reviewEvent?.roundNumber ?? playState.game.roundNumber}</span>
+                      <strong>
+                        {reviewNightDeathPlayerIds.length > 0
+                          ? reviewNightDeathPlayerIds.map((playerId) => getPlayerName(playState.players, playerId)).join(", ")
+                          : "Không ai chết"}
+                      </strong>
+                    </div>
+                    <div className={styles.reviewSummaryItem}>
+                      <span>Ngày {reviewEvent?.roundNumber ?? playState.game.roundNumber}</span>
+                      <strong>
+                        {reviewDayDeathPlayerIds.length > 0
+                          ? reviewDayDeathPlayerIds.map((playerId) => getPlayerName(playState.players, playerId)).join(", ")
+                          : "Không ai bị treo cổ"}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+                {reviewEvent && reviewEvent.playerIds.length > 0 ? (
                   <div className={styles.playPicker}>
-                    {playState.pendingDeathEvent.playerIds.map((playerId) => (
+                    {reviewEvent.playerIds.map((playerId) => (
                       <span className={styles.voteResultTop} key={playerId}>
-                        {getPlayerName(playState.players, playerId)} đã chết
+                        {getPlayerName(playState.players, playerId)} {reviewEvent.phase === "day" ? "bị treo cổ" : "đã chết"}
                       </span>
                     ))}
                   </div>
@@ -1332,10 +1383,18 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
             className={styles.primaryButton}
             type="button"
             disabled={isPending || !isAlive || currentPlayer?.isPhaseReady || pendingHunterIds.length > 0}
-            onClick={() => confirmCurrentPhase("Đang xác nhận đã xem thông báo...")}
+            onClick={() =>
+              confirmCurrentPhase(isDayReviewPhase ? "Đang xác nhận đã xem kết quả..." : "Đang xác nhận đã xem thông báo...")
+            }
           >
             <Check aria-hidden="true" />
-            {currentPlayer?.isPhaseReady ? "Đã xong" : isAlive ? "Xong, tiếp tục" : "Đang theo dõi"}
+            {currentPlayer?.isPhaseReady
+              ? "Đã xong"
+              : isAlive
+                ? isDayReviewPhase
+                  ? "OK, đã xem kết quả"
+                  : "Xong, tiếp tục"
+                : "Đang theo dõi"}
           </button>
         </section>
       )}
