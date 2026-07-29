@@ -52,6 +52,13 @@ const PHASE_LABELS: Record<ClassicWolfPlayState["game"]["phase"], string> = {
 
 const VOTE_SKIP_KEY = "__skip_vote__";
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
+const CLASSIC_WOLF_ROLE_CARD_IMAGES: Partial<Record<ClassicWolfRole, { alt: string; src: string }>> = {
+  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.png" },
+  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.png" },
+  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.png" },
+  witch: { alt: "Lá bài Phù Thủy", src: "/images/boards/cards/wolf/witch.png" },
+  guard: { alt: "Lá bài Bảo Vệ", src: "/images/boards/cards/wolf/guard.png" },
+};
 
 type WitchDecision = "rescue_prompt" | "rescue" | "poison_prompt" | "poison" | "skip";
 type NightPickerIntent = "guard" | "wolf" | "seer" | "witchHeal" | "witchPoison" | "default";
@@ -88,11 +95,25 @@ function getNightHistoryRoleClassName(role: ClassicWolfPlayState["nightHistory"]
   return `${styles.nightHistoryRole} ${styles[`nightHistoryRole${role[0].toUpperCase()}${role.slice(1)}`]}`;
 }
 
-function RoleCard({ role, label }: { role: ClassicWolfRole | null; label: string }) {
+function RoleCard({ role }: { role: ClassicWolfRole | null }) {
+  const roleCardImage = role ? CLASSIC_WOLF_ROLE_CARD_IMAGES[role] : null;
+
   return (
-    <article className={styles.playCard}>
-      <span>{label}</span>
-      <strong>{role ? CLASSIC_WOLF_ROLE_LABELS[role] : "?"}</strong>
+    <article
+      aria-label={role ? CLASSIC_WOLF_ROLE_LABELS[role] : "Vai chưa xác định"}
+      className={`${styles.playCard} ${styles.cardRevealRoleCard} ${roleCardImage ? styles.roleImageCard : ""}`}
+    >
+      {roleCardImage && (
+        <Image
+          alt={roleCardImage.alt}
+          className={styles.roleCardImage}
+          height={1565}
+          priority
+          sizes="(max-width: 768px) 50vw, 14rem"
+          src={roleCardImage.src}
+          width={1005}
+        />
+      )}
     </article>
   );
 }
@@ -216,7 +237,13 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   );
   const alivePlayers = playState.players.filter((player) => player.isAlive);
   const otherAlivePlayers = alivePlayers.filter((player) => player.id !== playState.currentPlayerId);
-  const guardTargetOptions = otherAlivePlayers.filter((player) => player.id !== playState.previousGuardTargetPlayerId);
+  const guardTargetOptions = alivePlayers;
+  const availableGuardTargetCount = guardTargetOptions.filter(
+    (player) => player.id !== playState.previousGuardTargetPlayerId
+  ).length;
+  const hasValidGuardSelection = Boolean(
+    selectedPlayerId && selectedPlayerId !== playState.previousGuardTargetPlayerId
+  );
   const activeVoteTargetPlayerId =
     optimisticVoteTargetPlayerId ??
     selectedVoteTargetPlayerId ??
@@ -571,23 +598,26 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   function renderPlayerPicker(
     options: ClassicWolfPlayPlayer[],
     onSelect: (playerId: string) => void,
-    intent: NightPickerIntent = "default"
+    intent: NightPickerIntent = "default",
+    isOptionDisabled: (player: ClassicWolfPlayPlayer) => boolean = () => false
   ) {
     return (
       <div className={`${styles.playPicker} ${styles.playerPicker}`}>
         {options.map((player) => {
-          const isSelected = selectedPlayerId === player.id;
+          const isDisabled =
+            isOptionDisabled(player) || (intent === "guard" && player.id === playState.previousGuardTargetPlayerId);
+          const isSelected = selectedPlayerId === player.id && !isDisabled;
 
           return (
             <button
               className={
                 isSelected
                   ? `${styles.playOptionActive} ${getNightPickerActiveClassName(intent)}`
-                  : styles.playOption
+                  : `${styles.playOption} ${isDisabled ? styles.playOptionUnavailable : ""}`
               }
               key={player.id}
               type="button"
-              disabled={isPending}
+              disabled={isPending || isDisabled}
               onClick={() => {
                 setMessage("");
                 setSelectedPlayerId((current) => (current === player.id ? null : player.id));
@@ -822,7 +852,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     (myRole === "witch"
       ? witchDecision === "rescue" || witchDecision === "skip" || (witchDecision === "poison" && Boolean(selectedPlayerId))
       : myRole === "guard"
-        ? Boolean(selectedPlayerId) || guardTargetOptions.length === 0
+        ? hasValidGuardSelection || availableGuardTargetCount === 0
         : Boolean(selectedPlayerId));
   const deadPlayers = playState.players.filter((player) => !player.isAlive);
   const submittedVotesCount = alivePlayers.filter((player) => player.hasVoted).length;
@@ -939,7 +969,9 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     <main
       className={`${styles.page} ${styles.playPage} ${styles.classicWolfTheme} ${
         isCardRevealPhase || isNightReviewPhase ? styles.focusedPlayPage : ""
-      } ${(isNightPhase && isMyNightTurn) || isDiscussionPhase ? styles.fixedBottomActionPage : ""} ${
+      } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
+        (isNightPhase && isMyNightTurn) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
+      } ${
         isVotingPhase ? styles.fixedBottomWaitingPage : ""
       }`}
     >
@@ -996,7 +1028,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
         >
           {isCardRevealPhase && (
             <div className={styles.privateRevealBox}>
-              <RoleCard label="Vai của tôi" role={myRole} />
+              <RoleCard role={myRole} />
               {renderPrivateRoleCover()}
             </div>
           )}
@@ -1267,7 +1299,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       )}
 
       {isCardRevealPhase && (
-        <section className={styles.cardRevealActionBar}>
+        <section className={`${styles.cardRevealActionBar} ${styles.cardRevealInlineActionBar}`}>
           <button
             className={styles.primaryButton}
             type="button"
@@ -1324,7 +1356,9 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
       {!isResultPhase && (
         <section
-          className={`${styles.playWaitingStatus} ${styles.focusedWaitingStatus} ${
+          className={`${styles.playWaitingStatus} ${
+            isCardRevealPhase ? styles.cardRevealWaitingStatus : styles.focusedWaitingStatus
+          } ${
             isNightPhase ? styles.classicWolfNightStatus : ""
           }`}
           aria-live="polite"

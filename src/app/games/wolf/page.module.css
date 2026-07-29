@@ -1132,6 +1132,35 @@
   object-fit: cover;
 }
 
+.roleImageCard {
+  isolation: isolate;
+  padding: clamp(0.75rem, 3vw, 1.1rem);
+  background: var(--bg-card);
+}
+
+.roleImageCard::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    transparent 48%,
+    color-mix(in srgb, var(--bg-primary) 64%, transparent) 74%,
+    color-mix(in srgb, var(--bg-primary) 88%, transparent)
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.roleCardImage {
+  z-index: 0;
+  object-fit: contain;
+}
+
+.cardRevealRoleCard::after {
+  display: none;
+}
+
 .playCard span,
 .playCard strong {
   position: relative;
@@ -1264,6 +1293,11 @@
 .playOptionActive:disabled {
   cursor: wait;
   opacity: 0.82;
+}
+
+.playOptionUnavailable:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .playOptionSpinner {
@@ -1690,6 +1724,13 @@
 
 .classicWolfTheme .votingHeader {
   gap: 0.85rem;
+}
+
+.classicWolfTheme .votingHeader h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(1.65rem, 6vw, 2.35rem);
+  line-height: 1.12;
+  text-shadow: none;
 }
 
 .classicWolfTheme .votingHeader p {
@@ -2510,6 +2551,73 @@
   height: 100%;
 }
 
+.cardRevealPage {
+  --card-reveal-bottom-space: var(--spacing-md);
+  overflow-y: auto;
+  padding-bottom: var(--card-reveal-page-pad);
+}
+
+.cardRevealPage .focusedPlayPanel {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  place-items: center;
+  padding: clamp(0.75rem, 3vw, 1.25rem);
+}
+
+.cardRevealPage .privateRevealBox {
+  width: min(50%, 14rem);
+  max-width: 14rem;
+  min-height: 0;
+  height: auto;
+  aspect-ratio: 1005 / 1565;
+  justify-self: center;
+}
+
+.cardRevealPage .cardRevealRoleCard {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  aspect-ratio: 1005 / 1565;
+  padding: 0;
+  border-radius: 0.9rem;
+}
+
+.classicWolfTheme.cardRevealPage .focusedPlayPanel {
+  flex: 1;
+  min-height: 0;
+  height: max(
+    12rem,
+    calc(
+      100svh - var(--card-reveal-bottom-space) - (var(--card-reveal-page-pad) * 2) -
+        var(--card-reveal-header-height) - 0.75rem
+    )
+  );
+}
+
+.classicWolfTheme.cardRevealPage .privateRevealBox {
+  width: min(100%, 32rem);
+  max-width: 32rem;
+  min-height: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  align-content: end;
+  justify-items: center;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  padding-bottom: clamp(1.75rem, 6svh, 3rem);
+}
+
+.classicWolfTheme.cardRevealPage .cardRevealRoleCard {
+  width: min(50%, 14rem);
+  max-width: 14rem;
+  min-height: 0;
+  height: auto;
+  aspect-ratio: 1005 / 1565;
+  align-self: end;
+  justify-self: center;
+  padding: 0;
+}
+
 .focusedPlayPanel .nightReviewRevealStack {
   min-height: 100%;
   height: 100%;
@@ -2594,6 +2702,33 @@
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
+}
+
+.cardRevealInlineActionBar {
+  position: static;
+  width: min(100%, 478px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.classicWolfTheme .cardRevealInlineActionBar {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cardRevealInlineActionBar .primaryButton {
+  min-height: 3.2rem;
+}
+
+.cardRevealWaitingStatus {
+  min-height: 3.2rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 1.25rem;
 }
 
 .focusedWaitingStatus {

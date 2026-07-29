@@ -679,12 +679,12 @@ function getPreviousGuardTargetPlayerId(players: PlayerRow[], state: ClassicWolf
     .find(Boolean) ?? null;
 }
 
-function getAvailableGuardTargetIds(players: PlayerRow[], state: ClassicWolfState, guardPlayerId: string) {
+function getAvailableGuardTargetIds(players: PlayerRow[], state: ClassicWolfState) {
   const previousGuardTargetPlayerId = getPreviousGuardTargetPlayerId(players, state);
 
   return new Set(
     getAlivePlayers(players, state)
-      .filter((player) => player.id !== guardPlayerId && player.id !== previousGuardTargetPlayerId)
+      .filter((player) => player.id !== previousGuardTargetPlayerId)
       .map((player) => player.id)
   );
 }
@@ -1879,7 +1879,7 @@ export async function submitClassicWolfNightAction(
   }
 
   if (myRole === "guard") {
-    const availableGuardTargetIds = getAvailableGuardTargetIds(players, state, currentPlayer.id);
+    const availableGuardTargetIds = getAvailableGuardTargetIds(players, state);
 
     if (actionTargetPlayerId && !availableGuardTargetIds.has(actionTargetPlayerId)) {
       return { ok: false, error: "Bảo Vệ không thể bảo vệ cùng một người trong hai đêm liên tiếp." };

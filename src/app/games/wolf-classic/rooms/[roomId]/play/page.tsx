@@ -5,6 +5,9 @@ import ClassicWolfPlayScreen from "./wolf-classic-play-screen";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type ClassicWolfPlayPageProps = {
   params: Promise<{
     roomId: string;

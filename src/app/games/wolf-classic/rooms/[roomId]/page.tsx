@@ -5,6 +5,9 @@ import ClassicWolfRoomLobby from "./wolf-classic-room-lobby";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type ClassicWolfRoomPageProps = {
   params: Promise<{
     roomId: string;
