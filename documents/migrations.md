@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-28 -->
+﻿<!-- Last updated: 2026-07-30 -->
 
 # Migrations
 
@@ -169,6 +169,20 @@ Purpose:
 - Enable RLS on the new state table with no public read policy because the JSON contains secret role/action state and is accessed through server actions.
 - This migration depends on `202606030002_wolf_gameplay.sql`; apply base gameplay migrations first on a fresh database.
 
+## 202607300001_wolf_avatar_key_new_assets.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202607300001_wolf_avatar_key_new_assets.sql`
+
+Purpose:
+
+- Update `wolf_room_players_avatar_key_check` to allow the new avatar asset keys `duong`, `lan`, and `tri`.
+- Keep the existing avatar keys valid and append the new choices after the current avatar list in the app.
+- This migration depends on `202606040001_wolf_player_avatars.sql`; apply the avatar column migration first on a fresh database.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -187,6 +201,6 @@ Remote execution update on 2026-06-12:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, and `202607280001_classic_wolf_state.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, and `202607300001_wolf_avatar_key_new_assets.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 

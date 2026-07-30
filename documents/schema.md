@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-28 -->
+﻿<!-- Last updated: 2026-07-30 -->
 
 # Database Schema
 
@@ -16,6 +16,8 @@ On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was cre
 
 On 2026-07-28, local migration `202607280001_classic_wolf_state.sql` was created to add the separate `classic_wolf_game_states` table for Ma Sói nhiều đêm state stored as JSON. This keeps one-night Ma Sói gameplay tables and constraints unchanged.
 
+On 2026-07-30, local migration `202607300001_wolf_avatar_key_new_assets.sql` was created to allow the new avatar asset keys `duong`, `lan`, and `tri`.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -30,6 +32,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202606050001_wolf_cleanup_old_rooms.sql`
 - `supabase/migrations/202607270001_wolf_doppelganger_role.sql`
 - `supabase/migrations/202607280001_classic_wolf_state.sql`
+- `supabase/migrations/202607300001_wolf_avatar_key_new_assets.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -138,6 +141,7 @@ Local migration file created in this task and still pending manual remote apply:
 - Unique vote per game/voter: `wolf_game_votes(game_id, voter_player_id)`
 - Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
 - Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
+- Avatar key check allows `avatar0`, `img` through `img_19`, `duong`, `lan`, and `tri`
 
 ### Functions And Scheduled Jobs
 
