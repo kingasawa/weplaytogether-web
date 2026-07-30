@@ -2116,7 +2116,7 @@
 
 .classicWolfTheme .votingOption {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 2rem;
+  grid-template-columns: auto minmax(0, 1fr) minmax(2.75rem, auto);
   min-height: 3.25rem;
   align-items: center;
   gap: 0.75rem;
@@ -2185,8 +2185,47 @@
   min-width: 2rem;
   min-height: 2rem;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
   color: var(--primary-light);
+}
+
+.classicWolfTheme .votingOptionVoters {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.classicWolfTheme .votingOptionVoterAvatar {
+  width: 1.75rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--bg-card);
+  border-radius: 999rem;
+  background: var(--bg-primary);
+  object-fit: cover;
+}
+
+.classicWolfTheme .votingOptionVoterAvatar + .votingOptionVoterAvatar {
+  margin-left: -0.5rem;
+}
+
+.classicWolfTheme .votingOptionVoterCount {
+  display: inline-flex;
+  min-width: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .classicWolfTheme .votingOptionCheck svg {
@@ -2709,6 +2748,69 @@
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.35;
+}
+
+.voteReviewTable {
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-primary) 46%, transparent);
+}
+
+.voteReviewRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.35fr);
+  gap: var(--spacing-sm);
+  align-items: start;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.voteReviewRow + .voteReviewRow {
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+}
+
+.voteReviewHeader {
+  min-height: 2.5rem;
+  align-items: center;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.voteReviewRow strong,
+.voteReviewVoters,
+.voteReviewMuted {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.voteReviewRow strong {
+  color: var(--text);
+  font-weight: 900;
+}
+
+.voteReviewRow .voteReviewTargetEliminated {
+  color: var(--danger);
+}
+
+.voteReviewVoters {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.voteReviewMuted {
+  color: var(--text-secondary);
+  font-weight: 700;
 }
 
 .nightReviewMessage {

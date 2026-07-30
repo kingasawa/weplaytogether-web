@@ -32,6 +32,7 @@ import {
   finishClassicWolfGame,
   getClassicWolfPlayState,
   leaveClassicWolfRoom,
+  selectClassicWolfVoteTarget,
   submitClassicWolfHunterShot,
   submitClassicWolfNightAction,
   submitClassicWolfPhaseConfirmation,
@@ -247,6 +248,9 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const activeVoteTargetPlayerId =
     optimisticVoteTargetPlayerId ??
     selectedVoteTargetPlayerId ??
+    (!currentPlayer?.hasVoted && currentPlayer?.hasVoteSelection
+      ? currentPlayer.voteSelectionTargetPlayerId ?? VOTE_SKIP_KEY
+      : null) ??
     (currentPlayer?.hasVoted && currentPlayer.voteTargetPlayerId === null
       ? VOTE_SKIP_KEY
       : currentPlayer?.voteTargetPlayerId ?? null);
@@ -276,6 +280,35 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
         )
       : [];
   const reviewDayDeathPlayerIds = isDayReviewPhase && reviewEvent ? reviewEvent.playerIds : [];
+  const reviewDayDeathPlayerIdSet = new Set(reviewDayDeathPlayerIds);
+  const confirmedVotePlayers = isDayReviewPhase
+    ? playState.players.filter((player) => player.hasVoted)
+    : [];
+  const voteReviewTargetIds = new Set<string>();
+
+  for (const player of playState.players) {
+    const receivedVote = confirmedVotePlayers.some((voter) => voter.voteTargetPlayerId === player.id);
+
+    if (player.isAlive || reviewDayDeathPlayerIdSet.has(player.id) || receivedVote) {
+      voteReviewTargetIds.add(player.id);
+    }
+  }
+
+  for (const voter of confirmedVotePlayers) {
+    if (voter.voteTargetPlayerId) {
+      voteReviewTargetIds.add(voter.voteTargetPlayerId);
+    }
+  }
+
+  const voteReviewRows = Array.from(voteReviewTargetIds).map((playerId) => ({
+    id: playerId,
+    targetName: getPlayerName(playState.players, playerId),
+    voterNames: confirmedVotePlayers
+      .filter((voter) => voter.voteTargetPlayerId === playerId)
+      .map((voter) => voter.name),
+    isEliminated: reviewDayDeathPlayerIdSet.has(playerId),
+  }));
+  const skippedVoteReviewVoters = confirmedVotePlayers.filter((player) => player.voteTargetPlayerId === null);
   const currentPhaseLabel = isDayReviewPhase
     ? "Kết quả bỏ phiếu"
     : isNightReviewPhase
@@ -332,6 +365,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
       if (nextCurrentPlayer?.hasVoted) {
         return nextCurrentPlayer.voteTargetPlayerId ?? VOTE_SKIP_KEY;
+      }
+
+      if (nextCurrentPlayer?.hasVoteSelection) {
+        return nextCurrentPlayer.voteSelectionTargetPlayerId ?? VOTE_SKIP_KEY;
       }
 
       if (current === VOTE_SKIP_KEY) {
@@ -569,6 +606,20 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       setOptimisticVoteTargetPlayerId(null);
       setPendingLabel("");
     });
+  }
+
+  function selectVoteTarget(playerId: string | null) {
+    setMessage("");
+    setSelectedVoteTargetPlayerId(playerId ?? VOTE_SKIP_KEY);
+
+    void (async () => {
+      const result = await selectClassicWolfVoteTarget(playState.room.code, playerId);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        await refreshPlayState();
+      }
+    })();
   }
 
   function shootPlayer(playerId: string) {
@@ -875,6 +926,32 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const deadPlayers = playState.players.filter((player) => !player.isAlive);
   const submittedVotesCount = alivePlayers.filter((player) => player.hasVoted).length;
   const skippedVotesCount = alivePlayers.filter((player) => player.hasVoted && player.voteTargetPlayerId === null).length;
+  const votersByTarget = new Map<string, ClassicWolfPlayPlayer[]>();
+
+  for (const player of alivePlayers) {
+    const localVoteSelection =
+      player.id === playState.currentPlayerId && !player.hasVoted
+        ? optimisticVoteTargetPlayerId ?? selectedVoteTargetPlayerId
+        : null;
+    const voteTargetPlayerId = player.hasVoted
+      ? player.voteTargetPlayerId
+      : localVoteSelection
+        ? localVoteSelection === VOTE_SKIP_KEY
+          ? null
+          : localVoteSelection
+        : player.hasVoteSelection
+          ? player.voteSelectionTargetPlayerId
+          : null;
+
+    if (voteTargetPlayerId) {
+      const voters = votersByTarget.get(voteTargetPlayerId) ?? [];
+
+      if (!voters.some((voter) => voter.id === player.id)) {
+        votersByTarget.set(voteTargetPlayerId, [...voters, player]);
+      }
+    }
+  }
+
   const pendingVotesCount = Math.max(0, alivePlayers.length - submittedVotesCount);
   const canConfirmVote =
     isVotingPhase &&
@@ -1090,6 +1167,32 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                     </div>
                   </div>
                 )}
+                {isDayReviewPhase && (
+                  <div className={styles.voteReviewTable} role="table" aria-label="Bảng kết quả lượt vote">
+                    <div className={`${styles.voteReviewRow} ${styles.voteReviewHeader}`} role="row">
+                      <span role="columnheader">Người chơi</span>
+                      <span role="columnheader">Người vote</span>
+                    </div>
+                    {voteReviewRows.map((row) => (
+                      <div className={styles.voteReviewRow} role="row" key={row.id}>
+                        <strong className={row.isEliminated ? styles.voteReviewTargetEliminated : undefined} role="cell">
+                          {row.targetName}
+                        </strong>
+                        <span className={row.voterNames.length > 0 ? styles.voteReviewVoters : styles.voteReviewMuted} role="cell">
+                          {row.voterNames.length > 0 ? row.voterNames.join(", ") : "Không có"}
+                        </span>
+                      </div>
+                    ))}
+                    {skippedVoteReviewVoters.length > 0 && (
+                      <div className={styles.voteReviewRow} role="row">
+                        <strong role="cell">Bỏ qua</strong>
+                        <span className={styles.voteReviewVoters} role="cell">
+                          {skippedVoteReviewVoters.map((player) => player.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {reviewEvent && reviewEvent.playerIds.length > 0 ? (
                   <div className={styles.playPicker}>
                     {reviewEvent.playerIds.map((playerId) => (
@@ -1099,7 +1202,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                     ))}
                   </div>
                 ) : (
-                  <p>Không ai chết trong lượt này.</p>
+                  <p>{isDayReviewPhase ? "Không ai bị treo cổ trong lượt này." : "Không ai chết trong lượt này."}</p>
                 )}
               </div>
 
@@ -1129,45 +1232,58 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                     }`}
                     type="button"
                     disabled={isPending || currentPlayer?.hasVoted || votingSecondsLeft === 0}
-                    onClick={() => {
-                      setMessage("");
-                      setSelectedVoteTargetPlayerId(VOTE_SKIP_KEY);
-                    }}
+                    onClick={() => selectVoteTarget(null)}
                   >
                     <span className={styles.votingOptionAvatar}>
                       <X aria-hidden="true" />
                     </span>
                     <span>Bỏ qua</span>
-                    <span className={styles.votingOptionCheck}>
-                      {activeVoteTargetPlayerId === VOTE_SKIP_KEY && <Check aria-hidden="true" />}
-                    </span>
+                    <span className={styles.votingOptionCheck} />
                   </button>
-                  {alivePlayers.map((player) => (
-                    <button
-                      className={`${styles.votingOption} ${
-                        activeVoteTargetPlayerId === player.id ? styles.votingOptionActive : ""
-                      }`}
-                      key={player.id}
-                      type="button"
-                      disabled={isPending || currentPlayer?.hasVoted || player.id === playState.currentPlayerId || votingSecondsLeft === 0}
-                      onClick={() => {
-                        setMessage("");
-                        setSelectedVoteTargetPlayerId(player.id);
-                      }}
-                    >
-                      <Image
-                        alt=""
-                        className={styles.votingOptionAvatar}
-                        height={36}
-                        src={getPlayerAvatarPath(player.avatarKey)}
-                        width={36}
-                      />
-                      <span>{player.name}</span>
-                      <span className={styles.votingOptionCheck}>
-                        {activeVoteTargetPlayerId === player.id && <Check aria-hidden="true" />}
-                      </span>
-                    </button>
-                  ))}
+                  {alivePlayers.map((player) => {
+                    const voters = votersByTarget.get(player.id) ?? [];
+
+                    return (
+                      <button
+                        className={`${styles.votingOption} ${
+                          activeVoteTargetPlayerId === player.id ? styles.votingOptionActive : ""
+                        }`}
+                        key={player.id}
+                        type="button"
+                        disabled={isPending || currentPlayer?.hasVoted || player.id === playState.currentPlayerId || votingSecondsLeft === 0}
+                        onClick={() => selectVoteTarget(player.id)}
+                      >
+                        <Image
+                          alt=""
+                          className={styles.votingOptionAvatar}
+                          height={36}
+                          src={getPlayerAvatarPath(player.avatarKey)}
+                          width={36}
+                        />
+                        <span>{player.name}</span>
+                        <span className={styles.votingOptionCheck}>
+                          {voters.length > 5 ? (
+                            <span className={styles.votingOptionVoterCount} aria-label={`${voters.length} phiếu`}>
+                              {voters.length}
+                            </span>
+                          ) : voters.length > 0 ? (
+                            <span className={styles.votingOptionVoters} aria-label={`${voters.length} phiếu`}>
+                              {voters.map((voter) => (
+                                <Image
+                                  alt=""
+                                  className={styles.votingOptionVoterAvatar}
+                                  height={28}
+                                  key={voter.id}
+                                  src={getPlayerAvatarPath(voter.avatarKey)}
+                                  width={28}
+                                />
+                              ))}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <button
                   className={styles.votingConfirmButton}
