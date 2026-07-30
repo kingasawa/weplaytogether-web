@@ -80,7 +80,7 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
     spectatorState.room.status === "waiting" || spectatorState.game?.phase === "result";
 
   return (
-    <main className={`${styles.page} ${styles.spectatorPage}`}>
+    <main className={`${styles.page} ${styles.spectatorPage} ${styles.classicWolfTheme}`}>
       <section className={styles.spectatorPanel}>
         <p className={styles.eyebrow}>Theo dõi ván đang chơi</p>
         <div className={styles.spectatorHero}>

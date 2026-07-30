@@ -267,6 +267,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const isDiscussionPhase = playState.game.phase === "discussion";
   const isVotingPhase = playState.game.phase === "voting";
   const isResultPhase = playState.game.phase === "result";
+  const isSeerRevealPending = Boolean(
+    isNightPhase &&
+      isMyNightTurn &&
+      myRole === "seer" &&
+      playState.myNightAction &&
+      playState.seerReveal &&
+      !currentPlayer?.isPhaseReady
+  );
   const reviewEvent = playState.pendingDeathEvent;
   const isDayReviewPhase = isNightReviewPhase && reviewEvent?.phase === "day";
   const reviewNightDeathPlayerIds =
@@ -509,6 +517,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
     if (isNightPhase) {
       if (activeNightTurn) {
+        if (isSeerRevealPending) {
+          return "Hãy xem kết quả soi rồi bấm OK để tiếp tục.";
+        }
+
         return isMyNightTurn
           ? "Đến lượt bạn thực hiện chức năng."
           : "Đang chờ hành động ban đêm.";
@@ -756,6 +768,19 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       );
     }
 
+    if (isSeerRevealPending) {
+      return (
+        <>
+          {renderSeerReveal()}
+          <div className={styles.nightTurnWaiting}>
+            <span>Kết quả Tiên Tri</span>
+            <strong>Ghi nhớ kết quả soi của bạn</strong>
+            <p>Bấm OK sau khi đã xem xong để chuyển sang chức năng tiếp theo.</p>
+          </div>
+        </>
+      );
+    }
+
     if (playState.myNightAction) {
       return (
         <div className={styles.nightTurnWaiting}>
@@ -918,11 +943,12 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const canSubmitNightAction =
     isMyNightTurn &&
     myRole &&
-    (myRole === "witch"
-      ? witchDecision === "rescue" || witchDecision === "skip" || (witchDecision === "poison" && Boolean(selectedPlayerId))
-      : myRole === "guard"
-        ? hasValidGuardSelection || availableGuardTargetCount === 0
-        : Boolean(selectedPlayerId));
+    (isSeerRevealPending ||
+      (myRole === "witch"
+        ? witchDecision === "rescue" || witchDecision === "skip" || (witchDecision === "poison" && Boolean(selectedPlayerId))
+        : myRole === "guard"
+          ? hasValidGuardSelection || availableGuardTargetCount === 0
+          : Boolean(selectedPlayerId)));
   const deadPlayers = playState.players.filter((player) => !player.isAlive);
   const submittedVotesCount = alivePlayers.filter((player) => player.hasVoted).length;
   const skippedVotesCount = alivePlayers.filter((player) => player.hasVoted && player.voteTargetPlayerId === null).length;
@@ -1485,10 +1511,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
             className={styles.primaryButton}
             type="button"
             disabled={!canSubmitNightAction || isPending}
-            onClick={submitNightAction}
+            onClick={
+              isSeerRevealPending
+                ? () => confirmCurrentPhase("Đang xác nhận đã xem kết quả soi...")
+                : submitNightAction
+            }
           >
             <Check aria-hidden="true" />
-            Hoàn tất lượt đêm
+            {isSeerRevealPending ? "OK, tôi đã xem kết quả" : "Hoàn tất lượt đêm"}
           </button>
         </section>
       )}

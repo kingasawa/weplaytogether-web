@@ -238,7 +238,7 @@ export default function WolfGameScreen() {
   const isEditingGuestProfile = isGuestFormOpen && pendingIdentityAction === null;
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles.classicWolfTheme}`}>
       <section className={styles.hero}>
         <div className={styles.heroImage}>
           <Image
@@ -246,7 +246,7 @@ export default function WolfGameScreen() {
             fill
             priority
             sizes="100vw"
-            src="/images/boards/wolf.png"
+            src="/images/ui/wolf_game_bg.png"
           />
         </div>
 

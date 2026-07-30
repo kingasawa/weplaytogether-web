@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, CircleAlert, LoaderCircle, LogOut, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, CircleAlert, LoaderCircle, LogOut, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
+import { getPlayerAvatarPath } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
 import {
@@ -74,22 +75,28 @@ type RoleCardProps = {
   role: WolfRole | null;
   label: string;
   isHidden?: boolean;
+  isFocusedReveal?: boolean;
 };
 
 function isPrivateRevealPhase(phase: WolfPlayState["game"]["phase"]) {
   return phase === "card_reveal" || phase === "night_review";
 }
 
-function RoleCard({ role, label, isHidden = false }: RoleCardProps) {
+function RoleCard({ role, label, isHidden = false, isFocusedReveal = false }: RoleCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const roleLabel = role ? WOLF_ROLE_LABELS[role] : "Úp bài";
 
   return (
-    <article className={`${styles.playCard} ${isHidden ? styles.playCardHidden : ""}`}>
+    <article
+      className={`${styles.playCard} ${role && !imageFailed && !isHidden ? styles.roleImageCard : ""} ${
+        isFocusedReveal ? styles.cardRevealRoleCard : ""
+      } ${isHidden ? styles.playCardHidden : ""}`}
+    >
       <span>{label}</span>
       {role && !imageFailed && (
         <Image
           alt={roleLabel}
+          className={styles.roleCardImage}
           fill
           sizes="(max-width: 768px) 33vw, 16rem"
           src={getWolfRoleImagePath(role)}
@@ -120,6 +127,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [message, setMessage] = useState("");
   const [pendingLabel, setPendingLabel] = useState("");
   const [optimisticVoteTargetPlayerId, setOptimisticVoteTargetPlayerId] = useState<string | null>(null);
+  const [selectedVoteTargetPlayerId, setSelectedVoteTargetPlayerId] = useState<string | null>(null);
   const [unlockedPrivateRevealKey, setUnlockedPrivateRevealKey] = useState<string | null>(
     isPrivateRevealPhase(initialState.game.phase) ? null : `${initialState.game.id}:${initialState.game.phase}`
   );
@@ -131,6 +139,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [isPending, startTransition] = useTransition();
 
   const myRole = playState.myCard?.originalRole ?? null;
+  const currentPlayer = playState.players.find((player) => player.id === playState.currentPlayerId) ?? null;
   const activeNightTurn = playState.activeNightTurn;
   const isMyNightTurn = Boolean(
     playState.game.phase === "night" &&
@@ -240,17 +249,36 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const werewolfTeammateNames = hasWerewolfTeammates
     ? playState.werewolfTeammates.map((player) => player.playerName)
     : copycatWerewolfTeammates.map((player) => player.playerName);
-  const activeVoteTargetPlayerId =
-    optimisticVoteTargetPlayerId ??
-    (playState.players.find((player) => player.id === playState.currentPlayerId)?.hasSkippedVote
-      ? VOTE_SKIP_KEY
-      : playState.myVoteTargetPlayerId);
   const isCardRevealPhase = playState.game.phase === "card_reveal";
   const isNightPhase = playState.game.phase === "night";
   const isNightReviewPhase = playState.game.phase === "night_review";
   const isDiscussionPhase = playState.game.phase === "discussion";
   const isVotingPhase = playState.game.phase === "voting";
   const isResultPhase = playState.game.phase === "result";
+  const activeVoteTargetPlayerId =
+    optimisticVoteTargetPlayerId ??
+    selectedVoteTargetPlayerId ??
+    (currentPlayer?.hasSkippedVote ||
+    (isVotingPhase && currentPlayer?.hasVoted && playState.myVoteTargetPlayerId === null)
+      ? VOTE_SKIP_KEY
+      : playState.myVoteTargetPlayerId);
+  const submittedVotesCount = playState.players.filter((player) => player.hasVoted).length;
+  const skippedVotesCount =
+    playState.result?.skippedVoteCount ??
+    (currentPlayer?.hasVoted && activeVoteTargetPlayerId === VOTE_SKIP_KEY ? 1 : 0);
+  const pendingVotesCount = Math.max(0, playState.players.length - submittedVotesCount);
+  const votersByTarget = new Map<string, WolfPlayPlayer[]>();
+
+  if (currentPlayer && activeVoteTargetPlayerId && activeVoteTargetPlayerId !== VOTE_SKIP_KEY) {
+    votersByTarget.set(activeVoteTargetPlayerId, [currentPlayer]);
+  }
+
+  const canConfirmVote =
+    isVotingPhase &&
+    Boolean(currentPlayer) &&
+    !currentPlayer?.hasVoted &&
+    activeVoteTargetPlayerId !== null &&
+    !isPending;
   const maxVoteCount = playState.result
     ? playState.result.voteCounts.reduce((max, voteCount) => Math.max(max, voteCount.votes), 0)
     : 0;
@@ -775,9 +803,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       }
 
       await refreshPlayState();
+      setSelectedVoteTargetPlayerId(null);
       setOptimisticVoteTargetPlayerId(null);
       setPendingLabel("");
     });
+  }
+
+  function selectVoteTarget(playerId: string | null) {
+    setMessage("");
+    setSelectedVoteTargetPlayerId(playerId ?? VOTE_SKIP_KEY);
   }
 
   function returnToLobby() {
@@ -1013,7 +1047,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         )}
 
         {needsPlayerPicker && (
-          <div className={styles.playPicker}>
+          <div className={`${styles.playPicker} ${styles.playerPicker}`}>
             <span>{playerPickerLabel}</span>
             {playerPickerOptions.map((player) => (
               <button
@@ -1023,7 +1057,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                 disabled={isPending || isPlayerPickerDisabled}
                 onClick={() => togglePlayerSelection(player.id)}
               >
-                {player.id === playState.currentPlayerId ? "Tôi" : player.name}
+                <span className={styles.playerOptionText}>
+                  {player.id === playState.currentPlayerId ? "Tôi" : player.name}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`${styles.playerOptionIconWrap} ${
+                    selectedPickerPlayerIds.includes(player.id) ? styles.playerOptionIconWrapVisible : ""
+                  }`}
+                >
+                  {selectedPickerPlayerIds.includes(player.id) && <Check aria-hidden="true" />}
+                </span>
               </button>
             ))}
           </div>
@@ -1156,11 +1200,17 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
   return (
     <main
-      className={`${styles.page} ${styles.playPage} ${usesFocusedRevealLayout ? styles.focusedPlayPage : ""} ${
+      className={`${styles.page} ${styles.playPage} ${styles.classicWolfTheme} ${
+        usesFocusedRevealLayout ? styles.focusedPlayPage : ""
+      } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
         (isNightPhase && isMyNightTurn && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
       } ${isVotingPhase ? styles.fixedBottomWaitingPage : ""}`}
     >
-      <section className={styles.playHeader}>
+      <section
+        className={`${styles.playHeader} ${isDiscussionPhase ? styles.discussionHeader : ""} ${
+          isVotingPhase ? styles.votingHeader : ""
+        }`}
+      >
         <div>
           <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{WOLF_PHASE_LABELS[playState.game.phase]}</h1>
@@ -1198,7 +1248,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       </section>
 
       {!isDiscussionPhase && (
-        <section className={`${styles.playPanel} ${usesFocusedRevealLayout ? styles.focusedPlayPanel : ""}`}>
+        <section
+          className={`${styles.playPanel} ${usesFocusedRevealLayout ? styles.focusedPlayPanel : ""} ${
+            isNightPhase ? styles.classicWolfNightPanel : ""
+          }`}
+        >
         {!hasFocusedWaitingStatus && playState.game.phase !== "result" && (
           <div>
             <span>Điều khiển phase</span>
@@ -1209,7 +1263,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         {isCardRevealPhase && (
           <>
             <div className={styles.privateRevealBox}>
-              <RoleCard label="Bài của tôi" role={playState.myCard?.originalRole ?? null} />
+              <RoleCard
+                isFocusedReveal
+                label="Bài của tôi"
+                role={playState.myCard?.originalRole ?? null}
+              />
               {renderPrivateCover()}
             </div>
           </>
@@ -1243,29 +1301,101 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         )}
 
         {playState.game.phase === "voting" && (
-          <>
-            <div className={styles.playPicker}>
-              <button
-                className={activeVoteTargetPlayerId === VOTE_SKIP_KEY ? styles.playOptionActive : styles.playOption}
-                type="button"
-                disabled={isPending}
-                onClick={() => votePlayer(null)}
-              >
-                Bỏ qua
-              </button>
-              {playState.players.map((player) => (
-                <button
-                  className={activeVoteTargetPlayerId === player.id ? styles.playOptionActive : styles.playOption}
-                  key={player.id}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => votePlayer(player.id)}
-                >
-                  {player.name}
-                </button>
-              ))}
+          <div className={styles.votingPanel}>
+            <div className={styles.votingTitle}>
+              <strong>Lựa chọn bỏ phiếu</strong>
+              <span>Chọn 1 phương án bên dưới</span>
             </div>
-          </>
+            <div className={styles.votingOptions}>
+              <button
+                className={`${styles.votingOption} ${
+                  activeVoteTargetPlayerId === VOTE_SKIP_KEY ? styles.votingOptionActive : ""
+                }`}
+                type="button"
+                disabled={isPending || !currentPlayer || currentPlayer.hasVoted}
+                onClick={() => selectVoteTarget(null)}
+              >
+                <span className={styles.votingOptionAvatar}>
+                  <X aria-hidden="true" />
+                </span>
+                <span>Bỏ qua</span>
+                <span className={styles.votingOptionCheck}>
+                  {activeVoteTargetPlayerId === VOTE_SKIP_KEY && <Check aria-hidden="true" />}
+                </span>
+              </button>
+              {playState.players.map((player) => {
+                const voters = votersByTarget.get(player.id) ?? [];
+
+                return (
+                  <button
+                    className={`${styles.votingOption} ${
+                      activeVoteTargetPlayerId === player.id ? styles.votingOptionActive : ""
+                    }`}
+                    key={player.id}
+                    type="button"
+                    disabled={isPending || !currentPlayer || currentPlayer.hasVoted}
+                    onClick={() => selectVoteTarget(player.id)}
+                  >
+                    <Image
+                      alt=""
+                      className={styles.votingOptionAvatar}
+                      height={36}
+                      src={getPlayerAvatarPath(player.avatarKey)}
+                      width={36}
+                    />
+                    <span>{player.name}</span>
+                    <span className={styles.votingOptionCheck}>
+                      {voters.length > 0 ? (
+                        <span className={styles.votingOptionVoters} aria-label={`${voters.length} phiếu`}>
+                          {voters.map((voter) => (
+                            <Image
+                              alt=""
+                              className={styles.votingOptionVoterAvatar}
+                              height={28}
+                              key={voter.id}
+                              src={getPlayerAvatarPath(voter.avatarKey)}
+                              width={28}
+                            />
+                          ))}
+                        </span>
+                      ) : activeVoteTargetPlayerId === player.id ? (
+                        <Check aria-hidden="true" />
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className={styles.votingConfirmButton}
+              type="button"
+              disabled={!canConfirmVote}
+              onClick={() => votePlayer(activeVoteTargetPlayerId === VOTE_SKIP_KEY ? null : activeVoteTargetPlayerId)}
+            >
+              <Check aria-hidden="true" />
+              {currentPlayer?.hasVoted ? "Đã gửi phiếu" : "Xác nhận lựa chọn"}
+            </button>
+            <p className={styles.votingHint}>Bạn chỉ có thể chọn một lần trong lượt này.</p>
+            <div className={styles.votingStatsGrid}>
+              <div className={styles.votingStatCard}>
+                <Check aria-hidden="true" />
+                <span>Đã gửi phiếu</span>
+                <strong>
+                  {submittedVotesCount}/{playState.players.length}
+                </strong>
+              </div>
+              <div className={styles.votingStatCard}>
+                <X aria-hidden="true" />
+                <span>Bỏ qua</span>
+                <strong>{skippedVotesCount}</strong>
+              </div>
+              <div className={styles.votingStatCard}>
+                <Users aria-hidden="true" />
+                <span>Còn chờ</span>
+                <strong>{pendingVotesCount}</strong>
+              </div>
+            </div>
+          </div>
         )}
 
         {playState.game.phase === "result" && playState.result && (
@@ -1303,13 +1433,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       )}
 
       {isDiscussionPhase && roleDeckSummary.length > 0 && (
-        <section className={styles.discussionRoleDeck}>
-          <span>Vai trò trong ván</span>
-          <div className={styles.roleDeckGrid}>
+        <section className={`${styles.discussionRoleDeck} ${styles.discussionPanel}`}>
+          <div className={styles.discussionSectionTitle}>
+            <span>Vai trò trong ván</span>
+          </div>
+          <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
             {roleDeckSummary.map((roleSummary) => (
               <article
                 key={roleSummary.role}
-                className={`${styles.roleDeckTile} ${
+                className={`${styles.roleDeckTile} ${styles.discussionRoleTile} ${
                   roleSummary.role === "werewolf" || roleSummary.role === "werewolf_seer"
                     ? styles.roleDeckTileWolf
                     : ""
@@ -1328,11 +1460,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
               </article>
             ))}
           </div>
+          <p className={styles.discussionHint}>Mục tiêu: thảo luận và tìm ra người đáng nghi nhất.</p>
         </section>
       )}
 
       {isCardRevealPhase && (
-        <section className={styles.cardRevealActionBar}>
+        <section className={`${styles.cardRevealActionBar} ${styles.cardRevealInlineActionBar}`}>
           <button
             className={styles.primaryButton}
             type="button"
@@ -1346,7 +1479,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       )}
 
       {isNightPhase && isMyNightTurn && myRole && (
-        <section className={styles.cardRevealActionBar}>
+        <section className={`${styles.cardRevealActionBar} ${styles.classicWolfNightActionBar}`}>
           <button
             className={styles.primaryButton}
             type="button"
@@ -1378,7 +1511,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       )}
 
       {isDiscussionPhase && (
-        <section className={styles.cardRevealActionBar}>
+        <section className={`${styles.cardRevealActionBar} ${styles.classicWolfDiscussionActionBar}`}>
           <button
             className={styles.primaryButton}
             type="button"
@@ -1392,7 +1525,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       )}
 
       <section
-        className={`${styles.playWaitingStatus} ${hasFocusedWaitingStatus ? styles.focusedWaitingStatus : ""} ${playState.game.phase === "result" ? styles.playWaitingStatusResult : ""}`}
+        className={`${styles.playWaitingStatus} ${
+          isCardRevealPhase ? styles.cardRevealWaitingStatus : hasFocusedWaitingStatus ? styles.focusedWaitingStatus : ""
+        } ${isNightPhase ? styles.classicWolfNightStatus : ""} ${
+          playState.game.phase === "result" ? styles.playWaitingStatusResult : ""
+        }`}
         aria-live="polite"
       >
         {playState.game.phase === "result" && playState.allPlayersSummary ? (

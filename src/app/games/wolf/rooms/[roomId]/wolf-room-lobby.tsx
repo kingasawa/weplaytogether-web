@@ -532,7 +532,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   }
 
   return (
-    <main className={`${styles.page} ${styles.roomPage}`}>
+    <main className={`${styles.page} ${styles.roomPage} ${styles.classicWolfTheme}`}>
       <section className={styles.roomPanel}>
         <p className={styles.eyebrow}>Phòng chờ</p>
 

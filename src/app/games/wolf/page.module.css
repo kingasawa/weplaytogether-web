@@ -3,6 +3,7 @@
   min-height: 100vh;
   flex-direction: column;
   gap: var(--spacing-md);
+  overflow-x: hidden;
   padding: var(--spacing-md);
 
   background:
@@ -100,12 +101,12 @@
 .roomPanel h1 {
   max-width: 12ch;
   line-height: 0.92;
-  letter-spacing: -0.07em;
+  letter-spacing: 0;
 }
 
 .heroTitle {
   font-family: var(--font-heading);
-  font-size: 80px;
+  font-size: 3.5rem;
   font-weight: 800;
   text-shadow: 0 0.16rem 0.45rem color-mix(in srgb, var(--bg-primary) 78%, transparent);
 }
@@ -281,11 +282,13 @@
 }
 
 .exitBar {
-  width: min(100%, 478px);
+  display: grid;
+  width: min(100%, calc(100vw - (var(--spacing-md) * 2)), 478px);
+  max-width: 478px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-inline: auto;
   align-items: center;
-  justify-content: stretch;
 }
 
 .exitBar > * {
@@ -295,6 +298,7 @@
 
 .exitButton {
   display: inline-flex;
+  min-width: 0;
   min-height: 3.2rem;
   width: 100%;
   align-items: center;
@@ -323,6 +327,13 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 5px 0 rgba(0, 0, 0, 0.25);
+}
+
+.exitBar .ghostButton,
+.exitBar .exitButton {
+  min-width: 0;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
 }
 
 .roomStatusGrid article {
@@ -3038,6 +3049,10 @@
   .page {
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
+  }
+
+  .heroTitle {
+    font-size: 5rem;
   }
 
   .hero {

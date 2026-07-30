@@ -543,6 +543,10 @@ function getPhaseReadyPlayerIds(phase: WolfGamePhase, state: ClassicWolfState) {
   return state.phaseConfirmations[getPhaseConfirmationKey(phase, state)] ?? [];
 }
 
+function hasPlayerConfirmedNightResult(playerId: string, state: ClassicWolfState) {
+  return getPhaseReadyPlayerIds("night", state).includes(playerId);
+}
+
 function setPlayerPhaseReady(playerId: string, phase: WolfGamePhase, state: ClassicWolfState) {
   const key = getPhaseConfirmationKey(phase, state);
   const readyPlayerIds = new Set(state.phaseConfirmations[key] ?? []);
@@ -584,6 +588,16 @@ function getSkippedVoteCount(players: PlayerRow[], state: ClassicWolfState) {
   return getAlivePlayers(players, state).filter(
     (player) => Object.prototype.hasOwnProperty.call(dayVotes, player.id) && dayVotes[player.id] === null
   ).length;
+}
+
+function getTopVotedPlayerIds(voteCounts: Array<{ playerId: string; votes: number }>, maxVotes: number) {
+  if (maxVotes <= 0) {
+    return [];
+  }
+
+  return voteCounts
+    .filter((voteCount) => voteCount.votes === maxVotes)
+    .map((voteCount) => voteCount.playerId);
 }
 
 function completeMissingVotesAsSkip(players: PlayerRow[], state: ClassicWolfState) {
@@ -910,16 +924,16 @@ function buildClassicWolfNightHistory(players: PlayerRow[], state: ClassicWolfSt
         const skippedVoteCount = voteEntries.filter(([, targetPlayerId]) => !targetPlayerId).length;
         const skipBlockedElimination = voteEntries.length > 0 && skippedVoteCount * 2 >= voteEntries.length;
         const topVoteCount = Math.max(0, ...voteCountByTarget.values());
-        const topVotePlayerIds =
-          topVoteCount > 0
-            ? Array.from(voteCountByTarget.entries())
-                .filter(([, voteCount]) => voteCount === topVoteCount)
-                .map(([playerId]) => playerId)
-            : [];
+        const topVotePlayerIds = getTopVotedPlayerIds(
+          Array.from(voteCountByTarget.entries()).map(([playerId, votes]) => ({ playerId, votes })),
+          topVoteCount
+        );
         const voteSummary =
           skipBlockedElimination
             ? `${skippedVoteCount}/${voteEntries.length} lượt bỏ qua, không ai bị treo cổ`
-            : topVotePlayerIds.length > 0
+            : topVotePlayerIds.length > 1
+            ? `${topVotePlayerIds.map((playerId) => playerName(playerId)).join(", ")} hòa phiếu cao nhất (${topVoteCount} phiếu), không ai bị treo cổ`
+            : topVotePlayerIds.length === 1
             ? `${topVotePlayerIds.map((playerId) => playerName(playerId)).join(", ")} nhận ${topVoteCount} phiếu`
             : "không ai bị treo cổ";
 
@@ -989,6 +1003,10 @@ function getActiveNightTurn(players: PlayerRow[], state: ClassicWolfState): Clas
     const rolePlayers = players.filter((player) => state.roleByPlayerId[player.id] === role);
     const aliveRolePlayers = rolePlayers.filter((player) => alivePlayerIds.has(player.id));
     const pendingPlayers = aliveRolePlayers.filter((player) => {
+      if (role === "seer") {
+        return !actions[player.id] || !hasPlayerConfirmedNightResult(player.id, state);
+      }
+
       if (role !== "witch") {
         return !actions[player.id];
       }
@@ -1063,15 +1081,12 @@ function resolveNight(players: PlayerRow[], state: ClassicWolfState) {
 function resolveVote(players: PlayerRow[], state: ClassicWolfState) {
   const voteCounts = getVoteCounts(players, state);
   const maxVotes = Math.max(0, ...voteCounts.map((voteCount) => voteCount.votes));
+  const topVotedPlayerIds = getTopVotedPlayerIds(voteCounts, maxVotes);
   const alivePlayerCount = getAlivePlayers(players, state).length;
   const skippedVoteCount = getSkippedVoteCount(players, state);
   const skipBlocksElimination = alivePlayerCount > 0 && skippedVoteCount * 2 >= alivePlayerCount;
   const eliminatedPlayerIds =
-    !skipBlocksElimination && maxVotes > 0
-      ? voteCounts
-          .filter((voteCount) => voteCount.votes === maxVotes)
-          .map((voteCount) => voteCount.playerId)
-      : [];
+    !skipBlocksElimination && topVotedPlayerIds.length === 1 ? topVotedPlayerIds : [];
   const deathEvent: ClassicWolfDeathEvent = {
     roundNumber: state.dayNumber,
     phase: "day",
@@ -1081,10 +1096,10 @@ function resolveVote(players: PlayerRow[], state: ClassicWolfState) {
         ? `Sau ngày ${state.dayNumber}, ${skippedVoteCount}/${alivePlayerCount} người còn sống bỏ qua nên không ai bị treo cổ.`
         : eliminatedPlayerIds.length === 1
         ? `Sau ngày ${state.dayNumber}, ${getPlayerName(players, eliminatedPlayerIds[0], state)} nhận nhiều phiếu nhất (${maxVotes} phiếu) và bị treo cổ.`
-        : eliminatedPlayerIds.length > 1
-          ? `Sau ngày ${state.dayNumber}, ${eliminatedPlayerIds
+        : topVotedPlayerIds.length > 1
+          ? `Sau ngày ${state.dayNumber}, ${topVotedPlayerIds
               .map((playerId) => getPlayerName(players, playerId, state))
-              .join(", ")} đồng hạng cao nhất (${maxVotes} phiếu) và bị treo cổ.`
+              .join(", ")} hòa phiếu cao nhất (${maxVotes} phiếu) nên không ai bị treo cổ.`
         : `Sau ngày ${state.dayNumber}, không ai bị treo cổ.`,
   };
 
@@ -1801,7 +1816,7 @@ export async function submitClassicWolfPhaseConfirmation(roomCode: string): Prom
     .eq("id", room.current_game_id)
     .maybeSingle();
 
-  if (!gameData || !["card_reveal", "night_review", "discussion"].includes(gameData.phase)) {
+  if (!gameData || !["card_reveal", "night", "night_review", "discussion"].includes(gameData.phase)) {
     return { ok: false, error: "Giai đoạn này không cần xác nhận." };
   }
 
@@ -1813,6 +1828,23 @@ export async function submitClassicWolfPhaseConfirmation(roomCode: string): Prom
 
   if (gameData.phase !== "card_reveal" && !currentState.alivePlayerIds.includes(currentPlayer.id)) {
     return { ok: false, error: "Người đã chết không thể thực hiện chức năng." };
+  }
+
+  if (gameData.phase === "night") {
+    const activeTurn = getActiveNightTurn(players, currentState);
+    const myRole = currentState.roleByPlayerId[currentPlayer.id] ?? null;
+    const myAction = currentState.nightActionsByNight[String(currentState.nightNumber)]?.[currentPlayer.id] ?? null;
+    const seerReveal = currentState.lastSeerRevealByPlayerId[currentPlayer.id] ?? null;
+
+    if (
+      myRole !== "seer" ||
+      activeTurn?.role !== "seer" ||
+      !activeTurn.playerIds.includes(currentPlayer.id) ||
+      !myAction ||
+      seerReveal?.nightNumber !== currentState.nightNumber
+    ) {
+      return { ok: false, error: "Chưa có kết quả Tiên Tri cần xác nhận." };
+    }
   }
 
   const state = setPlayerPhaseReady(
@@ -1918,6 +1950,14 @@ export async function submitClassicWolfNightAction(
   }
 
   const nightKey = String(state.nightNumber);
+  const existingNightAction = state.nightActionsByNight[nightKey]?.[currentPlayer.id] ?? null;
+
+  if (existingNightAction) {
+    return myRole === "seer"
+      ? { ok: false, error: "Bạn đã soi xong. Hãy xem kết quả và bấm OK để tiếp tục." }
+      : { ok: false, error: "Bạn đã gửi hành động trong lượt này." };
+  }
+
   const nextActions = {
     ...(state.nightActionsByNight[nightKey] ?? {}),
     [currentPlayer.id]: {
