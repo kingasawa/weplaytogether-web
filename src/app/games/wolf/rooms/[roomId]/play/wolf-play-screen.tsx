@@ -85,25 +85,29 @@ function isPrivateRevealPhase(phase: WolfPlayState["game"]["phase"]) {
 function RoleCard({ role, label, isHidden = false, isFocusedReveal = false }: RoleCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const roleLabel = role ? WOLF_ROLE_LABELS[role] : "Úp bài";
+  const roleImagePath = role && !isHidden ? getWolfRoleImagePath(role) : null;
+  const shouldShowRoleImage = Boolean(roleImagePath && !imageFailed);
 
   return (
     <article
-      className={`${styles.playCard} ${role && !imageFailed && !isHidden ? styles.roleImageCard : ""} ${
+      aria-label={role ? roleLabel : label}
+      className={`${styles.playCard} ${shouldShowRoleImage ? styles.roleImageCard : ""} ${
         isFocusedReveal ? styles.cardRevealRoleCard : ""
       } ${isHidden ? styles.playCardHidden : ""}`}
     >
-      <span>{label}</span>
-      {role && !imageFailed && (
+      {!shouldShowRoleImage && <span>{label}</span>}
+      {roleImagePath && !imageFailed && (
         <Image
           alt={roleLabel}
           className={styles.roleCardImage}
           fill
+          priority={isFocusedReveal}
           sizes="(max-width: 768px) 33vw, 16rem"
-          src={getWolfRoleImagePath(role)}
+          src={roleImagePath}
           onError={() => setImageFailed(true)}
         />
       )}
-      {(!role || imageFailed) && <strong>{isHidden ? "?" : roleLabel}</strong>}
+      {(!role || !roleImagePath || imageFailed) && <strong>{isHidden ? "?" : roleLabel}</strong>}
     </article>
   );
 }
@@ -265,12 +269,28 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const submittedVotesCount = playState.players.filter((player) => player.hasVoted).length;
   const skippedVotesCount =
     playState.result?.skippedVoteCount ??
-    (currentPlayer?.hasVoted && activeVoteTargetPlayerId === VOTE_SKIP_KEY ? 1 : 0);
+    playState.players.filter((player) => player.hasVoted && player.hasSkippedVote).length;
   const pendingVotesCount = Math.max(0, playState.players.length - submittedVotesCount);
   const votersByTarget = new Map<string, WolfPlayPlayer[]>();
 
-  if (currentPlayer && activeVoteTargetPlayerId && activeVoteTargetPlayerId !== VOTE_SKIP_KEY) {
-    votersByTarget.set(activeVoteTargetPlayerId, [currentPlayer]);
+  for (const player of playState.players) {
+    const localVoteSelection =
+      player.id === playState.currentPlayerId && !player.hasVoted
+        ? optimisticVoteTargetPlayerId ?? selectedVoteTargetPlayerId
+        : null;
+    const voteTargetPlayerId = player.hasVoted
+      ? player.voteTargetPlayerId
+      : localVoteSelection && localVoteSelection !== VOTE_SKIP_KEY
+        ? localVoteSelection
+        : null;
+
+    if (voteTargetPlayerId) {
+      const voters = votersByTarget.get(voteTargetPlayerId) ?? [];
+
+      if (!voters.some((voter) => voter.id === player.id)) {
+        votersByTarget.set(voteTargetPlayerId, [...voters, player]);
+      }
+    }
   }
 
   const canConfirmVote =
@@ -1325,6 +1345,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
               </button>
               {playState.players.map((player) => {
                 const voters = votersByTarget.get(player.id) ?? [];
+                const voterNames = voters.map((voter) => voter.name).join(", ");
 
                 return (
                   <button
@@ -1345,18 +1366,21 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                     />
                     <span>{player.name}</span>
                     <span className={styles.votingOptionCheck}>
-                      {voters.length > 0 ? (
-                        <span className={styles.votingOptionVoters} aria-label={`${voters.length} phiếu`}>
-                          {voters.map((voter) => (
-                            <Image
-                              alt=""
-                              className={styles.votingOptionVoterAvatar}
-                              height={28}
-                              key={voter.id}
-                              src={getPlayerAvatarPath(voter.avatarKey)}
-                              width={28}
-                            />
-                          ))}
+                      {voters.length > 5 ? (
+                        <span
+                          className={styles.votingOptionVoterCount}
+                          aria-label={`${voterNames} (${voters.length} phiếu)`}
+                          title={voterNames}
+                        >
+                          {voters.length}
+                        </span>
+                      ) : voters.length > 0 ? (
+                        <span
+                          className={styles.votingOptionVoters}
+                          aria-label={`${voterNames} (${voters.length} phiếu)`}
+                          title={voterNames}
+                        >
+                          <span className={styles.votingOptionVoterNames}>{voterNames}</span>
                         </span>
                       ) : activeVoteTargetPlayerId === player.id ? (
                         <Check aria-hidden="true" />

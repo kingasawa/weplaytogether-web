@@ -37,6 +37,17 @@ export const WOLF_PHASE_LABELS: Record<WolfGamePhase, string> = {
   result: "Kết quả",
 };
 
+export const WOLF_ROLE_CARD_IMAGES: Partial<Record<WolfRole, { alt: string; src: string }>> = {
+  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.png" },
+  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.png" },
+  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.png" },
+  robber: { alt: "Lá bài Kẻ Trộm", src: "/images/boards/cards/wolf/robber.png" },
+  troublemaker: { alt: "Lá bài Kẻ Gây Rối", src: "/images/boards/cards/wolf/troublemaker.png" },
+  witch: { alt: "Lá bài Phù Thuỷ", src: "/images/boards/cards/wolf/witch.png" },
+  doppelganger: { alt: "Lá bài Nhân Bản", src: "/images/boards/cards/wolf/doppelganger.png" },
+  copycat: { alt: "Lá bài Copy Cat", src: "/images/boards/cards/wolf/copycat.png" },
+};
+
 export function getWolfRoleImagePath(role: WolfRole) {
-  return `/images/ui/play-wolf/${role}.png`;
+  return WOLF_ROLE_CARD_IMAGES[role]?.src ?? null;
 }

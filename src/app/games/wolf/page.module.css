@@ -2208,6 +2208,21 @@
   justify-content: flex-end;
 }
 
+.classicWolfTheme .votingOptionVoterNames {
+  display: block;
+  max-width: min(38vw, 9rem);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .classicWolfTheme .votingOptionVoterAvatar {
   width: 1.75rem;
   min-width: 1.75rem;

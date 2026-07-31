@@ -2571,6 +2571,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   const actions = (actionsData ?? []) as ActionRow[];
   const votes = (votesData ?? []) as VoteRow[];
   const shouldRevealAll = game.phase === "result";
+  const shouldRevealVotes = game.phase === "voting" || shouldRevealAll;
   const { cardMovementSummary } = shouldRevealAll
     ? simulateNightResolution(cards, actions, players)
     : { cardMovementSummary: null };
@@ -2715,8 +2716,8 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     players: players.map((player) => ({
       ...mapLobbyPlayer(player),
       role: shouldRevealAll ? playerCardsById.get(player.id)?.current_role ?? null : null,
-      voteTargetPlayerId: shouldRevealAll ? voteByVoterId.get(player.id) ?? null : null,
-      hasSkippedVote: shouldRevealAll ? skippedVotePlayerIds.has(player.id) : false,
+      voteTargetPlayerId: shouldRevealVotes ? voteByVoterId.get(player.id) ?? null : null,
+      hasSkippedVote: shouldRevealVotes ? skippedVotePlayerIds.has(player.id) : false,
       hasVoted: votePlayerIds.has(player.id),
       hasNightAction: actionPlayerIds.has(player.id),
       isPhaseReady: phaseReadyPlayerIdSet.has(player.id),
