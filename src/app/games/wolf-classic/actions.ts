@@ -69,6 +69,11 @@ type ClassicWolfNightAction = {
   useHeal?: boolean;
 };
 
+type ClassicWolfNightSelection = {
+  actionType: ClassicWolfRole;
+  targetPlayerId: string | null;
+};
+
 type ClassicWolfDeathEvent = {
   roundNumber: number;
   phase: "night" | "day";
@@ -98,6 +103,8 @@ type ClassicWolfState = {
   nightNumber: number;
   dayNumber: number;
   nightActionsByNight: Record<string, Record<string, ClassicWolfNightAction>>;
+  nightSelectionsByNight: Record<string, Record<string, ClassicWolfNightSelection>>;
+  resolvedWolfAttackTargetByNight: Record<string, string | null>;
   nightAutoPassByNight: Record<string, Partial<Record<ClassicWolfNightRole, ClassicWolfNightAutoPassTurn>>>;
   votesByDay: Record<string, Record<string, string | null>>;
   voteSelectionsByDay: Record<string, Record<string, string | null>>;
@@ -121,6 +128,17 @@ type ClassicWolfSeerReveal = {
   nightNumber: number;
   targetPlayerId: string;
   isWerewolf: boolean;
+};
+
+export type ClassicWolfWolfPackMember = {
+  id: string;
+  name: string;
+  avatarKey: string;
+  isAlive: boolean;
+  isCurrentPlayer: boolean;
+  hasSubmittedAction: boolean;
+  selectedTargetPlayerId: string | null;
+  selectedTargetName: string | null;
 };
 
 type ClassicWolfNightHistoryIcon = "shield";
@@ -189,6 +207,7 @@ export type ClassicWolfPlayState = {
   activeNightTurn: ClassicWolfActiveNightTurn | null;
   myNightAction: ClassicWolfNightAction | null;
   seerReveal: ClassicWolfSeerReveal | null;
+  wolfPack: ClassicWolfWolfPackMember[];
   witchVictimPlayerId: string | null;
   previousGuardTargetPlayerId: string | null;
   pendingDeathEvent: ClassicWolfDeathEvent | null;
@@ -440,6 +459,42 @@ function isHost(player: PlayerRow | null, room: RoomRow) {
   return Boolean(player && (player.is_host || player.id === room.host_player_id));
 }
 
+function buildWolfPackMembers(
+  players: PlayerRow[],
+  state: ClassicWolfState,
+  currentPlayer: PlayerRow | null,
+  phase: WolfGamePhase
+): ClassicWolfWolfPackMember[] {
+  if (!currentPlayer || state.roleByPlayerId[currentPlayer.id] !== "werewolf") {
+    return [];
+  }
+
+  const shouldRevealCurrentNightTargets = phase === "night";
+  const nightKey = String(state.nightNumber);
+  const actions = shouldRevealCurrentNightTargets ? state.nightActionsByNight[nightKey] ?? {} : {};
+  const selections = shouldRevealCurrentNightTargets ? state.nightSelectionsByNight[nightKey] ?? {} : {};
+  const alivePlayerIds = new Set(state.alivePlayerIds);
+
+  return players
+    .filter((player) => state.roleByPlayerId[player.id] === "werewolf")
+    .map((player) => {
+      const submittedAction = actions[player.id]?.actionType === "werewolf" ? actions[player.id] : null;
+      const activeSelection = selections[player.id]?.actionType === "werewolf" ? selections[player.id] : null;
+      const selectedTargetPlayerId = submittedAction?.targetPlayerId ?? activeSelection?.targetPlayerId ?? null;
+
+      return {
+        id: player.id,
+        name: player.name,
+        avatarKey: normalizePlayerAvatarKey(player.avatar_key),
+        isAlive: alivePlayerIds.has(player.id),
+        isCurrentPlayer: player.id === currentPlayer.id,
+        hasSubmittedAction: Boolean(submittedAction),
+        selectedTargetPlayerId,
+        selectedTargetName: selectedTargetPlayerId ? getPlayerName(players, selectedTargetPlayerId, state) : null,
+      };
+    });
+}
+
 function getPlayerName(players: PlayerRow[], playerId: string | null, state?: Pick<ClassicWolfState, "playerNameByPlayerId">) {
   if (!playerId) {
     return "người chơi đã rời";
@@ -456,6 +511,8 @@ function buildInitialClassicState(players: PlayerRow[], roles: ClassicWolfRole[]
     nightNumber: 1,
     dayNumber: 1,
     nightActionsByNight: {},
+    nightSelectionsByNight: {},
+    resolvedWolfAttackTargetByNight: {},
     nightAutoPassByNight: {},
     votesByDay: {},
     voteSelectionsByDay: {},
@@ -500,6 +557,8 @@ function parseClassicState(rawState: unknown, players: PlayerRow[]): ClassicWolf
       knownPlayerIds.has(playerId)
     ),
     nightActionsByNight: state.nightActionsByNight ?? {},
+    nightSelectionsByNight: state.nightSelectionsByNight ?? {},
+    resolvedWolfAttackTargetByNight: state.resolvedWolfAttackTargetByNight ?? {},
     nightAutoPassByNight: state.nightAutoPassByNight ?? {},
     votesByDay: state.votesByDay ?? {},
     voteSelectionsByDay: state.voteSelectionsByDay ?? {},
@@ -620,7 +679,7 @@ function completeMissingVotesAsSkip(players: PlayerRow[], state: ClassicWolfStat
   };
 }
 
-function chooseMostVotedTarget(targetPlayerIds: Array<string | null | undefined>) {
+function chooseMostVotedTarget(targetPlayerIds: Array<string | null | undefined>, shouldRandomizeTies = false) {
   const voteCounts = new Map<string, number>();
 
   for (const targetPlayerId of targetPlayerIds) {
@@ -629,24 +688,48 @@ function chooseMostVotedTarget(targetPlayerIds: Array<string | null | undefined>
     }
   }
 
-  let selectedPlayerId: string | null = null;
   let selectedCount = 0;
+  let topPlayerIds: string[] = [];
 
   for (const [playerId, voteCount] of voteCounts) {
     if (voteCount > selectedCount) {
-      selectedPlayerId = playerId;
       selectedCount = voteCount;
+      topPlayerIds = [playerId];
+    } else if (voteCount === selectedCount) {
+      topPlayerIds.push(playerId);
     }
   }
 
-  return selectedPlayerId;
+  if (topPlayerIds.length === 0) {
+    return null;
+  }
+
+  if (!shouldRandomizeTies || topPlayerIds.length === 1) {
+    return topPlayerIds[0];
+  }
+
+  return topPlayerIds[Math.floor(Math.random() * topPlayerIds.length)];
 }
 
 function getNightActions(state: ClassicWolfState, nightNumber: number) {
   return state.nightActionsByNight[String(nightNumber)] ?? {};
 }
 
+function getStoredWolfAttackTargetForNight(state: ClassicWolfState, nightNumber: number) {
+  const nightKey = String(nightNumber);
+
+  return Object.prototype.hasOwnProperty.call(state.resolvedWolfAttackTargetByNight, nightKey)
+    ? state.resolvedWolfAttackTargetByNight[nightKey] ?? null
+    : undefined;
+}
+
 function getWolfAttackTargetForNight(state: ClassicWolfState, nightNumber: number) {
+  const storedTargetPlayerId = getStoredWolfAttackTargetForNight(state, nightNumber);
+
+  if (storedTargetPlayerId !== undefined) {
+    return storedTargetPlayerId;
+  }
+
   const actions = getNightActions(state, nightNumber);
 
   return chooseMostVotedTarget(
@@ -678,11 +761,52 @@ function getWitchVictimPlayerIdForNight(state: ClassicWolfState, nightNumber: nu
 }
 
 function getWolfAttackTarget(players: PlayerRow[], state: ClassicWolfState) {
+  const storedTargetPlayerId = getStoredWolfAttackTargetForNight(state, state.nightNumber);
+
+  if (storedTargetPlayerId !== undefined) {
+    return storedTargetPlayerId;
+  }
+
   const actions = state.nightActionsByNight[String(state.nightNumber)] ?? {};
 
   return chooseMostVotedTarget(
     getAlivePlayersByRole(players, state, "werewolf").map((player) => actions[player.id]?.targetPlayerId)
   );
+}
+
+function resolveWolfAttackTarget(players: PlayerRow[], state: ClassicWolfState) {
+  const actions = state.nightActionsByNight[String(state.nightNumber)] ?? {};
+
+  return chooseMostVotedTarget(
+    getAlivePlayersByRole(players, state, "werewolf").map((player) => actions[player.id]?.targetPlayerId),
+    true
+  );
+}
+
+function areAllAliveWerewolvesReady(players: PlayerRow[], state: ClassicWolfState) {
+  const actions = state.nightActionsByNight[String(state.nightNumber)] ?? {};
+  const aliveWerewolves = getAlivePlayersByRole(players, state, "werewolf");
+
+  return aliveWerewolves.length > 0 && aliveWerewolves.every((player) => actions[player.id]?.actionType === "werewolf");
+}
+
+function ensureWolfAttackTargetResolved(players: PlayerRow[], state: ClassicWolfState) {
+  const nightKey = String(state.nightNumber);
+
+  if (
+    Object.prototype.hasOwnProperty.call(state.resolvedWolfAttackTargetByNight, nightKey) ||
+    !areAllAliveWerewolvesReady(players, state)
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    resolvedWolfAttackTargetByNight: {
+      ...state.resolvedWolfAttackTargetByNight,
+      [nightKey]: resolveWolfAttackTarget(players, state),
+    },
+  };
 }
 
 function getGuardTarget(players: PlayerRow[], state: ClassicWolfState) {
@@ -1042,9 +1166,10 @@ function getActiveNightTurn(players: PlayerRow[], state: ClassicWolfState): Clas
 }
 
 function resolveNight(players: PlayerRow[], state: ClassicWolfState) {
-  const actions = state.nightActionsByNight[String(state.nightNumber)] ?? {};
-  const witchVictimPlayerId = getWitchVictimPlayerId(players, state);
-  const witchAction = getAlivePlayersByRole(players, state, "witch")
+  const stateWithResolvedWolfTarget = ensureWolfAttackTargetResolved(players, state);
+  const actions = stateWithResolvedWolfTarget.nightActionsByNight[String(stateWithResolvedWolfTarget.nightNumber)] ?? {};
+  const witchVictimPlayerId = getWitchVictimPlayerId(players, stateWithResolvedWolfTarget);
+  const witchAction = getAlivePlayersByRole(players, stateWithResolvedWolfTarget, "witch")
     .map((player) => actions[player.id])
     .find(Boolean);
   const deathPlayerIds = new Set<string>();
@@ -1075,7 +1200,7 @@ function resolveNight(players: PlayerRow[], state: ClassicWolfState) {
         : `Sau đêm ${state.nightNumber}, không ai chết.`,
   };
 
-  return applyDeaths(players, { ...state, witchHealUsed, witchPoisonUsed }, deathEvent);
+  return applyDeaths(players, { ...stateWithResolvedWolfTarget, witchHealUsed, witchPoisonUsed }, deathEvent);
 }
 
 function resolveVote(players: PlayerRow[], state: ClassicWolfState) {
@@ -1172,7 +1297,7 @@ async function loadClassicGameState(
 ) {
   const { data, error } = await supabase
     .from("classic_wolf_game_states")
-    .select("state")
+    .select("state, updated_at")
     .eq("game_id", gameId)
     .maybeSingle();
 
@@ -1180,7 +1305,7 @@ async function loadClassicGameState(
     return { state: null, error };
   }
 
-  return { state: parseClassicState(data?.state, players), error: null };
+  return { state: parseClassicState(data?.state, players), updatedAt: data?.updated_at ?? null, error: null };
 }
 
 async function progressClassicNightAutoPassTurns(
@@ -1767,6 +1892,7 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
           isWerewolf: currentSeerReveal.isWerewolf,
         }
       : null,
+    wolfPack: buildWolfPackMembers(players, state, currentPlayer, gameData.phase),
     witchVictimPlayerId:
       currentPlayer && state.roleByPlayerId[currentPlayer.id] === "witch" && gameData.phase === "night"
         ? getWitchVictimPlayerId(players, state)
@@ -1860,6 +1986,125 @@ export async function submitClassicWolfPhaseConfirmation(roomCode: string): Prom
   return { ok: true };
 }
 
+export async function selectClassicWolfNightTarget(
+  roomCode: string,
+  targetPlayerId?: string | null
+): Promise<ClassicWolfMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván đang chơi." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const { data: gameData } = await supabase
+    .from("wolf_game_sessions")
+    .select("id, phase")
+    .eq("id", room.current_game_id)
+    .maybeSingle();
+
+  if (!gameData || gameData.phase !== "night") {
+    return { ok: false, error: "Chưa đến giai đoạn ban đêm." };
+  }
+
+  const nextTargetPlayerId = targetPlayerId ?? null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data: stateRecord, error: stateError } = await supabase
+      .from("classic_wolf_game_states")
+      .select("state, updated_at")
+      .eq("game_id", gameData.id)
+      .maybeSingle();
+
+    if (stateError || !stateRecord) {
+      return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
+    }
+
+    const state = parseClassicState(stateRecord.state, players);
+    const myRole = state.roleByPlayerId[currentPlayer.id];
+    const activeTurn = getActiveNightTurn(players, state);
+    const alivePlayerIds = new Set(state.alivePlayerIds);
+    const nightKey = String(state.nightNumber);
+    const existingNightAction = state.nightActionsByNight[nightKey]?.[currentPlayer.id] ?? null;
+
+    if (!alivePlayerIds.has(currentPlayer.id)) {
+      return { ok: false, error: "Người đã chết không thể thực hiện chức năng." };
+    }
+
+    if (myRole !== "werewolf") {
+      return { ok: false, error: "Chỉ Ma Sói mới có thể đồng bộ mục tiêu cắn." };
+    }
+
+    if (existingNightAction) {
+      return { ok: true };
+    }
+
+    if (!activeTurn || activeTurn.role !== "werewolf" || !activeTurn.playerIds.includes(currentPlayer.id)) {
+      return { ok: false, error: "Chưa tới lượt Ma Sói của bạn." };
+    }
+
+    if (nextTargetPlayerId) {
+      if (!alivePlayerIds.has(nextTargetPlayerId) || nextTargetPlayerId === currentPlayer.id) {
+        return { ok: false, error: "Mục tiêu được chọn không hợp lệ." };
+      }
+
+      if (state.roleByPlayerId[nextTargetPlayerId] === "werewolf") {
+        return { ok: false, error: "Ma Sói không thể cắn đồng đội." };
+      }
+    }
+
+    const currentSelections = state.nightSelectionsByNight[nightKey] ?? {};
+
+    if ((currentSelections[currentPlayer.id]?.targetPlayerId ?? null) === nextTargetPlayerId) {
+      return { ok: true };
+    }
+
+    const nextSelections = { ...currentSelections };
+
+    if (nextTargetPlayerId) {
+      nextSelections[currentPlayer.id] = {
+        actionType: "werewolf",
+        targetPlayerId: nextTargetPlayerId,
+      };
+    } else {
+      delete nextSelections[currentPlayer.id];
+    }
+
+    const nextState: ClassicWolfState = {
+      ...state,
+      nightSelectionsByNight: {
+        ...state.nightSelectionsByNight,
+        [nightKey]: nextSelections,
+      },
+    };
+
+    const { data: updatedRows, error: updateError } = await supabase
+      .from("classic_wolf_game_states")
+      .update({ state: nextState })
+      .eq("game_id", gameData.id)
+      .eq("updated_at", stateRecord.updated_at)
+      .select("game_id");
+
+    if (updateError) {
+      return { ok: false, error: "Không thể lưu mục tiêu Ma Sói." };
+    }
+
+    if ((updatedRows ?? []).length > 0) {
+      await safeBroadcastWolfPlayUpdate(room.code);
+      return { ok: true };
+    }
+  }
+
+  return { ok: false, error: "Không thể đồng bộ mục tiêu Ma Sói. Thử lại sau." };
+}
+
 export async function submitClassicWolfNightAction(
   roomCode: string,
   input: ClassicWolfNightActionInput
@@ -1888,7 +2133,7 @@ export async function submitClassicWolfNightAction(
     return { ok: false, error: "Chưa đến giai đoạn ban đêm." };
   }
 
-  const { state, error: stateError } = await loadClassicGameState(supabase, gameData.id, players);
+  const { state, updatedAt, error: stateError } = await loadClassicGameState(supabase, gameData.id, players);
 
   if (stateError || !state) {
     return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
@@ -1916,6 +2161,10 @@ export async function submitClassicWolfNightAction(
   const witchVictimPlayerId = getWitchVictimPlayerId(players, state);
   const requestedTargetPlayerId = input.targetPlayerId ?? null;
   const actionTargetPlayerId = requestedTargetPlayerId;
+
+  if (myRole === "werewolf" && actionTargetPlayerId && state.roleByPlayerId[actionTargetPlayerId] === "werewolf") {
+    return { ok: false, error: "Ma Sói không thể cắn đồng đội." };
+  }
 
   if (myRole === "witch" && input.useHeal && requestedTargetPlayerId) {
     return { ok: false, error: "Phù Thuỷ không thể dùng bình cứu và bình độc trong cùng một đêm." };
@@ -1966,11 +2215,18 @@ export async function submitClassicWolfNightAction(
       useHeal: Boolean(input.useHeal),
     },
   };
+  const nextSelections = { ...(state.nightSelectionsByNight[nightKey] ?? {}) };
+  delete nextSelections[currentPlayer.id];
+
   let nextState: ClassicWolfState = {
     ...state,
     nightActionsByNight: {
       ...state.nightActionsByNight,
       [nightKey]: nextActions,
+    },
+    nightSelectionsByNight: {
+      ...state.nightSelectionsByNight,
+      [nightKey]: nextSelections,
     },
   };
 
@@ -1990,7 +2246,29 @@ export async function submitClassicWolfNightAction(
     };
   }
 
-  await saveClassicGameState(gameData.id, nextState, {}, supabase);
+  if (myRole === "werewolf") {
+    nextState = ensureWolfAttackTargetResolved(players, nextState);
+  }
+
+  if (updatedAt) {
+    const { data: updatedRows, error: updateError } = await supabase
+      .from("classic_wolf_game_states")
+      .update({ state: nextState })
+      .eq("game_id", gameData.id)
+      .eq("updated_at", updatedAt)
+      .select("game_id");
+
+    if (updateError) {
+      return { ok: false, error: "Không thể lưu hành động ban đêm." };
+    }
+
+    if ((updatedRows ?? []).length === 0) {
+      return { ok: false, error: "Trạng thái ván vừa thay đổi. Hãy thử lại." };
+    }
+  } else {
+    await saveClassicGameState(gameData.id, nextState, {}, supabase);
+  }
+
   await maybeAutoAdvancePhase(supabase, room, players, gameData, nextState);
   await safeBroadcastWolfPlayUpdate(room.code);
 

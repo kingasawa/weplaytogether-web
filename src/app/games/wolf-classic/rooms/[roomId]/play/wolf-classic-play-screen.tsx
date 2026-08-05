@@ -32,6 +32,7 @@ import {
   finishClassicWolfGame,
   getClassicWolfPlayState,
   leaveClassicWolfRoom,
+  selectClassicWolfNightTarget,
   selectClassicWolfVoteTarget,
   submitClassicWolfHunterShot,
   submitClassicWolfNightAction,
@@ -94,6 +95,22 @@ function getNightHistoryRoleLabel(role: ClassicWolfPlayState["nightHistory"][num
 
 function getNightHistoryRoleClassName(role: ClassicWolfPlayState["nightHistory"][number]["actionDescriptions"][number]["role"]) {
   return `${styles.nightHistoryRole} ${styles[`nightHistoryRole${role[0].toUpperCase()}${role.slice(1)}`]}`;
+}
+
+function formatWaitingPlayers(
+  players: Array<{ name: string }>,
+  options: {
+    countLabel: string;
+    prefix?: string;
+    suffix?: string;
+  }
+) {
+  const prefix = options.prefix ?? "Đang chờ ";
+  const suffix = options.suffix ?? "";
+  const names = players.map((player) => player.name).join(", ");
+  const textWithNames = `${prefix}${names}${suffix}`;
+
+  return textWithNames.length <= 54 ? textWithNames : `${prefix}${players.length} ${options.countLabel}${suffix}`;
 }
 
 function RoleCard({ role }: { role: ClassicWolfRole | null }) {
@@ -238,6 +255,8 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   );
   const alivePlayers = playState.players.filter((player) => player.isAlive);
   const otherAlivePlayers = alivePlayers.filter((player) => player.id !== playState.currentPlayerId);
+  const wolfPackPlayerIds = new Set(playState.wolfPack.map((member) => member.id));
+  const werewolfTargetOptions = otherAlivePlayers.filter((player) => !wolfPackPlayerIds.has(player.id));
   const guardTargetOptions = alivePlayers;
   const availableGuardTargetCount = guardTargetOptions.filter(
     (player) => player.id !== playState.previousGuardTargetPlayerId
@@ -523,33 +542,44 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
         return isMyNightTurn
           ? "Đến lượt bạn thực hiện chức năng."
-          : "Đang chờ hành động ban đêm.";
+          : "Đêm đang diễn ra.";
       }
 
-      return "Tất cả lượt ban đêm đã hoàn tất.";
+      return "Đêm đang diễn ra.";
     }
 
     if (isNightReviewPhase) {
       if (pendingHunterIds.length > 0) {
-        return `Đang chờ Thợ Săn: ${pendingHunterIds
-          .map((playerId) => getPlayerName(playState.players, playerId))
-          .join(", ")}`;
+        return formatWaitingPlayers(
+          pendingHunterIds.map((playerId) => ({ name: getPlayerName(playState.players, playerId) })),
+          { countLabel: "Thợ Săn", prefix: "Đang chờ Thợ Săn: " }
+        );
       }
 
       const waitingPlayers = alivePlayers.filter((player) => !player.isPhaseReady);
       return waitingPlayers.length > 0
-        ? `Đang chờ ${waitingPlayers.length} người xác nhận ${isDayReviewPhase ? "kết quả" : "thông báo"}`
+        ? formatWaitingPlayers(waitingPlayers, {
+            countLabel: "người",
+            suffix: ` xác nhận ${isDayReviewPhase ? "kết quả" : "thông báo"}`,
+          })
         : `Tất cả người sống đã xác nhận ${isDayReviewPhase ? "kết quả" : "thông báo"}.`;
     }
 
     if (isVotingPhase) {
       const waitingPlayers = alivePlayers.filter((player) => !player.hasVoted);
-      return waitingPlayers.length > 0 ? `Đang chờ ${waitingPlayers.length} phiếu` : "Đã đủ phiếu.";
+      return waitingPlayers.length > 0
+        ? formatWaitingPlayers(waitingPlayers, {
+            countLabel: "phiếu",
+            prefix: "Đang chờ phiếu của ",
+          })
+        : "Đã đủ phiếu.";
     }
 
     const waitingPlayers = alivePlayers.filter((player) => !player.isPhaseReady);
 
-    return waitingPlayers.length > 0 ? `Đang chờ ${waitingPlayers.length} người` : "Tất cả người sống đã hoàn tất.";
+    return waitingPlayers.length > 0
+      ? formatWaitingPlayers(waitingPlayers, { countLabel: "người" })
+      : "Tất cả người sống đã hoàn tất.";
   }
 
   function confirmCurrentPhase(label: string) {
@@ -597,6 +627,22 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       await refreshPlayState();
       setPendingLabel("");
     });
+  }
+
+  function selectWolfNightTarget(playerId: string | null) {
+    if (myRole !== "werewolf") {
+      return;
+    }
+
+    setMessage("");
+    void (async () => {
+      const result = await selectClassicWolfNightTarget(playState.room.code, playerId);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        await refreshPlayState();
+      }
+    })();
   }
 
   function votePlayer(playerId: string | null) {
@@ -678,7 +724,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
   function renderPlayerPicker(
     options: ClassicWolfPlayPlayer[],
-    onSelect: (playerId: string) => void,
+    onSelect: (playerId: string | null) => void,
     intent: NightPickerIntent = "default",
     isOptionDisabled: (player: ClassicWolfPlayPlayer) => boolean = () => false
   ) {
@@ -701,8 +747,9 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
               disabled={isPending || isDisabled}
               onClick={() => {
                 setMessage("");
-                setSelectedPlayerId((current) => (current === player.id ? null : player.id));
-                onSelect(player.id);
+                const nextPlayerId = selectedPlayerId === player.id ? null : player.id;
+                setSelectedPlayerId(nextPlayerId);
+                onSelect(nextPlayerId);
               }}
             >
               <span className={styles.playerOptionText}>{player.name}</span>
@@ -737,6 +784,50 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     );
   }
 
+  function renderWolfPackPanel() {
+    if (myRole !== "werewolf" || playState.wolfPack.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className={styles.wolfPackPanel}>
+        <div className={styles.wolfPackHeader}>
+          <span>Bầy sói</span>
+          <strong>{playState.wolfPack.map((member) => member.name).join(", ")}</strong>
+        </div>
+        <div className={styles.wolfPackList}>
+          {playState.wolfPack.map((member) => (
+            <div className={styles.wolfPackMember} key={member.id}>
+              <div className={styles.wolfPackIdentity}>
+                <Image
+                  alt=""
+                  className={styles.wolfPackAvatar}
+                  height={36}
+                  src={getPlayerAvatarPath(member.avatarKey)}
+                  width={36}
+                />
+                <div>
+                  <strong>
+                    {member.name}
+                    {member.isCurrentPlayer ? " (bạn)" : ""}
+                  </strong>
+                  <span>{member.isAlive ? "Còn sống" : "Đã chết"}</span>
+                </div>
+              </div>
+              <span className={member.hasSubmittedAction ? styles.wolfPackTargetLocked : styles.wolfPackTarget}>
+                {isNightPhase
+                  ? member.selectedTargetName
+                    ? `${member.hasSubmittedAction ? "Đã chốt" : "Đang chọn"}: ${member.selectedTargetName}`
+                    : "Chưa chọn"
+                  : "Đồng đội"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   function renderNightActions() {
     if (!myRole) {
       return <p>Bạn chưa có role trong ván này.</p>;
@@ -760,11 +851,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
     if (!isMyNightTurn) {
       return (
-        <div className={styles.nightTurnWaiting}>
-          <span>Ban đêm</span>
-          <strong>{activeNightTurn ? "Đang chờ hành động ban đêm" : "Đang tổng hợp kết quả ban đêm"}</strong>
-          <p>Lượt và chức năng đang thực hiện được giữ kín.</p>
-        </div>
+        <>
+          {renderWolfPackPanel()}
+          <div className={styles.nightTurnWaiting}>
+            <span>Ban đêm</span>
+            <strong>{activeNightTurn ? "Đang chờ hành động ban đêm" : "Đang tổng hợp kết quả ban đêm"}</strong>
+            <p>Lượt và chức năng đang thực hiện được giữ kín.</p>
+          </div>
+        </>
       );
     }
 
@@ -783,11 +877,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
 
     if (playState.myNightAction) {
       return (
-        <div className={styles.nightTurnWaiting}>
-          <span>Đã gửi hành động</span>
-          <strong>Chờ các lượt còn lại</strong>
-          <p>Hệ thống sẽ công bố người chết sau khi đêm kết thúc.</p>
-        </div>
+        <>
+          {renderWolfPackPanel()}
+          <div className={styles.nightTurnWaiting}>
+            <span>Đã gửi hành động</span>
+            <strong>Chờ các lượt còn lại</strong>
+            <p>Hệ thống sẽ công bố người chết sau khi đêm kết thúc.</p>
+          </div>
+        </>
       );
     }
 
@@ -911,11 +1008,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       myRole === "guard"
         ? guardTargetOptions
         : myRole === "werewolf" || myRole === "seer"
-          ? otherAlivePlayers
+          ? myRole === "werewolf"
+            ? werewolfTargetOptions
+            : otherAlivePlayers
           : alivePlayers;
 
     return (
       <>
+        {renderWolfPackPanel()}
         <div className={styles.nightTurnWaiting}>
           <span>Lượt {CLASSIC_WOLF_ROLE_LABELS[myRole]}</span>
           <strong>{CLASSIC_WOLF_ROLE_DESCRIPTIONS[myRole]}</strong>
@@ -926,7 +1026,13 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
             </p>
           )}
         </div>
-        {options.length > 0 ? renderPlayerPicker(options, () => undefined, getNightPickerIntentForRole(myRole)) : <p>Không có mục tiêu hợp lệ trong đêm này.</p>}
+        {options.length > 0
+          ? renderPlayerPicker(
+              options,
+              myRole === "werewolf" ? selectWolfNightTarget : () => undefined,
+              getNightPickerIntentForRole(myRole)
+            )
+          : <p>Không có mục tiêu hợp lệ trong đêm này.</p>}
         {playState.seerReveal && myRole === "seer" && (
           <div className={styles.werewolfTeammatePanel}>
             <span>Kết quả soi</span>
@@ -1093,7 +1199,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
         (isNightPhase && isMyNightTurn) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
       } ${
-        isVotingPhase ? styles.fixedBottomWaitingPage : ""
+        (isNightPhase && !isMyNightTurn) || isVotingPhase ? styles.fixedBottomWaitingPage : ""
       }`}
     >
       <section
@@ -1238,7 +1344,11 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                     <span>Thợ Săn</span>
                     <strong>Bạn đã chết. Chọn một người để bắn.</strong>
                   </div>
-                  {renderPlayerPicker(alivePlayers, shootPlayer)}
+                  {renderPlayerPicker(alivePlayers, (playerId) => {
+                    if (playerId) {
+                      shootPlayer(playerId);
+                    }
+                  })}
                 </>
               )}
             </>
