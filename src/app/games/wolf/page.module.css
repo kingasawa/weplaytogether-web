@@ -1821,6 +1821,21 @@
   color: var(--text-secondary);
 }
 
+.classicWolfTheme.playPage .playHeader {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: end;
+}
+
+.classicWolfTheme.playPage .playHeader .playTimer,
+.classicWolfTheme.playPage .playHeader .resultBanner {
+  align-self: stretch;
+}
+
+.classicWolfTheme.playPage.focusedPlayPage .playHeader {
+  justify-content: center;
+}
+
 .classicWolfTheme .discussionHeader {
   gap: 0.85rem;
 }
@@ -3037,14 +3052,19 @@
   background: color-mix(in srgb, var(--bg-secondary) 96%, transparent);
 }
 
-.fixedBottomActionPage {
+.page.fixedBottomActionPage {
   padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
   scroll-padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
 }
 
-.fixedBottomWaitingPage {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+.page.fixedBottomWaitingPage {
+  padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
+}
+
+.page.fixedBottomWaitingPage .playPanel,
+.page.fixedBottomWaitingPage .discussionRoleDeck {
+  margin-bottom: var(--spacing-md);
 }
 
 .resultActionBar {

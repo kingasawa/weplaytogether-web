@@ -323,6 +323,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const hasFocusedWaitingStatus =
     isCardRevealPhase || isNightPhase || isNightReviewPhase || isDiscussionPhase || isVotingPhase;
   const usesFocusedRevealLayout = isCardRevealPhase || isNightReviewPhase;
+  const hasFixedBottomActionBar = Boolean((isNightPhase && isMyNightTurn && myRole) || isDiscussionPhase);
+  const hasFixedBottomWaitingOnly = (isNightPhase && !hasFixedBottomActionBar) || isVotingPhase;
   const privateRevealKey = isPrivateRevealPhase(playState.game.phase)
     ? `${playState.game.id}:${playState.game.phase}`
     : null;
@@ -1223,8 +1225,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       className={`${styles.page} ${styles.playPage} ${styles.classicWolfTheme} ${
         usesFocusedRevealLayout ? styles.focusedPlayPage : ""
       } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
-        (isNightPhase && isMyNightTurn && myRole) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
-      } ${isVotingPhase ? styles.fixedBottomWaitingPage : ""}`}
+        hasFixedBottomActionBar ? styles.fixedBottomActionPage : ""
+      } ${hasFixedBottomWaitingOnly ? styles.fixedBottomWaitingPage : ""}`}
     >
       <section
         className={`${styles.playHeader} ${isDiscussionPhase ? styles.discussionHeader : ""} ${
