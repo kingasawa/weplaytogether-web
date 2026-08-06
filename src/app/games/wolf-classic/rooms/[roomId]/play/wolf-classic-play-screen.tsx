@@ -1196,7 +1196,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     <main
       className={`${styles.page} ${styles.playPage} ${styles.classicWolfTheme} ${
         isCardRevealPhase || isNightReviewPhase ? styles.focusedPlayPage : ""
-      } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
+      } ${isNightReviewPhase ? styles.nightReviewPage : ""} ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
         (isNightPhase && isMyNightTurn) || isDiscussionPhase ? styles.fixedBottomActionPage : ""
       } ${
         (isNightPhase && !isMyNightTurn) || isVotingPhase ? styles.fixedBottomWaitingPage : ""

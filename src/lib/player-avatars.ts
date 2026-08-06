@@ -24,7 +24,10 @@ export const PLAYER_AVATAR_KEYS = [
   "img_19",
   "khanh",
   "duong",
+  "duy",
   "lan",
+  "na",
+  "oanh",
   "tri",
 ] as const;
 

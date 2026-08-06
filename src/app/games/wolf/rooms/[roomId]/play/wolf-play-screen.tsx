@@ -1253,7 +1253,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     <main
       className={`${styles.page} ${styles.playPage} ${styles.classicWolfTheme} ${
         usesFocusedRevealLayout ? styles.focusedPlayPage : ""
-      } ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
+      } ${isNightReviewPhase ? styles.nightReviewPage : ""} ${isCardRevealPhase ? styles.cardRevealPage : ""} ${
         hasFixedBottomActionBar ? styles.fixedBottomActionPage : ""
       } ${hasFixedBottomWaitingOnly ? styles.fixedBottomWaitingPage : ""}`}
     >

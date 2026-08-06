@@ -2756,6 +2756,32 @@
   height: 100%;
 }
 
+.focusedPlayPage.nightReviewPage {
+  height: auto;
+  min-height: 100svh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(9.25rem + env(safe-area-inset-bottom));
+}
+
+.focusedPlayPage.nightReviewPage .playHeader {
+  min-height: clamp(10rem, 28svh, 14rem);
+  max-height: none;
+}
+
+.focusedPlayPage.nightReviewPage .focusedPlayPanel {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.focusedPlayPage.nightReviewPage .nightReviewContent {
+  min-height: 0;
+  height: auto;
+}
+
 .cardRevealPage {
   --card-reveal-bottom-space: var(--spacing-md);
   overflow-y: auto;
