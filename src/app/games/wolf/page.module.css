@@ -1168,7 +1168,7 @@
   pointer-events: none;
 }
 
-.roleCardImage {
+.playCard .roleCardImage {
   z-index: 0;
   object-fit: contain;
 }
@@ -2839,6 +2839,32 @@
   min-height: 0;
   gap: var(--spacing-sm);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+}
+
+.nightResultRevealGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 9rem));
+  justify-content: center;
+}
+
+.nightResultRevealGrid .playCard {
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 1005 / 1565;
+  padding: 0.5rem;
+  border-radius: 0.85rem;
+}
+
+.nightResultSummaryLine {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-card) 62%, transparent);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .nightReviewRevealStack .playCard {

@@ -1099,7 +1099,7 @@ function buildNightReviewMessages(
   if (action.action_type === "witch") {
     return [
       validateCenterIndex(action.target_center_index) && action.target_player_id
-        ? `Bạn đã mở lá giữa ${(action.target_center_index as number) + 1} và gán chức năng đó cho ${getPlayerName(
+        ? `Bạn đã mở lá giữa ${(action.target_center_index as number) + 1} và đổi lá đó với ${getPlayerName(
             players,
             action.target_player_id
           )}.`
@@ -1680,16 +1680,19 @@ function simulateNightResolution(
           const targetCard = getPlayerCard(cards, copiedPrimaryTargetId);
 
           if (centerCard && targetCard) {
+            const centerLabel = getCardHolderLabel(centerCard, players);
+            const targetName = getCardHolderLabel(targetCard, players);
             const centerRoleBefore = roleOfCard(centerCard);
+            const targetRoleBefore = roleOfCard(targetCard);
 
             steps.push({
               id: `${role}-${card.player_id}-${stepNumber}`,
               title: getActionTitle(actorName),
-              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.witch}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} cho ${getCardHolderLabel(targetCard, players)}`,
-              description: `${actorName} nhân bản Phù Thuỷ, mở một lá giữa bàn và gán chức năng đó ngay trong lượt Nhân Bản.`,
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.witch}) đổi ${centerLabel} (${getRoleReviewLabel(centerRoleBefore)}) với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
+              description: `${actorName} nhân bản Phù Thuỷ, mở ${centerLabel} rồi đổi lá đó với ${targetName}. Sau khi đổi, ${targetName} nhận ${getRoleReviewLabel(centerRoleBefore)}, còn ${centerLabel} nhận ${getRoleReviewLabel(targetRoleBefore)}.`,
             });
             stepNumber += 1;
-            assignRole(targetCard, centerRoleBefore);
+            swapCards(centerCard, targetCard);
           }
         }
 
@@ -1890,11 +1893,11 @@ function simulateNightResolution(
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
           title: getActionTitle(actorName),
-          logText: `${actorName} (${actorRoleLabel}) gán chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel} cho ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
-          description: `${targetName} nhận chức năng ${getRoleReviewLabel(centerRoleBefore)} từ ${centerLabel}. ${centerLabel} vẫn ở giữa bàn; chức năng cũ ${getRoleReviewLabel(targetRoleBefore)} của ${targetName} không được chuyển vào giữa.`,
+          logText: `${actorName} (${actorRoleLabel}) đổi ${centerLabel} (${getRoleReviewLabel(centerRoleBefore)}) với ${targetName} (${getRoleReviewLabel(targetRoleBefore)})`,
+          description: `${actorName} mở ${centerLabel} rồi đổi lá đó với ${targetName}. Sau khi đổi, ${targetName} nhận ${getRoleReviewLabel(centerRoleBefore)}, còn ${centerLabel} nhận ${getRoleReviewLabel(targetRoleBefore)}.`,
         });
         stepNumber += 1;
-        assignRole(targetCard, centerRoleBefore);
+        swapCards(centerCard, targetCard);
       }
 
       if (role === "drunk" && validateCenterIndex(primaryCenterIndex)) {

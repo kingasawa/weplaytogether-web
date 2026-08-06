@@ -253,6 +253,30 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const werewolfTeammateNames = hasWerewolfTeammates
     ? playState.werewolfTeammates.map((player) => player.playerName)
     : copycatWerewolfTeammates.map((player) => player.playerName);
+  const nightResultActionRole =
+    playState.myAction?.actionType === "copycat"
+      ? copycatCopiedRole
+      : playState.myAction?.actionType === "doppelganger"
+        ? doppelgangerCopiedRole
+        : (playState.myAction?.actionType as WolfRole | undefined) ?? null;
+  const nightResultSummary =
+    playState.myCard?.nightReviewRole
+      ? `Kết quả: ${myRole === "insomniac" ? "bài hiện tại" : "bài vừa lấy"} là ${
+          WOLF_ROLE_LABELS[playState.myCard.nightReviewRole]
+        }.`
+      : nightResultActionRole === "troublemaker"
+        ? `Kết quả: bài của ${getPlayerName(
+            playState.players,
+            playState.myAction?.actionType === "doppelganger"
+              ? playState.myAction.targetPlayerId2
+              : playState.myAction?.targetPlayerId ?? null
+          )} và ${getPlayerName(
+            playState.players,
+            playState.myAction?.actionType === "doppelganger"
+              ? playState.myAction.targetPlayerId3
+              : playState.myAction?.targetPlayerId2 ?? null
+          )} đã đổi vị trí.`
+        : null;
   const isCardRevealPhase = playState.game.phase === "card_reveal";
   const isNightPhase = playState.game.phase === "night";
   const isNightReviewPhase = playState.game.phase === "night_review";
@@ -614,7 +638,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
     if (effectiveNightActionRole === "witch") {
       if (isDeselecting && hasCenterReveal(centerIndex)) {
-        setMessage("Lá giữa đã xem sẽ được giữ để Phù Thuỷ gán cho người nhận.");
+        setMessage("Lá giữa đã xem sẽ được giữ để Phù Thuỷ đổi với người nhận.");
         return;
       }
 
@@ -928,7 +952,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     );
   }
 
-  function renderKnownNightCards() {
+  function renderKnownNightCards(options: { isNightResult?: boolean } = {}) {
     const revealedCenterCardsFromState = playState.centerCards.filter(
       (card) => card.role || typeof card.isWerewolf === "boolean"
     );
@@ -943,7 +967,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     return (
-      <div className={styles.playerRevealGrid}>
+      <div
+        className={`${styles.playerRevealGrid} ${
+          options.isNightResult ? styles.nightResultRevealGrid : ""
+        }`}
+      >
         {playState.myCard?.nightReviewRole && (
           <RoleCard
             label={myRole === "insomniac" ? "Bài hiện tại" : "Lá vừa lấy"}
@@ -995,7 +1023,8 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     if (playState.isCurrentNightTurnActionSubmitted) {
       return (
         <>
-          {renderKnownNightCards()}
+          {renderKnownNightCards({ isNightResult: true })}
+          {nightResultSummary && <p className={styles.nightResultSummaryLine}>{nightResultSummary}</p>}
           <div className={styles.nightTurnWaiting}>
             <span>Kết quả lượt</span>
             <strong>Hãy ghi nhớ thông tin của bạn</strong>
