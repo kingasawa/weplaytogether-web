@@ -1205,7 +1205,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       <section
         className={`${styles.playHeader} ${isDiscussionPhase ? styles.discussionHeader : ""} ${
           isVotingPhase ? styles.votingHeader : ""
-        }`}
+        } ${isResultPhase ? styles.resultHeader : ""}`}
       >
         <div>
           <span>Phòng {playState.room.code.toUpperCase()} · Đêm {playState.game.roundNumber}</span>
