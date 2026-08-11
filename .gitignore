@@ -36,6 +36,7 @@ yarn-error.log*
 # project credentials — never commit
 /documents/project-config.md
 .claude/settings.local.json
+.codex/
 .mcp.json
 .dev.vars
 

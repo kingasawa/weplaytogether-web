@@ -34,7 +34,6 @@ import {
   leaveClassicWolfRoom,
   selectClassicWolfNightTarget,
   selectClassicWolfVoteTarget,
-  submitClassicWolfHunterShot,
   submitClassicWolfNightAction,
   submitClassicWolfPhaseConfirmation,
   submitClassicWolfVote,
@@ -60,10 +59,11 @@ const CLASSIC_WOLF_ROLE_CARD_IMAGES: Partial<Record<ClassicWolfRole, { alt: stri
   seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.png" },
   witch: { alt: "Lá bài Phù Thủy", src: "/images/boards/cards/wolf/witch.png" },
   guard: { alt: "Lá bài Bảo Vệ", src: "/images/boards/cards/wolf/guard.png" },
+  hunter: { alt: "Lá bài Thợ Săn", src: "/images/boards/cards/wolf/hunter.png" },
 };
 
 type WitchDecision = "rescue_prompt" | "rescue" | "poison_prompt" | "poison" | "skip";
-type NightPickerIntent = "guard" | "wolf" | "seer" | "witchHeal" | "witchPoison" | "default";
+type NightPickerIntent = "guard" | "wolf" | "seer" | "hunter" | "witchHeal" | "witchPoison" | "default";
 
 function getPlayerName(players: ClassicWolfPlayPlayer[], playerId: string | null) {
   return players.find((player) => player.id === playerId)?.name ?? "Không rõ";
@@ -141,7 +141,7 @@ function getNightPickerActiveClassName(intent: NightPickerIntent) {
     return styles.playOptionActiveGuard;
   }
 
-  if (intent === "wolf" || intent === "witchPoison") {
+  if (intent === "wolf" || intent === "hunter" || intent === "witchPoison") {
     return styles.playOptionActiveDanger;
   }
 
@@ -177,6 +177,10 @@ function getNightPickerIntentForRole(role: ClassicWolfRole): NightPickerIntent {
     return "seer";
   }
 
+  if (role === "hunter") {
+    return "hunter";
+  }
+
   return "default";
 }
 
@@ -195,6 +199,10 @@ function renderNightPickerIcon(intent: NightPickerIntent) {
 
   if (intent === "seer") {
     return <Eye aria-hidden="true" />;
+  }
+
+  if (intent === "hunter") {
+    return <BadgeCheck aria-hidden="true" />;
   }
 
   return null;
@@ -355,18 +363,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       }, []),
     [playState.roleDeck]
   );
-  const pendingHunterIds = useMemo(() => {
-    const pendingDeathIds = playState.pendingDeathEvent?.playerIds ?? [];
-
-    return pendingDeathIds.filter((playerId) => {
-      const player = playState.players.find((item) => item.id === playerId);
-      return player?.role === "hunter" && !player.isAlive;
-    });
-  }, [playState.pendingDeathEvent?.playerIds, playState.players]);
-  const canShootAsHunter =
-    playState.currentPlayerId !== null &&
-    pendingHunterIds.includes(playState.currentPlayerId) &&
-    !isAlive;
   const currentPlayerTeam = getRoleTeam(myRole);
   const isCurrentPlayerWinner =
     playState.result && currentPlayerTeam ? playState.result.winnerTeam === currentPlayerTeam : null;
@@ -549,13 +545,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     }
 
     if (isNightReviewPhase) {
-      if (pendingHunterIds.length > 0) {
-        return formatWaitingPlayers(
-          pendingHunterIds.map((playerId) => ({ name: getPlayerName(playState.players, playerId) })),
-          { countLabel: "Thợ Săn", prefix: "Đang chờ Thợ Săn: " }
-        );
-      }
-
       const waitingPlayers = alivePlayers.filter((player) => !player.isPhaseReady);
       return waitingPlayers.length > 0
         ? formatWaitingPlayers(waitingPlayers, {
@@ -678,23 +667,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
         await refreshPlayState();
       }
     })();
-  }
-
-  function shootPlayer(playerId: string) {
-    setMessage("");
-    setPendingLabel("Đang xử lý phát bắn của Thợ Săn...");
-    startTransition(async () => {
-      const result = await submitClassicWolfHunterShot(playState.room.code, playerId);
-
-      if (!result.ok) {
-        setMessage(result.error);
-        setPendingLabel("");
-        return;
-      }
-
-      await refreshPlayState();
-      setPendingLabel("");
-    });
   }
 
   function returnToLobby() {
@@ -1007,7 +979,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     const options =
       myRole === "guard"
         ? guardTargetOptions
-        : myRole === "werewolf" || myRole === "seer"
+        : myRole === "werewolf" || myRole === "seer" || myRole === "hunter"
           ? myRole === "werewolf"
             ? werewolfTargetOptions
             : otherAlivePlayers
@@ -1181,6 +1153,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       return <FlaskConical aria-hidden="true" />;
     }
 
+    if (role === "hunter") {
+      return <BadgeCheck aria-hidden="true" />;
+    }
+
     if (role === "result") {
       return <BadgeCheck aria-hidden="true" />;
     }
@@ -1225,7 +1201,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
               ? `Kết quả của đêm ${reviewEvent?.roundNumber ?? playState.game.roundNumber} và ngày ${
                   reviewEvent?.roundNumber ?? playState.game.roundNumber
                 }. Xác nhận xong mới sang đêm tiếp theo.`
-              : "Thông báo người chết. Nếu Thợ Săn chết, Thợ Săn được bắn trước khi tiếp tục."}
+              : "Thông báo người chết trong đêm."}
           </p>
         )}
         {isDiscussionPhase && (
@@ -1337,23 +1313,8 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                   <p>{isDayReviewPhase ? "Không ai bị treo cổ trong lượt này." : "Không ai chết trong lượt này."}</p>
                 )}
               </div>
-
-              {canShootAsHunter && (
-                <>
-                  <div className={styles.nightTurnWaiting}>
-                    <span>Thợ Săn</span>
-                    <strong>Bạn đã chết. Chọn một người để bắn.</strong>
-                  </div>
-                  {renderPlayerPicker(alivePlayers, (playerId) => {
-                    if (playerId) {
-                      shootPlayer(playerId);
-                    }
-                  })}
-                </>
-              )}
             </>
           )}
-
           {isVotingPhase && (
             isAlive ? (
               <div className={styles.votingPanel}>
@@ -1633,12 +1594,12 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
         </section>
       )}
 
-      {isNightReviewPhase && !canShootAsHunter && (
+      {isNightReviewPhase && (
         <section className={styles.cardRevealActionBar}>
           <button
             className={styles.primaryButton}
             type="button"
-            disabled={isPending || !isAlive || currentPlayer?.isPhaseReady || pendingHunterIds.length > 0}
+            disabled={isPending || !isAlive || currentPlayer?.isPhaseReady}
             onClick={() =>
               confirmCurrentPhase(isDayReviewPhase ? "Đang xác nhận đã xem kết quả..." : "Đang xác nhận đã xem thông báo...")
             }

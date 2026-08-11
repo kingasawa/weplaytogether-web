@@ -71,6 +71,7 @@
 .exitBar,
 .roomStatusGrid,
 .identityActions,
+.publicRoomsHeader,
 .joinForm {
   display: flex;
 }
@@ -476,6 +477,178 @@
   margin-top: var(--spacing-sm);
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.createRoomForm {
+  display: grid;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.visibilityToggle {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.visibilityOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 4rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    transform var(--transition-base);
+}
+
+.visibilityOptionActive {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg-secondary));
+}
+
+.visibilityOption svg {
+  width: 1.25rem;
+  min-width: 1.25rem;
+  color: var(--primary-light);
+}
+
+.visibilityOption span {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.visibilityOption strong {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.visibilityOption small {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.publicRoomsPanel {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 68%, transparent);
+}
+
+.publicRoomsHeader {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.publicRoomsHeader h3 {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.publicRoomsHeader .smallButton {
+  width: auto;
+  min-width: 7rem;
+  min-height: 2.75rem;
+  padding-inline: var(--spacing-md);
+  font-size: 0.875rem;
+}
+
+.publicRoomsEmpty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.publicRoomTable {
+  display: grid;
+  width: 100%;
+  gap: var(--spacing-sm);
+  border-collapse: collapse;
+}
+
+.publicRoomTable thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.publicRoomTable tbody {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.publicRoomTable tr {
+  display: grid;
+  gap: 0.45rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+}
+
+.publicRoomTable td {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 0.7fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.publicRoomTable td::before {
+  color: var(--text-secondary);
+  content: attr(data-label);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.publicRoomTable td:last-child {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.publicRoomTable td:last-child::before {
+  content: none;
+}
+
+.publicRoomTable strong {
+  color: var(--primary-light);
+  font-family: var(--font-heading);
+  letter-spacing: 0.08em;
+}
+
+.publicRoomTable .smallButton {
+  min-height: 2.75rem;
 }
 
 .closeButton {
@@ -1734,6 +1907,12 @@
 .resultRoleTagWitch {
   background: color-mix(in srgb, var(--success) 16%, transparent);
   color: var(--success);
+}
+
+.nightHistoryRoleHunter,
+.resultRoleTagHunter {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
 }
 
 .nightHistoryRoleVote {
@@ -3335,6 +3514,70 @@
 
   .modalBackdrop {
     place-items: center;
+  }
+
+  .joinRoomModal {
+    width: min(100%, 46rem);
+  }
+
+  .visibilityToggle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .publicRoomTable {
+    display: table;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--bg-card) 68%, transparent);
+  }
+
+  .publicRoomTable thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .publicRoomTable tbody {
+    display: table-row-group;
+  }
+
+  .publicRoomTable tr {
+    display: table-row;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .publicRoomTable th,
+  .publicRoomTable td {
+    display: table-cell;
+    padding: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--primary-light) 12%, transparent);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  .publicRoomTable th {
+    border-top: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 800;
+  }
+
+  .publicRoomTable td::before {
+    content: none;
+  }
+
+  .publicRoomTable .smallButton {
+    width: auto;
+    min-width: 4.5rem;
+    padding-inline: var(--spacing-md);
   }
 }
 

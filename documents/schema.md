@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-30 -->
+﻿<!-- Last updated: 2026-08-11 -->
 
 # Database Schema
 
@@ -18,6 +18,10 @@ On 2026-07-28, local migration `202607280001_classic_wolf_state.sql` was created
 
 On 2026-07-30, local migration `202607300001_wolf_avatar_key_new_assets.sql` was created to allow the new avatar asset keys `duong`, `lan`, and `tri`.
 
+On 2026-08-11, local migration `202608110001_wolf_room_visibility.sql` was created to add public/private room visibility. Public room lists should show only `waiting` rooms where `is_public = true`; private rooms remain joinable by code through server actions.
+
+On 2026-08-11, local migration `202608110002_wolf_hourly_room_maintenance.sql` was created to close inactive rooms and run cleanup hourly. Waiting rooms inactive for 2 hours are marked `finished`; playing rooms inactive for 30 minutes are marked `finished`; already closed room data is deleted hourly after 1 hour.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -33,6 +37,8 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202607270001_wolf_doppelganger_role.sql`
 - `supabase/migrations/202607280001_classic_wolf_state.sql`
 - `supabase/migrations/202607300001_wolf_avatar_key_new_assets.sql`
+- `supabase/migrations/202608110001_wolf_room_visibility.sql`
+- `supabase/migrations/202608110002_wolf_hourly_room_maintenance.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -49,6 +55,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `id uuid primary key default gen_random_uuid()`
 - `code text not null unique`, constrained to 4 lowercase letters
 - `game_key text not null default 'wolf'`
+- `is_public boolean not null default true`
 - `status public.wolf_room_status not null default 'waiting'`
 - `host_player_id uuid null references public.wolf_room_players(id) on delete set null`
 - `current_game_id uuid null references public.wolf_game_sessions(id) on delete set null`
@@ -65,6 +72,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
 
 #### `public.wolf_game_sessions`
 
@@ -130,7 +138,9 @@ Local migration file created in this task and still pending manual remote apply:
 ### Indexes And Constraints
 
 - Room lookup indexes on `wolf_rooms.code` and `wolf_rooms.status`
+- Public room list partial index on `wolf_rooms(game_key, updated_at desc) where is_public = true and status = 'waiting'`
 - Player lookup index on `wolf_room_players.room_id`
+- Player activity lookup index on `wolf_room_players(room_id, updated_at desc)`
 - Unique room session: `wolf_room_players(room_id, session_id)`
 - Gameplay lookup indexes on `wolf_game_sessions.room_id`, `wolf_game_sessions.phase`, `wolf_game_cards.game_id`, `wolf_game_cards.player_id`, `wolf_game_actions.game_id`, `wolf_game_votes.game_id`
 - Phase confirmation lookup index on `wolf_game_phase_confirmations.game_id`
@@ -155,10 +165,26 @@ Local migration file created in this task and still pending manual remote apply:
 - Related `wolf_room_players`, `wolf_game_sessions`, `wolf_game_cards`, `wolf_game_actions`, `wolf_game_votes`, and `wolf_game_phase_confirmations` rows are removed by existing `ON DELETE CASCADE` constraints.
 - Function execution is revoked from `PUBLIC` and granted to `service_role`.
 
+#### `public.close_inactive_wolf_rooms(...)`
+
+- Returns counts for closed waiting and playing rooms.
+- Marks `waiting` rooms as `finished` when the latest lobby activity is older than `waiting_inactive_older_than`, default `2 hours`.
+- Marks `playing` rooms as `finished` when the latest game activity is older than `playing_inactive_older_than`, default `30 minutes`.
+- Activity is calculated from room, player, game session, action, vote, phase confirmation, and Classic Wolf state timestamps.
+- Function execution is revoked from `PUBLIC` and granted to `service_role`.
+
+#### `public.maintain_wolf_rooms(...)`
+
+- Runs `close_inactive_wolf_rooms(...)`, then `cleanup_old_wolf_rooms(...)`.
+- Defaults to closing inactive waiting rooms after `2 hours`, inactive playing rooms after `30 minutes`, and deleting closed room data after `1 hour`.
+- Related rows are deleted through the existing cascade constraints when the room row is deleted.
+- Function execution is revoked from `PUBLIC` and granted to `service_role`.
+
 #### Cron Job
 
-- `wolf-cleanup-old-rooms`: scheduled via `pg_cron` to run daily at `03:17` database time.
-- Command: `SELECT public.cleanup_old_wolf_rooms();`
+- `wolf-hourly-room-maintenance`: scheduled via `pg_cron` to run hourly at minute `17` database time.
+- Command: `select public.maintain_wolf_rooms();`
+- The migration unschedules the older daily `wolf-cleanup-old-rooms` job when present.
 
 ## Remote Apply Notes
 

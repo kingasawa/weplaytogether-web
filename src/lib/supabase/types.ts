@@ -23,6 +23,7 @@ export type WolfRoomRow = {
   id: string;
   code: string;
   game_key: string;
+  is_public: boolean;
   status: WolfRoomStatus;
   host_player_id: string | null;
   current_game_id: string | null;
@@ -39,6 +40,7 @@ export type WolfRoomPlayerRow = {
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
+  updated_at: string;
 };
 
 export type WolfGameSessionRow = {
@@ -111,6 +113,7 @@ export type Database = {
             WolfRoomRow,
             | "id"
             | "game_key"
+            | "is_public"
             | "status"
             | "host_player_id"
             | "current_game_id"
@@ -126,7 +129,7 @@ export type Database = {
         Insert: Partial<
           Pick<
             WolfRoomPlayerRow,
-            "id" | "avatar_key" | "is_host" | "is_ready" | "joined_at"
+            "id" | "avatar_key" | "is_host" | "is_ready" | "joined_at" | "updated_at"
           >
         > &
           Pick<WolfRoomPlayerRow, "room_id" | "session_id" | "name">;

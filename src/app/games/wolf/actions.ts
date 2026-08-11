@@ -9,6 +9,7 @@ import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
 import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 
 const ROOM_CODE_PATTERN = /^[a-z]{4}$/;
+const WOLF_GAME_KEY = "wolf";
 const MAX_PLAYERS = 10;
 const DISCUSSION_DURATION_MS = 5 * 60 * 1000;
 
@@ -75,6 +76,8 @@ const ROLE_SELECTION_LIMITS: Record<WolfRole, number> = {
 type RoomRow = {
   id: string;
   code: string;
+  game_key?: string;
+  is_public?: boolean;
   status: WolfRoomStatus;
   host_player_id: string | null;
   current_game_id?: string | null;
@@ -134,6 +137,21 @@ type PhaseConfirmationRow = {
   game_id: string;
   player_id: string;
   phase: WolfGamePhase;
+};
+
+type PublicRoomRow = {
+  id: string;
+  code: string;
+  host_player_id: string | null;
+  updated_at: string;
+};
+
+type PublicRoomPlayerRow = {
+  id: string;
+  room_id: string;
+  name: string;
+  is_host: boolean;
+  joined_at: string;
 };
 
 type NightTurnConfirmationSet = Set<string>;
@@ -201,6 +219,24 @@ export type WolfActionResult =
       playerId: string;
       playerName: string;
       playerAvatarKey: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export type WolfPublicRoomSummary = {
+  code: string;
+  hostName: string;
+  playerCount: number;
+  maxPlayers: number;
+  updatedAt: string;
+};
+
+export type WolfPublicRoomsResult =
+  | {
+      ok: true;
+      rooms: WolfPublicRoomSummary[];
     }
   | {
       ok: false;
@@ -386,6 +422,22 @@ function getDatabaseErrorMessage(errorCode?: string) {
   return null;
 }
 
+function getRoomVisibilityErrorMessage(error?: DatabaseMutationError | null) {
+  if (!error) {
+    return null;
+  }
+
+  const errorText = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""} ${
+    error.hint ?? ""
+  }`.toLowerCase();
+
+  if (errorText.includes("is_public")) {
+    return "Database chưa có cột public/private cho phòng chơi. Cần chạy migration wolf_room_visibility trước.";
+  }
+
+  return null;
+}
+
 function isMissingAvatarKeyError(error?: DatabaseMutationError | null) {
   if (!error) {
     return false;
@@ -478,8 +530,9 @@ async function getRoomByCode(roomCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data: room, error } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id, current_game_id")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", normalizeRoomCode(roomCode))
+    .eq("game_key", WOLF_GAME_KEY)
     .maybeSingle();
 
   return { supabase, room: room as RoomRow | null, error };
@@ -578,6 +631,89 @@ function mapLobbyPlayer(player: PlayerRow): WolfLobbyPlayer {
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
+  };
+}
+
+function mapPublicRoomSummaries(
+  rooms: PublicRoomRow[],
+  players: PublicRoomPlayerRow[]
+): WolfPublicRoomSummary[] {
+  const playersByRoomId = new Map<string, PublicRoomPlayerRow[]>();
+
+  for (const player of players) {
+    const roomPlayers = playersByRoomId.get(player.room_id) ?? [];
+    roomPlayers.push(player);
+    playersByRoomId.set(player.room_id, roomPlayers);
+  }
+
+  return rooms
+    .map((room) => {
+      const roomPlayers = playersByRoomId.get(room.id) ?? [];
+      const hostPlayer =
+        roomPlayers.find((player) => player.id === room.host_player_id) ??
+        roomPlayers.find((player) => player.is_host) ??
+        roomPlayers[0] ??
+        null;
+
+      return {
+        code: room.code,
+        hostName: hostPlayer?.name ?? "Không rõ",
+        playerCount: roomPlayers.length,
+        maxPlayers: MAX_PLAYERS,
+        updatedAt: room.updated_at,
+      };
+    })
+    .filter((room) => room.playerCount > 0);
+}
+
+async function listPublicRoomsByGameKey(gameKey: string): Promise<WolfPublicRoomsResult> {
+  const supabase = createSupabaseAdminClient();
+  const { data: rooms, error: roomError } = await supabase
+    .from("wolf_rooms")
+    .select("id, code, host_player_id, updated_at")
+    .eq("game_key", gameKey)
+    .eq("status", "waiting")
+    .eq("is_public", true)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  if (roomError) {
+    return {
+      ok: false,
+      error:
+        getRoomVisibilityErrorMessage(roomError) ??
+        getDatabaseErrorMessage(roomError.code) ??
+        "Không thể tải danh sách phòng public.",
+    };
+  }
+
+  const publicRooms = (rooms ?? []) as PublicRoomRow[];
+
+  if (publicRooms.length === 0) {
+    return { ok: true, rooms: [] };
+  }
+
+  const { data: players, error: playerError } = await supabase
+    .from("wolf_room_players")
+    .select("id, room_id, name, is_host, joined_at")
+    .in(
+      "room_id",
+      publicRooms.map((room) => room.id)
+    )
+    .order("joined_at", { ascending: true });
+
+  if (playerError) {
+    return {
+      ok: false,
+      error:
+        getDatabaseErrorMessage(playerError.code) ??
+        "Không thể tải người chơi trong các phòng public.",
+    };
+  }
+
+  return {
+    ok: true,
+    rooms: mapPublicRoomSummaries(publicRooms, (players ?? []) as PublicRoomPlayerRow[]),
   };
 }
 
@@ -1975,9 +2111,14 @@ async function resolveNightActions(gameId: string) {
   );
 }
 
+export async function listPublicWolfRooms(): Promise<WolfPublicRoomsResult> {
+  return listPublicRoomsByGameKey(WOLF_GAME_KEY);
+}
+
 export async function createWolfRoom(
   playerName?: string,
-  avatarKey?: string
+  avatarKey?: string,
+  isPublic = true
 ): Promise<WolfActionResult> {
   const supabase = createSupabaseAdminClient();
   const sessionId = await getOrCreatePlayerSessionId();
@@ -1988,7 +2129,7 @@ export async function createWolfRoom(
     const code = generateRoomCode();
     const { data: room, error: roomError } = await supabase
       .from("wolf_rooms")
-      .insert({ code })
+      .insert({ code, game_key: WOLF_GAME_KEY, is_public: isPublic })
       .select("id, code, status, host_player_id, created_at, updated_at, game_key")
       .single();
 
@@ -1999,7 +2140,10 @@ export async function createWolfRoom(
 
       return {
         ok: false,
-        error: getDatabaseErrorMessage(roomError.code) ?? "Không thể tạo phòng. Vui lòng thử lại.",
+        error:
+          getRoomVisibilityErrorMessage(roomError) ??
+          getDatabaseErrorMessage(roomError.code) ??
+          "Không thể tạo phòng. Vui lòng thử lại.",
       };
     }
 
@@ -2057,8 +2201,9 @@ export async function joinWolfRoom(
 
   const { data: room, error: roomError } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id, current_game_id")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
     .single();
 
   if (roomError || !room) {
@@ -2163,8 +2308,9 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id, current_game_id")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
     .maybeSingle();
 
   if (!room) {
@@ -2295,6 +2441,7 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
     .from("wolf_rooms")
     .select("id")
     .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
     .maybeSingle();
 
   if (!room) {
@@ -2332,8 +2479,9 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id, current_game_id")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
     .maybeSingle();
 
   if (!room) {
@@ -2365,8 +2513,9 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
     .from("wolf_rooms")
-    .select("id, code, status, host_player_id, current_game_id")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
     .maybeSingle();
 
   if (!room) {

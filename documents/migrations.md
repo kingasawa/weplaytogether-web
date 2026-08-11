@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-30 -->
+﻿<!-- Last updated: 2026-08-11 -->
 
 # Migrations
 
@@ -183,6 +183,37 @@ Purpose:
 - Keep the existing avatar keys valid and append the new choices after the current avatar list in the app.
 - This migration depends on `202606040001_wolf_player_avatars.sql`; apply the avatar column migration first on a fresh database.
 
+## 202608110001_wolf_room_visibility.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608110001_wolf_room_visibility.sql`
+
+Purpose:
+
+- Add `is_public` to `wolf_rooms`, defaulting existing and new rooms to public.
+- Add a partial index for public waiting room list queries by `game_key`.
+- Replace lobby read policies so anonymous/authenticated direct reads only expose public rooms and players in public rooms.
+- Private rooms remain joinable by code through server actions that use the service role.
+
+## 202608110002_wolf_hourly_room_maintenance.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608110002_wolf_hourly_room_maintenance.sql`
+
+Purpose:
+
+- Add `updated_at` to `wolf_room_players` and a trigger so lobby actions such as ready/name/avatar updates count as activity.
+- Create `public.close_inactive_wolf_rooms(...)` to mark inactive waiting/playing rooms as `finished`.
+- Create `public.maintain_wolf_rooms(...)` to close inactive rooms, then delete closed room data through the existing cascade cleanup.
+- Replace the older daily `wolf-cleanup-old-rooms` cron job with `wolf-hourly-room-maintenance`, scheduled hourly at minute `17`.
+- Default thresholds: close inactive waiting rooms after `2 hours`, close inactive playing rooms after `30 minutes`, delete closed room data after `1 hour`.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -201,6 +232,6 @@ Remote execution update on 2026-06-12:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, and `202607300001_wolf_avatar_key_new_assets.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, and `202608110002_wolf_hourly_room_maintenance.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 

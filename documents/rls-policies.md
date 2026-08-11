@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-07-28 -->
+﻿<!-- Last updated: 2026-08-11 -->
 
 # RLS Policies
 
@@ -34,11 +34,24 @@ The pending phase confirmation migration defines this read policy after enabling
 
 The Ma Sói nhiều đêm state migration enables RLS on `public.classic_wolf_game_states` and intentionally adds no public read policy. The table stores secret role assignments, night actions, witch potion state, hunter shots, and winner state. Reads and writes are performed only through server actions using the service role key.
 
+### `202608110001_wolf_room_visibility.sql`
+
+The room visibility migration replaces the lobby read policies:
+
+- `Public read wolf rooms` on `public.wolf_rooms` allows `anon` and `authenticated` to select only rows where `is_public = true`.
+- `Public read wolf room players` on `public.wolf_room_players` allows `anon` and `authenticated` to select players only for rooms where `is_public = true`.
+
+Private rooms are still read and joined through server actions using the service role after a user provides the room code.
+
+### `202608110002_wolf_hourly_room_maintenance.sql`
+
+The hourly room maintenance migration adds no new RLS policies. Maintenance functions run as `SECURITY DEFINER`, execution is revoked from `PUBLIC`, and execution is granted to `service_role`.
+
 ## Access Model
 
-The policies allow `anon` and `authenticated` clients to read room/game state for realtime updates.
+The policies allow `anon` and `authenticated` clients to read public room/game state for realtime updates. Private room access is routed through server actions.
 
-Client writes are intentionally not granted. Room creation, lobby mutation, game start, night actions, phase transitions, votes, and game finish are performed through server actions using the service role key.
+Client writes are intentionally not granted. Room creation, lobby mutation, game start, night actions, phase transitions, votes, game finish, inactive-room closing, and cleanup are performed through server actions, scheduled database jobs, or service-role-only functions.
 
 ## Remote Apply Blocker
 
