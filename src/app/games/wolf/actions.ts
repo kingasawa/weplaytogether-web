@@ -390,6 +390,10 @@ export type WolfPlayState = {
   isCurrentPlayerPhaseReady: boolean;
   phaseReadyPlayerIds: string[];
   nightReviewMessages: string[];
+  nightReminder: {
+    title: string;
+    lines: string[];
+  } | null;
   allNightActionsSubmitted: boolean;
   allVotesSubmitted: boolean;
   allPhaseConfirmationsSubmitted: boolean;
@@ -1381,6 +1385,37 @@ function buildNightReviewMessages(
   }
 
   return ["Vai trò của bạn không có quyền xem thêm kết quả ban đêm."];
+}
+
+function buildWolfNightReminder(
+  currentPlayer: PlayerRow | null,
+  action: ActionRow | null,
+  cards: CardRow[],
+  players: PlayerRow[],
+  actions: ActionRow[]
+): WolfPlayState["nightReminder"] {
+  if (!currentPlayer) {
+    return null;
+  }
+
+  const myCard = getPlayerCard(cards, currentPlayer.id);
+  const originalRole = myCard?.original_role ?? null;
+
+  if (!originalRole) {
+    return null;
+  }
+
+  if (!NIGHT_ACTION_ROLES.has(originalRole)) {
+    return {
+      title: `${WOLF_ROLE_LABELS[originalRole]} trong đêm`,
+      lines: [`Bạn là ${WOLF_ROLE_LABELS[originalRole]}. Vai này không có hành động ban đêm.`],
+    };
+  }
+
+  return {
+    title: `${WOLF_ROLE_LABELS[originalRole]} trong đêm`,
+    lines: buildNightReviewMessages(currentPlayer, action, cards, players, actions),
+  };
 }
 
 function getNightReviewRole(
@@ -3124,6 +3159,10 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     isCurrentPlayerPhaseReady: currentPlayer ? phaseReadyPlayerIdSet.has(currentPlayer.id) : false,
     phaseReadyPlayerIds,
     nightReviewMessages: buildNightReviewMessages(currentPlayer, myAction, cards, players, actions),
+    nightReminder:
+      game.phase === "discussion"
+        ? buildWolfNightReminder(currentPlayer, myAction, cards, players, actions)
+        : null,
     allNightActionsSubmitted: game.phase === "night" ? !activeNightTurn : players.every((player) => actionPlayerIds.has(player.id)),
     allVotesSubmitted: players.every((player) => voteByVoterId.has(player.id)),
     allPhaseConfirmationsSubmitted:

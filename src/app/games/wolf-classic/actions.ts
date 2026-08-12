@@ -231,6 +231,10 @@ export type ClassicWolfPlayState = {
   activeNightTurn: ClassicWolfActiveNightTurn | null;
   myNightAction: ClassicWolfNightAction | null;
   seerReveal: ClassicWolfSeerReveal | null;
+  nightReminder: {
+    title: string;
+    lines: string[];
+  } | null;
   wolfPack: ClassicWolfWolfPackMember[];
   witchVictimPlayerId: string | null;
   previousGuardTargetPlayerId: string | null;
@@ -617,7 +621,7 @@ function buildWolfPackMembers(
   const alivePlayerIds = new Set(state.alivePlayerIds);
 
   return players
-    .filter((player) => state.roleByPlayerId[player.id] === "werewolf" && player.id !== currentPlayer.id)
+    .filter((player) => state.roleByPlayerId[player.id] === "werewolf")
     .map((player) => {
       const submittedAction = actions[player.id]?.actionType === "werewolf" ? actions[player.id] : null;
       const activeSelection = selections[player.id]?.actionType === "werewolf" ? selections[player.id] : null;
@@ -1286,6 +1290,122 @@ function buildClassicWolfNightHistory(players: PlayerRow[], state: ClassicWolfSt
             : "Kết quả: Không ai chết trong lượt này.",
       };
     });
+}
+
+function buildClassicWolfNightReminder(
+  players: PlayerRow[],
+  state: ClassicWolfState,
+  currentPlayer: PlayerRow | null,
+  phase: WolfGamePhase
+): ClassicWolfPlayState["nightReminder"] {
+  if (!currentPlayer || phase !== "discussion") {
+    return null;
+  }
+
+  const role = state.roleByPlayerId[currentPlayer.id] ?? null;
+
+  if (!role) {
+    return null;
+  }
+
+  const nightNumber = state.nightNumber;
+  const action = state.nightActionsByNight[String(nightNumber)]?.[currentPlayer.id] ?? null;
+  const playerName = (playerId: string | null) => getPlayerName(players, playerId, state);
+  const title = `Đêm ${nightNumber} · ${CLASSIC_WOLF_ROLE_LABELS[role]}`;
+
+  if (role === "villager") {
+    return {
+      title,
+      lines: ["Bạn là Dân Làng. Đêm này bạn không có hành động."],
+    };
+  }
+
+  if (!action) {
+    return {
+      title,
+      lines: ["Bạn chưa gửi hành động trong đêm này."],
+    };
+  }
+
+  if (role === "guard") {
+    return {
+      title,
+      lines: [
+        action.targetPlayerId
+          ? `Bạn đã bảo vệ ${playerName(action.targetPlayerId)}.`
+          : "Bạn không bảo vệ ai trong đêm này.",
+      ],
+    };
+  }
+
+  if (role === "werewolf") {
+    return {
+      title,
+      lines: [
+        action.targetPlayerId
+          ? `Bạn đã chọn cắn ${playerName(action.targetPlayerId)}.`
+          : "Bạn không chọn nạn nhân trong đêm này.",
+      ],
+    };
+  }
+
+  if (role === "seer") {
+    const targetRole = action.targetPlayerId ? state.roleByPlayerId[action.targetPlayerId] ?? null : null;
+
+    return {
+      title,
+      lines: [
+        action.targetPlayerId
+          ? `Bạn đã soi ${playerName(action.targetPlayerId)}: ${
+              targetRole === "werewolf" ? "Ma Sói" : "không phải Ma Sói"
+            }.`
+          : "Bạn không soi ai trong đêm này.",
+      ],
+    };
+  }
+
+  if (role === "witch") {
+    const witchVictimPlayerId = getWitchVictimPlayerIdForNight(state, nightNumber);
+
+    if (action.useHeal) {
+      return {
+        title,
+        lines: [
+          witchVictimPlayerId
+            ? `Bạn đã dùng bình cứu ${playerName(witchVictimPlayerId)}.`
+            : "Bạn đã chọn dùng bình cứu, nhưng đêm này không có nạn nhân để cứu.",
+        ],
+      };
+    }
+
+    if (action.targetPlayerId) {
+      return {
+        title,
+        lines: [`Bạn đã dùng bình độc với ${playerName(action.targetPlayerId)}.`],
+      };
+    }
+
+    return {
+      title,
+      lines: ["Bạn không dùng bình trong đêm này."],
+    };
+  }
+
+  if (role === "hunter") {
+    return {
+      title,
+      lines: [
+        action.targetPlayerId
+          ? `Bạn đã chọn kéo theo ${playerName(action.targetPlayerId)} nếu bị chết.`
+          : "Bạn không chọn mục tiêu kéo theo trong đêm này.",
+      ],
+    };
+  }
+
+  return {
+    title,
+    lines: ["Vai của bạn không có hành động cần nhắc lại trong đêm này."],
+  };
 }
 
 function getNightAutoPassTurn(state: ClassicWolfState, role: ClassicWolfNightRole) {
@@ -2125,6 +2245,7 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
           isWerewolf: currentSeerReveal.isWerewolf,
         }
       : null,
+    nightReminder: buildClassicWolfNightReminder(players, state, currentPlayer, gameData.phase),
     wolfPack: buildWolfPackMembers(players, state, currentPlayer, gameData.phase),
     witchVictimPlayerId:
       currentPlayer && state.roleByPlayerId[currentPlayer.id] === "witch" && gameData.phase === "night"

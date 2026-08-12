@@ -2277,10 +2277,12 @@
 }
 
 .classicWolfTheme .discussionSectionTitle {
+  position: relative;
   display: flex;
   min-height: 1.55rem;
   align-items: center;
   justify-content: center;
+  padding-inline: 2.9rem;
   color: var(--text-secondary);
   text-align: center;
 }
@@ -2291,6 +2293,66 @@
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.nightReminderButton {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 62%, transparent);
+  color: var(--primary-light);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.nightReminderButton svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.nightReminderModal {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.nightReminderSummary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.nightReminderSummary > span {
+  color: var(--primary-light);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nightReminderList {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.nightReminderList li {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-secondary) 54%, transparent);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .classicWolfTheme .discussionStatusGrid {

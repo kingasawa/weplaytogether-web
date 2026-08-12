@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, CircleAlert, LoaderCircle, LogOut, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
@@ -149,6 +149,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
   const [coverDragOffset, setCoverDragOffset] = useState(0);
   const [selectedRoleGuide, setSelectedRoleGuide] = useState<WolfRole | null>(null);
+  const [openNightReminderKey, setOpenNightReminderKey] = useState<string | null>(null);
   const autoAdvancedDiscussionGameIdRef = useRef<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
@@ -1259,6 +1260,31 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       : isSeerEffect && canSubmitResolvedNightAction
         ? "OK, tôi đã biết kết quả"
       : "Hoàn tất lượt đêm";
+  const canShowNightReminder = Boolean(isDiscussionPhase && playState.nightReminder?.lines.length);
+  const nightReminderKey = playState.nightReminder
+    ? `${playState.game.id}:${playState.game.phase}:${playState.game.roundNumber}`
+    : null;
+  const isNightReminderOpen = Boolean(
+    canShowNightReminder && nightReminderKey && openNightReminderKey === nightReminderKey
+  );
+
+  function renderNightReminderButton() {
+    if (!canShowNightReminder) {
+      return null;
+    }
+
+    return (
+      <button
+        aria-label="Xem lại hành động ban đêm của tôi"
+        className={styles.nightReminderButton}
+        title="Xem lại hành động ban đêm"
+        type="button"
+        onClick={() => setOpenNightReminderKey(nightReminderKey)}
+      >
+        <History aria-hidden="true" />
+      </button>
+    );
+  }
 
   return (
     <main
@@ -1502,6 +1528,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         <section className={`${styles.discussionRoleDeck} ${styles.discussionPanel}`}>
           <div className={styles.discussionSectionTitle}>
             <span>Vai trò trong ván</span>
+            {renderNightReminderButton()}
           </div>
           <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
             {roleDeckSummary.map((roleSummary) => (
@@ -1669,6 +1696,35 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         <div className={styles.playLoading} aria-live="polite">
           <LoaderCircle aria-hidden="true" />
           <span>{pendingLabel || "Đang xử lý..."}</span>
+        </div>
+      )}
+
+      {isNightReminderOpen && playState.nightReminder && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section
+            aria-labelledby="wolf-night-reminder-title"
+            aria-modal="true"
+            className={`${styles.modal} ${styles.nightReminderModal}`}
+            role="dialog"
+          >
+            <button
+              aria-label="Đóng nhắc lại hành động đêm"
+              className={styles.closeButton}
+              type="button"
+              onClick={() => setOpenNightReminderKey(null)}
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h2 id="wolf-night-reminder-title">Hành động đêm trước</h2>
+            <div className={styles.nightReminderSummary}>
+              <span>{playState.nightReminder.title}</span>
+              <ul className={styles.nightReminderList}>
+                {playState.nightReminder.lines.map((line, index) => (
+                  <li key={`${index}-${line}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          </section>
         </div>
       )}
 
