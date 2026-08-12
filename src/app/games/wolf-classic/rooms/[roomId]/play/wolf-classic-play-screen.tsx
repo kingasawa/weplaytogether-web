@@ -330,6 +330,9 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       playState.seerReveal &&
       !currentPlayer?.isPhaseReady
   );
+  const isVillagerNightDecoyTurn = Boolean(
+    isNightPhase && isMyNightTurn && myRole === "villager" && activeNightTurn?.role === "villager"
+  );
   const reviewEvent = playState.pendingDeathEvent;
   const isDayReviewPhase = isNightReviewPhase && reviewEvent?.phase === "day";
   const reviewNightDeathPlayerIds =
@@ -575,6 +578,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       if (activeNightTurn) {
         if (isSeerRevealPending) {
           return "Hãy xem kết quả soi rồi bấm OK để tiếp tục.";
+        }
+
+        if (isVillagerNightDecoyTurn) {
+          return "Hãy xác nhận lượt ban đêm của bạn.";
         }
 
         return isMyNightTurn
@@ -926,6 +933,16 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       );
     }
 
+    if (isVillagerNightDecoyTurn) {
+      return (
+        <div className={styles.nightTurnWaiting}>
+          <span>Lượt Dân Làng</span>
+          <strong>Bạn thức dậy trong đêm</strong>
+          <p>Không có mục tiêu cần chọn. Bấm hoàn tất để khép lượt đêm của bạn.</p>
+        </div>
+      );
+    }
+
     if (playState.myNightAction) {
       return (
         <>
@@ -1103,6 +1120,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     isMyNightTurn &&
     myRole &&
     (isSeerRevealPending ||
+      isVillagerNightDecoyTurn ||
       (myRole === "witch"
         ? witchDecision === "rescue" || witchDecision === "skip" || (witchDecision === "poison" && Boolean(selectedPlayerId))
         : myRole === "guard"
@@ -1695,6 +1713,8 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
             onClick={
               isSeerRevealPending
                 ? () => confirmCurrentPhase("Đang xác nhận đã xem kết quả soi...")
+                : isVillagerNightDecoyTurn
+                  ? () => confirmCurrentPhase("Đang xác nhận lượt ban đêm...")
                 : submitNightAction
             }
           >

@@ -104,9 +104,10 @@ type ClassicWolfDeathEvent = {
   reason: string;
 };
 
-type ClassicWolfNightRole = "guard" | "werewolf" | "seer" | "witch" | "hunter";
+type ClassicWolfNightRole = "guard" | "werewolf" | "seer" | "witch" | "hunter" | "villager";
 
 const CLASSIC_WOLF_NIGHT_ROLE_ORDER: ClassicWolfNightRole[] = ["guard", "werewolf", "seer", "witch", "hunter"];
+const CLASSIC_WOLF_VILLAGER_DECOY_ANCHOR_ROLES: ClassicWolfNightRole[] = ["guard", "seer", "witch"];
 
 type ClassicWolfNightAutoPassTurn = {
   endsAt: string;
@@ -1438,12 +1439,74 @@ function getRandomNightAutoPassEndsAt() {
   return new Date(Date.now() + delayMs).toISOString();
 }
 
+function getStableClassicNightHash(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function getNightVillagerDecoysByAnchorRole(players: PlayerRow[], state: ClassicWolfState) {
+  const alivePlayerIds = new Set(state.alivePlayerIds);
+  const anchorRoles = CLASSIC_WOLF_VILLAGER_DECOY_ANCHOR_ROLES.filter((role) =>
+    players.some((player) => alivePlayerIds.has(player.id) && state.roleByPlayerId[player.id] === role)
+  );
+  const decoysByRole = new Map<ClassicWolfNightRole, PlayerRow[]>();
+
+  if (anchorRoles.length === 0) {
+    return decoysByRole;
+  }
+
+  const seed = [
+    "classic-wolf-night-decoys",
+    String(state.nightNumber),
+    ...players.map((player) => `${player.id}:${state.roleByPlayerId[player.id] ?? "unknown"}`),
+  ].join("|");
+  const aliveVillagers = players
+    .filter((player) => alivePlayerIds.has(player.id) && state.roleByPlayerId[player.id] === "villager")
+    .map((player, index) => ({
+      player,
+      sortKey: getStableClassicNightHash(`${seed}:${player.id}:${index}`),
+    }))
+    .sort((first, second) => first.sortKey - second.sortKey || first.player.id.localeCompare(second.player.id))
+    .map(({ player }) => player);
+
+  aliveVillagers.forEach((player, index) => {
+    const anchorIndex = getStableClassicNightHash(`${seed}:anchor:${player.id}:${index}`) % anchorRoles.length;
+    const anchorRole = anchorRoles[anchorIndex];
+    decoysByRole.set(anchorRole, [...(decoysByRole.get(anchorRole) ?? []), player]);
+  });
+
+  return decoysByRole;
+}
+
 function getActiveNightTurn(players: PlayerRow[], state: ClassicWolfState): ClassicWolfActiveNightTurn | null {
   const actions = state.nightActionsByNight[String(state.nightNumber)] ?? {};
   const witchVictimPlayerId = getWitchVictimPlayerId(players, state);
   const alivePlayerIds = new Set(state.alivePlayerIds);
+  const villagerDecoysByAnchorRole = getNightVillagerDecoysByAnchorRole(players, state);
 
   for (const role of CLASSIC_WOLF_NIGHT_ROLE_ORDER) {
+    const pendingVillagerDecoys = (villagerDecoysByAnchorRole.get(role) ?? []).filter(
+      (player) => !hasPlayerConfirmedNightResult(player.id, state)
+    );
+
+    if (pendingVillagerDecoys.length > 0) {
+      const nextVillagerDecoy = pendingVillagerDecoys[0];
+
+      return {
+        role: "villager",
+        playerIds: [nextVillagerDecoy.id],
+        playerNames: [nextVillagerDecoy.name],
+        isAutoPass: false,
+        autoPassEndsAt: null,
+      };
+    }
+
     const rolePlayers = players.filter((player) => state.roleByPlayerId[player.id] === role);
     const aliveRolePlayers = rolePlayers.filter((player) => alivePlayerIds.has(player.id));
     const pendingPlayers = aliveRolePlayers.filter((player) => {
@@ -2315,15 +2378,17 @@ export async function submitClassicWolfPhaseConfirmation(roomCode: string): Prom
     const myRole = currentState.roleByPlayerId[currentPlayer.id] ?? null;
     const myAction = currentState.nightActionsByNight[String(currentState.nightNumber)]?.[currentPlayer.id] ?? null;
     const seerReveal = currentState.lastSeerRevealByPlayerId[currentPlayer.id] ?? null;
+    const isVillagerDecoyTurn =
+      myRole === "villager" && activeTurn?.role === "villager" && activeTurn.playerIds.includes(currentPlayer.id);
+    const isSeerRevealConfirmation =
+      myRole === "seer" &&
+      activeTurn?.role === "seer" &&
+      activeTurn.playerIds.includes(currentPlayer.id) &&
+      Boolean(myAction) &&
+      seerReveal?.nightNumber === currentState.nightNumber;
 
-    if (
-      myRole !== "seer" ||
-      activeTurn?.role !== "seer" ||
-      !activeTurn.playerIds.includes(currentPlayer.id) ||
-      !myAction ||
-      seerReveal?.nightNumber !== currentState.nightNumber
-    ) {
-      return { ok: false, error: "Chưa có kết quả Tiên Tri cần xác nhận." };
+    if (!isVillagerDecoyTurn && !isSeerRevealConfirmation) {
+      return { ok: false, error: "Chưa có lượt ban đêm cần xác nhận." };
     }
   }
 
