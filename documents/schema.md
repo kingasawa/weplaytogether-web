@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-11 -->
+﻿<!-- Last updated: 2026-08-12 -->
 
 # Database Schema
 
@@ -22,6 +22,8 @@ On 2026-08-11, local migration `202608110001_wolf_room_visibility.sql` was creat
 
 On 2026-08-11, local migration `202608110002_wolf_hourly_room_maintenance.sql` was created to close inactive rooms and run cleanup hourly. Waiting rooms inactive for 2 hours are marked `finished`; playing rooms inactive for 30 minutes are marked `finished`; already closed room data is deleted hourly after 1 hour.
 
+On 2026-08-12, local migration `202608120001_wolf_result_snapshot.sql` was created to add `wolf_game_sessions.result_snapshot`. One-night Ma Sói result data should be frozen into this JSON payload when a game enters `result`, so role summaries, vote counts, winner text, and night movement logs no longer depend on rows remaining in `wolf_room_players`.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -39,6 +41,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202607300001_wolf_avatar_key_new_assets.sql`
 - `supabase/migrations/202608110001_wolf_room_visibility.sql`
 - `supabase/migrations/202608110002_wolf_hourly_room_maintenance.sql`
+- `supabase/migrations/202608120001_wolf_result_snapshot.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -81,6 +84,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `phase public.wolf_game_phase not null default 'night'`
 - `round_number integer not null default 1`
 - `discussion_ends_at timestamptz null`
+- `result_snapshot jsonb null`, frozen Ma Sói Một Đêm result payload independent from active room membership
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
@@ -152,6 +156,7 @@ Local migration file created in this task and still pending manual remote apply:
 - Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
 - Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
 - Avatar key check allows `avatar0`, `img` through `img_19`, `duong`, `lan`, and `tri`
+- Result snapshot consistency: `wolf_game_sessions.result_snapshot` must be null or a JSON object
 
 ### Functions And Scheduled Jobs
 

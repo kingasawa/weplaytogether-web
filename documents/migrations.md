@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-11 -->
+﻿<!-- Last updated: 2026-08-12 -->
 
 # Migrations
 
@@ -214,6 +214,21 @@ Purpose:
 - Replace the older daily `wolf-cleanup-old-rooms` cron job with `wolf-hourly-room-maintenance`, scheduled hourly at minute `17`.
 - Default thresholds: close inactive waiting rooms after `2 hours`, close inactive playing rooms after `30 minutes`, delete closed room data after `1 hour`.
 
+## 202608120001_wolf_result_snapshot.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608120001_wolf_result_snapshot.sql`
+
+Purpose:
+
+- Add `result_snapshot jsonb` to `wolf_game_sessions`.
+- Store a frozen Ma Sói Một Đêm result payload when the game enters `result`.
+- Keep winner text, vote counts, all player role summaries, and night movement logs available even if players leave the room and their live membership/gameplay rows are later deleted.
+- Add a check constraint requiring the snapshot to be null or a JSON object.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -232,6 +247,6 @@ Remote execution update on 2026-06-12:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, and `202608110002_wolf_hourly_room_maintenance.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, and `202608120001_wolf_result_snapshot.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 

@@ -100,6 +100,7 @@ type GameRow = {
   phase: WolfGamePhase;
   round_number: number;
   discussion_ends_at: string | null;
+  result_snapshot?: WolfResultSnapshot | null;
 };
 
 type CardRow = {
@@ -335,6 +336,22 @@ export type WolfCardMovementSummary = {
   steps: WolfCardMovementStep[];
 };
 
+export type WolfPlayerResultSummary = {
+  playerId: string;
+  playerName: string;
+  originalRole: WolfRole;
+  finalRole: WolfRole;
+};
+
+type WolfResultSnapshot = {
+  version: 1;
+  createdAt: string;
+  result: WolfGameResult;
+  cardMovementSummary: WolfCardMovementSummary;
+  allPlayersSummary: WolfPlayerResultSummary[];
+  roleDeck: WolfRole[];
+};
+
 export type WolfPlayState = {
   room: WolfLobbyState["room"];
   game: {
@@ -378,12 +395,7 @@ export type WolfPlayState = {
   allPhaseConfirmationsSubmitted: boolean;
   result: WolfGameResult | null;
   cardMovementSummary: WolfCardMovementSummary | null;
-  allPlayersSummary: Array<{
-    playerId: string;
-    playerName: string;
-    originalRole: WolfRole;
-    finalRole: WolfRole;
-  }> | null;
+  allPlayersSummary: WolfPlayerResultSummary[] | null;
   roleDeck: WolfRole[];
 };
 
@@ -1515,6 +1527,73 @@ async function getPhaseConfirmations(
   return (data ?? []) as PhaseConfirmationRow[];
 }
 
+const WOLF_GAME_SELECT = "id, room_id, phase, round_number, discussion_ends_at";
+const WOLF_GAME_SELECT_WITH_RESULT_SNAPSHOT = `${WOLF_GAME_SELECT}, result_snapshot`;
+
+function isMissingResultSnapshotColumnError(error?: DatabaseMutationError | null) {
+  if (!error) {
+    return false;
+  }
+
+  const message = [error.code, error.message, error.details, error.hint].filter(Boolean).join(" ");
+
+  return message.includes("result_snapshot");
+}
+
+function parseWolfResultSnapshot(value: unknown): WolfResultSnapshot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const snapshot = value as Partial<WolfResultSnapshot>;
+
+  if (
+    snapshot.version !== 1 ||
+    !snapshot.result ||
+    !snapshot.cardMovementSummary ||
+    !Array.isArray(snapshot.allPlayersSummary) ||
+    !Array.isArray(snapshot.roleDeck)
+  ) {
+    return null;
+  }
+
+  return snapshot as WolfResultSnapshot;
+}
+
+async function getWolfGameRowById(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string
+) {
+  const { data, error } = await supabase
+    .from("wolf_game_sessions")
+    .select(WOLF_GAME_SELECT_WITH_RESULT_SNAPSHOT)
+    .eq("id", gameId)
+    .maybeSingle();
+
+  if (!error) {
+    if (!data) {
+      return null;
+    }
+
+    return {
+      ...(data as GameRow),
+      result_snapshot: parseWolfResultSnapshot((data as { result_snapshot?: unknown }).result_snapshot),
+    };
+  }
+
+  if (!isMissingResultSnapshotColumnError(error)) {
+    return null;
+  }
+
+  const { data: fallbackData } = await supabase
+    .from("wolf_game_sessions")
+    .select(WOLF_GAME_SELECT)
+    .eq("id", gameId)
+    .maybeSingle();
+
+  return (fallbackData ?? null) as GameRow | null;
+}
+
 async function maybeAutoAdvancePhase(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow,
@@ -1611,10 +1690,7 @@ async function maybeAutoAdvancePhase(
     const votePlayerIds = new Set((votesData ?? []).map((vote) => vote.voter_player_id));
 
     if (players.every((player) => votePlayerIds.has(player.id))) {
-      await supabase
-        .from("wolf_game_sessions")
-        .update({ phase: "result" })
-        .eq("id", room.current_game_id);
+      await setWolfGameResultPhase(supabase, room.current_game_id, players);
     }
   }
 }
@@ -2086,6 +2162,110 @@ function simulateNightResolution(
   };
 }
 
+function buildAllPlayersSummary(players: PlayerRow[], cards: CardRow[]): WolfPlayerResultSummary[] {
+  const playerCardsById = new Map(
+    cards
+      .filter((card) => card.player_id)
+      .map((card) => [card.player_id as string, card])
+  );
+
+  return players.filter((player) => playerCardsById.has(player.id)).map((player) => {
+    const playerCard = playerCardsById.get(player.id);
+    return {
+      playerId: player.id,
+      playerName: player.name,
+      originalRole: playerCard?.original_role as WolfRole,
+      finalRole: playerCard?.current_role as WolfRole,
+    };
+  });
+}
+
+function buildRoleDeck(cards: CardRow[]) {
+  return ROLE_RESOLUTION_ORDER.flatMap((role) =>
+    cards.filter((card) => card.original_role === role).map(() => role)
+  );
+}
+
+function buildWolfResultSnapshot(
+  players: PlayerRow[],
+  cards: CardRow[],
+  actions: ActionRow[],
+  votes: VoteRow[]
+): WolfResultSnapshot {
+  const { cardMovementSummary } = simulateNightResolution(cards, actions, players);
+
+  return {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    result: buildGameResult(players, cards, votes),
+    cardMovementSummary,
+    allPlayersSummary: buildAllPlayersSummary(players, cards),
+    roleDeck: buildRoleDeck(cards),
+  };
+}
+
+async function buildWolfResultSnapshotFromDatabase(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  players: PlayerRow[]
+) {
+  const { data: cardsData } = await supabase
+    .from("wolf_game_cards")
+    .select("id, game_id, player_id, center_index, original_role, current_role")
+    .eq("game_id", gameId);
+  const { data: actionsData } = await supabase
+    .from("wolf_game_actions")
+    .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
+    .eq("game_id", gameId);
+  const { data: votesData } = await supabase
+    .from("wolf_game_votes")
+    .select("id, game_id, voter_player_id, target_player_id, is_skip")
+    .eq("game_id", gameId);
+
+  return buildWolfResultSnapshot(
+    players,
+    (cardsData ?? []) as CardRow[],
+    (actionsData ?? []) as ActionRow[],
+    (votesData ?? []) as VoteRow[]
+  );
+}
+
+async function setWolfGameResultPhase(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  players: PlayerRow[]
+) {
+  const resultSnapshot = await buildWolfResultSnapshotFromDatabase(supabase, gameId, players);
+  const { error } = await supabase
+    .from("wolf_game_sessions")
+    .update({
+      phase: "result",
+      result_snapshot: resultSnapshot,
+    })
+    .eq("id", gameId);
+
+  if (!error) {
+    return;
+  }
+
+  if (isMissingResultSnapshotColumnError(error)) {
+    await supabase.from("wolf_game_sessions").update({ phase: "result" }).eq("id", gameId);
+  }
+}
+
+async function saveWolfGameResultSnapshot(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  resultSnapshot: WolfResultSnapshot
+) {
+  const { error } = await supabase
+    .from("wolf_game_sessions")
+    .update({ result_snapshot: resultSnapshot })
+    .eq("id", gameId);
+
+  return !error;
+}
+
 async function resolveNightActions(gameId: string) {
   const supabase = createSupabaseAdminClient();
   const { data: cardsData } = await supabase
@@ -2322,14 +2502,28 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
       return;
     }
 
-    const { data: game } = await supabase
-      .from("wolf_game_sessions")
-      .select("phase")
-      .eq("id", room.current_game_id)
-      .maybeSingle();
+    const game = await getWolfGameRowById(supabase, room.current_game_id);
 
     if (game?.phase !== "result") {
       return;
+    }
+
+    if (!game.result_snapshot) {
+      const players = await getActivePlayers(supabase, room);
+      const resultSnapshot = await buildWolfResultSnapshotFromDatabase(
+        supabase,
+        room.current_game_id,
+        players
+      );
+      const resultSnapshotSaved = await saveWolfGameResultSnapshot(
+        supabase,
+        room.current_game_id,
+        resultSnapshot
+      );
+
+      if (!resultSnapshotSaved) {
+        return;
+      }
     }
   }
 
@@ -2527,25 +2721,23 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
   let result: WolfGameResult | null = null;
 
   if (room.current_game_id) {
-    const { data: gameData } = await supabase
-      .from("wolf_game_sessions")
-      .select("id, room_id, phase, round_number, discussion_ends_at")
-      .eq("id", room.current_game_id)
-      .maybeSingle();
-
-    game = (gameData ?? null) as GameRow | null;
+    game = await getWolfGameRowById(supabase, room.current_game_id);
 
     if (game?.phase === "result") {
-      const { data: cardsData } = await supabase
-        .from("wolf_game_cards")
-        .select("id, game_id, player_id, center_index, original_role, current_role")
-        .eq("game_id", game.id);
-      const { data: votesData } = await supabase
-        .from("wolf_game_votes")
-        .select("id, game_id, voter_player_id, target_player_id, is_skip")
-        .eq("game_id", game.id);
+      if (game.result_snapshot) {
+        result = game.result_snapshot.result;
+      } else {
+        const { data: cardsData } = await supabase
+          .from("wolf_game_cards")
+          .select("id, game_id, player_id, center_index, original_role, current_role")
+          .eq("game_id", game.id);
+        const { data: votesData } = await supabase
+          .from("wolf_game_votes")
+          .select("id, game_id, voter_player_id, target_player_id, is_skip")
+          .eq("game_id", game.id);
 
-      result = buildGameResult(players, (cardsData ?? []) as CardRow[], (votesData ?? []) as VoteRow[]);
+        result = buildGameResult(players, (cardsData ?? []) as CardRow[], (votesData ?? []) as VoteRow[]);
+      }
     }
   }
 
@@ -2695,17 +2887,12 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const { data: gameData } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, room_id, phase, round_number, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
+  const game = await getWolfGameRowById(supabase, room.current_game_id);
 
-  if (!gameData) {
+  if (!game) {
     return null;
   }
 
-  const game = gameData as GameRow;
   const { data: cardsData } = await supabase
     .from("wolf_game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
@@ -2724,9 +2911,17 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   const votes = (votesData ?? []) as VoteRow[];
   const shouldRevealAll = game.phase === "result";
   const shouldRevealVotes = game.phase === "voting" || shouldRevealAll;
-  const { cardMovementSummary } = shouldRevealAll
-    ? simulateNightResolution(cards, actions, players)
-    : { cardMovementSummary: null };
+  const liveResultSnapshot =
+    shouldRevealAll && !game.result_snapshot
+      ? buildWolfResultSnapshot(players, cards, actions, votes)
+      : null;
+  const resultSnapshot = shouldRevealAll ? game.result_snapshot ?? liveResultSnapshot : null;
+
+  if (liveResultSnapshot) {
+    await saveWolfGameResultSnapshot(supabase, game.id, liveResultSnapshot);
+  }
+
+  const cardMovementSummary = resultSnapshot?.cardMovementSummary ?? null;
   const phaseConfirmations = isConfirmablePhase(game.phase)
     ? await getPhaseConfirmations(supabase, game.id, game.phase)
     : [];
@@ -2933,22 +3128,12 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     allVotesSubmitted: players.every((player) => voteByVoterId.has(player.id)),
     allPhaseConfirmationsSubmitted:
       isConfirmablePhase(game.phase) && players.every((player) => phaseReadyPlayerIdSet.has(player.id)),
-    result: shouldRevealAll ? buildGameResult(players, cards, votes) : null,
+    result: resultSnapshot?.result ?? null,
     cardMovementSummary,
     allPlayersSummary: shouldRevealAll
-      ? players.filter((player) => playerCardsById.has(player.id)).map((player) => {
-          const playerCard = playerCardsById.get(player.id);
-          return {
-            playerId: player.id,
-            playerName: player.name,
-            originalRole: playerCard?.original_role as WolfRole,
-            finalRole: playerCard?.current_role as WolfRole,
-          };
-        })
+      ? resultSnapshot?.allPlayersSummary ?? buildAllPlayersSummary(players, cards)
       : null,
-    roleDeck: ROLE_RESOLUTION_ORDER.flatMap((role) =>
-      cards.filter((card) => card.original_role === role).map(() => role)
-    ),
+    roleDeck: resultSnapshot?.roleDeck ?? buildRoleDeck(cards),
   };
 }
 
@@ -3730,7 +3915,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   }
 
   if (game.phase === "voting") {
-    await supabase.from("wolf_game_sessions").update({ phase: "result" }).eq("id", game.id);
+    await setWolfGameResultPhase(supabase, game.id, players);
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }

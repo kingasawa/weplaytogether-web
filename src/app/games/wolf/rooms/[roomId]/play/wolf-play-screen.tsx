@@ -116,6 +116,17 @@ function getPlayerName(players: WolfPlayPlayer[], playerId: string | null) {
   return players.find((player) => player.id === playerId)?.name ?? "Không rõ";
 }
 
+function getResultPlayerName(
+  players: WolfPlayPlayer[],
+  allPlayersSummary: WolfPlayState["allPlayersSummary"],
+  playerId: string | null
+) {
+  return (
+    allPlayersSummary?.find((playerSummary) => playerSummary.playerId === playerId)?.playerName ??
+    getPlayerName(players, playerId)
+  );
+}
+
 function getWolfRoleTeam(role: WolfRole | null) {
   return role ? WOLF_ROLE_TEAMS[role] : null;
 }
@@ -1475,7 +1486,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                   }`}
                   key={voteCount.playerId}
                 >
-                  {getPlayerName(playState.players, voteCount.playerId)}: {voteCount.votes} phiếu
+                  {getResultPlayerName(playState.players, playState.allPlayersSummary, voteCount.playerId)}: {voteCount.votes} phiếu
                 </span>
               ))}
             </div>

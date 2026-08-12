@@ -1918,6 +1918,10 @@ export async function leaveClassicWolfRoom(roomCode: string): Promise<ClassicWol
     return { ok: true };
   }
 
+  if (room.status !== "waiting") {
+    return { ok: true };
+  }
+
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
 

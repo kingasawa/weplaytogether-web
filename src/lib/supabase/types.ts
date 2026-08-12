@@ -1,4 +1,12 @@
 ﻿export type WolfRoomStatus = "waiting" | "playing" | "finished";
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 export type WolfGamePhase =
   | "card_reveal"
   | "night"
@@ -49,6 +57,7 @@ export type WolfGameSessionRow = {
   phase: WolfGamePhase;
   round_number: number;
   discussion_ends_at: string | null;
+  result_snapshot: Json | null;
   created_at: string;
   updated_at: string;
 };
@@ -144,6 +153,7 @@ export type Database = {
             | "phase"
             | "round_number"
             | "discussion_ends_at"
+            | "result_snapshot"
             | "created_at"
             | "updated_at"
           >
