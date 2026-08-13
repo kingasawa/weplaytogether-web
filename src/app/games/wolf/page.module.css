@@ -3954,6 +3954,7 @@
 }
 
 .avalonOrderPlayer span {
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3964,6 +3965,15 @@
 .avalonOrderPlayer svg {
   width: 0.92rem;
   min-width: 0.92rem;
+  justify-self: center;
+}
+
+.avalonOrderPlayer > svg:first-child {
+  grid-column: 1;
+}
+
+.avalonOrderPlayer > svg:last-child {
+  grid-column: 3;
 }
 
 .avalonOrderPlayerLeader {
