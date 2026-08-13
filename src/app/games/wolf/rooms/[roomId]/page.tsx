@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { buildGameShareMetadata, WOLF_SHARE_IMAGE } from "@/lib/game-share-metadata";
 import { getWolfLobbyState, getWolfSpectatorState } from "../../actions";
 import WolfRoomLobby from "./wolf-room-lobby";
 
@@ -15,11 +16,14 @@ export async function generateMetadata({
   params,
 }: WolfRoomPageProps): Promise<Metadata> {
   const { roomId } = await params;
+  const roomCode = roomId.toUpperCase();
 
-  return {
-    title: `Phòng ${roomId.toUpperCase()} | Ma Sói Một Đêm`,
+  return buildGameShareMetadata({
+    title: `Phòng ${roomCode} | Ma Sói Một Đêm`,
     description: "Phòng chờ game Ma Sói Một Đêm.",
-  };
+    path: `/games/wolf/rooms/${roomId}`,
+    image: WOLF_SHARE_IMAGE,
+  });
 }
 
 export default async function WolfRoomPage({ params }: WolfRoomPageProps) {

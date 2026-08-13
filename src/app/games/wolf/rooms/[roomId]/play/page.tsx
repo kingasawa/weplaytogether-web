@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { buildGameShareMetadata, WOLF_SHARE_IMAGE } from "@/lib/game-share-metadata";
 import { getWolfPlayState } from "../../../actions";
 import WolfPlayScreen from "./wolf-play-screen";
 
@@ -15,11 +16,14 @@ export async function generateMetadata({
   params,
 }: WolfPlayPageProps): Promise<Metadata> {
   const { roomId } = await params;
+  const roomCode = roomId.toUpperCase();
 
-  return {
-    title: `Đang chơi ${roomId.toUpperCase()} | Ma Sói Một Đêm`,
+  return buildGameShareMetadata({
+    title: `Đang chơi ${roomCode} | Ma Sói Một Đêm`,
     description: "Màn chơi Ma Sói Một Đêm.",
-  };
+    path: `/games/wolf/rooms/${roomId}/play`,
+    image: WOLF_SHARE_IMAGE,
+  });
 }
 
 export default async function WolfPlayPage({ params }: WolfPlayPageProps) {

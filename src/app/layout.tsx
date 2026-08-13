@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import { Anton, Sora, Inter } from "next/font/google";
 import "./globals.css";
 
+const defaultSiteUrl = "https://weplaytogether.online";
+
+function getMetadataBase() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? defaultSiteUrl;
+  const siteUrlWithProtocol = /^https?:\/\//i.test(siteUrl) ? siteUrl : `https://${siteUrl}`;
+
+  return new URL(siteUrlWithProtocol);
+}
+
 const anton = Anton({
   variable: "--font-anton",
   subsets: ["latin"],
@@ -21,6 +30,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "Board Game",
   description: "Board game platform",
 };

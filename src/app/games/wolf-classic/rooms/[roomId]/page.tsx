@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CLASSIC_WOLF_SHARE_IMAGE, buildGameShareMetadata } from "@/lib/game-share-metadata";
 import { getClassicWolfLobbyState } from "../../actions";
 import ClassicWolfRoomLobby from "./wolf-classic-room-lobby";
 
@@ -18,11 +19,14 @@ export async function generateMetadata({
   params,
 }: ClassicWolfRoomPageProps): Promise<Metadata> {
   const { roomId } = await params;
+  const roomCode = roomId.toUpperCase();
 
-  return {
-    title: `Phòng ${roomId.toUpperCase()} | Ma Sói Nhiều Đêm`,
+  return buildGameShareMetadata({
+    title: `Phòng ${roomCode} | Ma Sói Nhiều Đêm`,
     description: "Phòng chờ game Ma Sói nhiều đêm.",
-  };
+    path: `/games/wolf-classic/rooms/${roomId}`,
+    image: CLASSIC_WOLF_SHARE_IMAGE,
+  });
 }
 
 export default async function ClassicWolfRoomPage({ params }: ClassicWolfRoomPageProps) {

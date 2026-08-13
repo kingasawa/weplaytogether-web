@@ -225,11 +225,38 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         playState.activeNightTurn?.copiedRole ??
         null
       : null;
+  const isCopycatDoppelgangerTurn = Boolean(isCopycatCopiedRoleTurn && copycatCopiedRole === "doppelganger");
+  const copycatDoppelgangerCopiedPlayerId = isCopycatDoppelgangerTurn
+    ? selectedPlayerIds[0] ?? playState.myAction?.targetPlayerId ?? null
+    : null;
+  const copycatDoppelgangerCopiedRole =
+    isCopycatDoppelgangerTurn && copycatDoppelgangerCopiedPlayerId
+      ? revealedPlayerCards.find((card) => card.playerId === copycatDoppelgangerCopiedPlayerId)?.role ??
+        playState.playerReveals.find((card) => card.playerId === copycatDoppelgangerCopiedPlayerId)?.role ??
+        (playState.activeNightTurn?.activeRole === "doppelganger"
+          ? playState.activeNightTurn.copiedRole
+          : null) ??
+        null
+      : null;
+  const activeDoppelgangerCopiedPlayerId =
+    myRole === "doppelganger" ? doppelgangerCopiedPlayerId : copycatDoppelgangerCopiedPlayerId;
+  const activeDoppelgangerCopiedRole =
+    myRole === "doppelganger" ? doppelgangerCopiedRole : copycatDoppelgangerCopiedRole;
   const doppelgangerActionTargetIds = myRole === "doppelganger" ? selectedPlayerIds.slice(1) : [];
-  const activeActionTargetIds = myRole === "doppelganger" ? doppelgangerActionTargetIds : selectedPlayerIds;
+  const copycatDoppelgangerActionTargetIds = isCopycatDoppelgangerTurn ? selectedPlayerIds.slice(1) : [];
+  const isActingAsDoppelganger = Boolean(
+    nightActionRole === "doppelganger" && (myRole === "doppelganger" || isCopycatDoppelgangerTurn)
+  );
+  const activeDoppelgangerActionTargetIds =
+    myRole === "doppelganger" ? doppelgangerActionTargetIds : copycatDoppelgangerActionTargetIds;
+  const activeActionTargetIds = isActingAsDoppelganger
+    ? activeDoppelgangerActionTargetIds
+    : selectedPlayerIds;
   const effectiveNightActionRole =
-    nightActionRole === "doppelganger" && doppelgangerCopiedRole ? doppelgangerCopiedRole : nightActionRole;
-  const isDoppelgangerCopycatOnly = myRole === "doppelganger" && doppelgangerCopiedRole === "copycat";
+    nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole
+      ? activeDoppelgangerCopiedRole
+      : nightActionRole;
+  const isDoppelgangerCopycatOnly = isActingAsDoppelganger && activeDoppelgangerCopiedRole === "copycat";
   const isSeerEffect = effectiveNightActionRole === "seer";
   const selectedSeerFoundWolf = selectedCenterIndexes.some((centerIndex) => getCenterWolfCheck(centerIndex) === true);
   const isSeerSelectionComplete = (centerIndexes: number[]) => {
@@ -378,7 +405,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       ? 2
       : effectiveNightActionRole === "witch"
         ? 1
-        : effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates
+        : effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates
           ? 1
           : effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly
             ? 1
@@ -522,9 +549,9 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
   function togglePlayerSelection(playerId: string) {
     setMessage("");
-    if (myRole === "doppelganger") {
-      const copiedPlayerId = selectedPlayerIds[0] ?? null;
-      const isChoosingCopiedPlayer = !copiedPlayerId || !doppelgangerCopiedRole;
+    if (isActingAsDoppelganger) {
+      const copiedPlayerId = activeDoppelgangerCopiedPlayerId;
+      const isChoosingCopiedPlayer = !copiedPlayerId || !activeDoppelgangerCopiedRole;
 
       if (isChoosingCopiedPlayer) {
         setSelectedPlayerIds([playerId]);
@@ -534,7 +561,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         return;
       }
 
-      if (doppelgangerCopiedRole === "seer" && viewedCenterIndexes.length > 0) {
+      if (activeDoppelgangerCopiedRole === "seer" && viewedCenterIndexes.length > 0) {
         setMessage("Nhân Bản copy Tiên Tri đã xem lá giữa thì không thể chuyển sang xem người chơi.");
         return;
       }
@@ -605,7 +632,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         playState.room.code,
         centerIndex,
         effectiveNightActionRole,
-        doppelgangerCopiedPlayerId
+        activeDoppelgangerCopiedPlayerId
       );
 
       if (!result.ok) {
@@ -634,7 +661,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         ((isCopycatCopyTurn && selectedCenterIndexes.length === 0) ||
           (isCopycatCopiedRoleTurn &&
             (copycatCopiedRole === "seer" || copycatCopiedRole === "witch")))) ||
-      (effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates);
+      (effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates);
     const isDeselecting = selectedCenterIndexes.includes(centerIndex);
     const isCopycatCopiedCenter = isCopycatCopiedRoleTurn && copiedCenterIndex === centerIndex;
 
@@ -677,11 +704,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         return;
       }
 
-      setSelectedPlayerIds((current) => (myRole === "doppelganger" ? current.slice(0, 1) : []));
+      setSelectedPlayerIds((current) => (isActingAsDoppelganger ? current.slice(0, 1) : []));
     }
 
     const maxCenterSelections =
-      myRole === "doppelganger"
+      isActingAsDoppelganger
         ? effectiveNightActionRole === "seer"
           ? 2
           : 1
@@ -776,12 +803,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         actionType: myRole,
         targetPlayerId: selectedPlayerIds[0] ?? null,
         targetPlayerId2:
-          myRole === "doppelganger"
-            ? doppelgangerActionTargetIds[0] ?? null
+          isActingAsDoppelganger
+            ? activeDoppelgangerActionTargetIds[0] ?? null
             : selectedPlayerIds[1] ?? null,
         targetPlayerId3:
-          myRole === "doppelganger"
-            ? doppelgangerActionTargetIds[1] ?? null
+          isActingAsDoppelganger
+            ? activeDoppelgangerActionTargetIds[1] ?? null
             : null,
         targetCenterIndex:
           hasWerewolfTeammates && !isSubmittingCopycatCopiedRole
@@ -1061,7 +1088,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       );
     }
 
-    const isChoosingDoppelgangerTarget = nightActionRole === "doppelganger" && !doppelgangerCopiedRole;
+    const isChoosingDoppelgangerTarget = nightActionRole === "doppelganger" && !activeDoppelgangerCopiedRole;
     const needsPlayerPicker =
       isChoosingDoppelgangerTarget ||
       effectiveNightActionRole === "werewolf_seer" ||
@@ -1073,24 +1100,26 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
       effectiveNightActionRole === "witch" ||
       effectiveNightActionRole === "drunk" ||
       (effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly) ||
-      (effectiveNightActionRole === "werewolf" && myRole !== "doppelganger" && !hasWerewolfTeammates);
+      (effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates);
     const isPlayerPickerDisabled =
       isCenterRevealPending ||
       copiedSeerCenterPathStarted;
     const selectedPickerPlayerIds =
-      myRole === "doppelganger" && doppelgangerCopiedRole ? doppelgangerActionTargetIds : selectedPlayerIds;
+      isActingAsDoppelganger && activeDoppelgangerCopiedRole
+        ? activeDoppelgangerActionTargetIds
+        : selectedPlayerIds;
     const playerPickerLabel = isChoosingDoppelgangerTarget
       ? "Chọn người để nhân bản"
-      : nightActionRole === "doppelganger" && doppelgangerCopiedRole
-        ? `Thực hiện ${WOLF_ROLE_LABELS[doppelgangerCopiedRole]}`
+      : nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole
+        ? `Thực hiện ${WOLF_ROLE_LABELS[activeDoppelgangerCopiedRole]}`
         : "Chọn người chơi";
     return (
       <>
-        {nightActionRole === "doppelganger" && doppelgangerCopiedRole && (
+        {nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole && (
           <div className={styles.playerRevealGrid}>
             <RoleCard
-              label={`Nhân bản ${getPlayerName(playState.players, doppelgangerCopiedPlayerId)}`}
-              role={doppelgangerCopiedRole}
+              label={`Nhân bản ${getPlayerName(playState.players, activeDoppelgangerCopiedPlayerId)}`}
+              role={activeDoppelgangerCopiedRole}
             />
           </div>
         )}
@@ -1168,12 +1197,12 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   }
 
   const selectedCenterRevealsLoaded =
-    myRole === "doppelganger"
+    isActingAsDoppelganger
       ? Boolean(
-          doppelgangerCopiedRole &&
-            (doppelgangerCopiedRole === "seer"
+          activeDoppelgangerCopiedRole &&
+            (activeDoppelgangerCopiedRole === "seer"
               ? isSeerSelectionComplete(selectedCenterIndexes) && selectedCenterIndexes.every(hasCenterReveal)
-              : doppelgangerCopiedRole === "witch"
+              : activeDoppelgangerCopiedRole === "witch"
                 ? selectedCenterIndexes.length === 1 && selectedCenterIndexes.every(hasCenterReveal)
                 : true)
         )
@@ -1203,23 +1232,23 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
               (selectedCenterIndexes[0] != null && hasCenterReveal(selectedCenterIndexes[0]))
             : true;
   const canSubmitNightAction =
-    (myRole === "doppelganger" &&
+    (isActingAsDoppelganger &&
       Boolean(
-        doppelgangerCopiedRole &&
-          (doppelgangerCopiedRole === "villager" ||
-            doppelgangerCopiedRole === "insomniac" ||
-            doppelgangerCopiedRole === "werewolf" ||
-            doppelgangerCopiedRole === "doppelganger" ||
-            doppelgangerCopiedRole === "copycat" ||
-            (doppelgangerCopiedRole === "seer" &&
+        activeDoppelgangerCopiedRole &&
+          (activeDoppelgangerCopiedRole === "villager" ||
+            activeDoppelgangerCopiedRole === "insomniac" ||
+            activeDoppelgangerCopiedRole === "werewolf" ||
+            activeDoppelgangerCopiedRole === "doppelganger" ||
+            activeDoppelgangerCopiedRole === "copycat" ||
+            (activeDoppelgangerCopiedRole === "seer" &&
               isSeerSelectionComplete(selectedCenterIndexes)) ||
-            (doppelgangerCopiedRole === "werewolf_seer" && doppelgangerActionTargetIds.length === 1) ||
-            (doppelgangerCopiedRole === "robber" && doppelgangerActionTargetIds.length === 1) ||
-            (doppelgangerCopiedRole === "troublemaker" && doppelgangerActionTargetIds.length === 2) ||
-            (doppelgangerCopiedRole === "witch" &&
-              doppelgangerActionTargetIds.length === 1 &&
+            (activeDoppelgangerCopiedRole === "werewolf_seer" && activeDoppelgangerActionTargetIds.length === 1) ||
+            (activeDoppelgangerCopiedRole === "robber" && activeDoppelgangerActionTargetIds.length === 1) ||
+            (activeDoppelgangerCopiedRole === "troublemaker" && activeDoppelgangerActionTargetIds.length === 2) ||
+            (activeDoppelgangerCopiedRole === "witch" &&
+              activeDoppelgangerActionTargetIds.length === 1 &&
               selectedCenterIndexes.length === 1) ||
-            (doppelgangerCopiedRole === "drunk" && selectedCenterIndexes.length === 1))
+            (activeDoppelgangerCopiedRole === "drunk" && selectedCenterIndexes.length === 1))
       )) ||
     nightActionRole === "villager" ||
     nightActionRole === "insomniac" ||
