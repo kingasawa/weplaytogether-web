@@ -3812,6 +3812,7 @@
 }
 
 .avalonRoleRevealBox {
+  position: relative;
   min-height: min(72svh, 34rem);
   border-radius: 1rem;
 }
@@ -3819,6 +3820,29 @@
 .avalonRoleRevealBox .avalonPhaseHero {
   min-height: min(72svh, 34rem);
   align-content: center;
+}
+
+.avalonRoleCoverButton {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 4;
+  display: inline-flex;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 30%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+  color: var(--primary-light);
+  cursor: pointer;
+}
+
+.avalonRoleCoverButton svg {
+  width: 1.1rem;
+  min-width: 1.1rem;
 }
 
 .avalonPhaseSummary {

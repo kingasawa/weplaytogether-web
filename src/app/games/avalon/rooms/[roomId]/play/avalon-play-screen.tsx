@@ -5,6 +5,7 @@ import {
   Check,
   Crown,
   Eye,
+  EyeOff,
   History,
   LoaderCircle,
   LogOut,
@@ -335,6 +336,16 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
     setCoverDragOffset(0);
   }
 
+  function coverPrivateReveal() {
+    if (!privateRevealKey) {
+      return;
+    }
+
+    setUnlockedPrivateRevealKey(null);
+    setCoverPointerStartY(null);
+    setCoverDragOffset(0);
+  }
+
   function renderPrivateCover() {
     return (
       <div
@@ -532,6 +543,17 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
             {renderRoleRevealKnownInfo()}
           </div>
           {currentPlayer && renderPrivateCover()}
+          {currentPlayer && privateRevealUnlocked && (
+            <button
+              aria-label="Che lại vai"
+              className={styles.avalonRoleCoverButton}
+              title="Che lại"
+              type="button"
+              onClick={coverPrivateReveal}
+            >
+              <EyeOff aria-hidden="true" />
+            </button>
+          )}
         </div>
         {currentPlayer && (
           <button
