@@ -3404,6 +3404,396 @@
   animation: playSpin 0.9s linear infinite;
 }
 
+.avalonTheme {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 20%, transparent), transparent 24rem),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--success) 16%, transparent), transparent 26rem),
+    var(--bg-primary);
+}
+
+.avalonTheme .heroImage img {
+  object-position: center;
+}
+
+.avalonPresetGrid {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.avalonRoleCounter {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+}
+
+.avalonRoleCounter strong,
+.avalonRoleCounter span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.avalonRoleCounter strong {
+  font-size: 0.86rem;
+}
+
+.avalonRoleCounter div {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.avalonRoleCounter button {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg-secondary));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.avalonRoleCounter button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.avalonRoleCounter svg {
+  width: 1rem;
+}
+
+.avalonRoleCounter span {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.avalonOptionList {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.avalonOptionList label {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: center;
+  min-height: 3.25rem;
+  gap: var(--spacing-sm);
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-card) 68%, transparent);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.avalonOptionList input {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary);
+}
+
+.avalonBoardLayout {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.avalonMainColumn,
+.avalonSideColumn {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.avalonQuestTrack {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.avalonQuestNode {
+  display: grid;
+  min-width: 0;
+  min-height: 4.6rem;
+  align-content: center;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--text);
+  text-align: center;
+}
+
+.avalonQuestNode strong,
+.avalonQuestNode span,
+.avalonQuestNode small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.avalonQuestNode strong {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+}
+
+.avalonQuestNode span,
+.avalonQuestNode small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.avalonQuestCurrent {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
+}
+
+.avalonQuestSuccess {
+  border-color: color-mix(in srgb, var(--success) 62%, transparent);
+  background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
+}
+
+.avalonQuestFail {
+  border-color: color-mix(in srgb, var(--danger) 62%, transparent);
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg-card));
+}
+
+.avalonPhaseHero,
+.avalonPrivatePanel,
+.avalonHistoryPanel {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+
+.avalonPhaseHero {
+  justify-items: center;
+  padding: var(--spacing-lg);
+  text-align: center;
+}
+
+.avalonPhaseHero svg {
+  width: 2rem;
+  color: var(--primary-light);
+}
+
+.avalonPhaseHero span,
+.avalonSectionTitle span,
+.avalonRoleCard span {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.avalonPhaseHero h2 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 8vw, 3rem);
+  line-height: 1.05;
+}
+
+.avalonPhaseHero p,
+.avalonPrivatePanel p,
+.avalonWaitingText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.avalonSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.avalonSectionTitle svg {
+  width: 1.05rem;
+  color: var(--primary-light);
+}
+
+.avalonRoleCard {
+  display: grid;
+  gap: 0.25rem;
+  padding: var(--spacing-md);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary) 16%, var(--bg-secondary));
+}
+
+.avalonRoleCard strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.avalonRoleCard p {
+  color: var(--primary-light);
+  font-size: 0.9rem;
+}
+
+.avalonInfoList {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.avalonInfoList span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.avalonPhaseSummary {
+  display: grid;
+  gap: 0.25rem;
+  padding: var(--spacing-md);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.avalonPhaseSummary strong,
+.avalonVoteReview strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.avalonPhaseSummary span,
+.avalonVoteReview span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.avalonQuestPicker,
+.avalonVoteActions {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.avalonQuestPicker {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr));
+}
+
+.avalonQuestPicker button,
+.avalonQuestChoiceActive {
+  min-height: 2.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.avalonQuestPicker .avalonQuestChoiceActive {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 24%, var(--bg-card));
+}
+
+.avalonPlayerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: var(--spacing-sm);
+}
+
+.avalonPlayerButton {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  min-height: 3.4rem;
+  padding: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.avalonPlayerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.avalonPlayerButton span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.avalonPlayerButton svg {
+  width: 1rem;
+  color: var(--primary-light);
+}
+
+.avalonPlayerButtonActive {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
+}
+
+.avalonSelectedTeam {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.avalonSelectedTeam span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 20%, var(--bg-card));
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.avalonVoteReview {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
 @keyframes playSpin {
   to {
     transform: rotate(360deg);
@@ -3640,6 +4030,19 @@
     width: auto;
     min-width: 4.5rem;
     padding-inline: var(--spacing-md);
+  }
+
+  .avalonPresetGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .avalonBoardLayout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+    align-items: start;
+  }
+
+  .avalonVoteActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

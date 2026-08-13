@@ -30,6 +30,13 @@ export const CLASSIC_WOLF_SHARE_IMAGE: GameShareImage = {
   alt: "Ảnh bìa game Ma Sói Nhiều Đêm",
 };
 
+export const AVALON_SHARE_IMAGE: GameShareImage = {
+  path: "/images/boards/avalon.png",
+  width: 811,
+  height: 1940,
+  alt: "Ảnh bìa game Avalon",
+};
+
 export function buildGameShareMetadata({
   title,
   description,

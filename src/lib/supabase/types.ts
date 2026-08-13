@@ -69,6 +69,13 @@ export type ClassicWolfGameStateRow = {
   updated_at: string;
 };
 
+export type AvalonGameStateRow = {
+  game_id: string;
+  state: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WolfGameCardRow = {
   id: string;
   game_id: string;
@@ -198,6 +205,12 @@ export type Database = {
         Insert: Partial<Pick<ClassicWolfGameStateRow, "created_at" | "updated_at">> &
           Pick<ClassicWolfGameStateRow, "game_id" | "state">;
         Update: Partial<Omit<ClassicWolfGameStateRow, "game_id" | "created_at">>;
+      };
+      avalon_game_states: {
+        Row: AvalonGameStateRow;
+        Insert: Partial<Pick<AvalonGameStateRow, "created_at" | "updated_at">> &
+          Pick<AvalonGameStateRow, "game_id" | "state">;
+        Update: Partial<Omit<AvalonGameStateRow, "game_id" | "created_at">>;
       };
       wolf_game_phase_confirmations: {
         Row: WolfGamePhaseConfirmationRow;

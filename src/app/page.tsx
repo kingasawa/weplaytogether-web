@@ -47,7 +47,7 @@ const featuredGames: FeaturedGame[] = [
     players: "5 - 10 người",
     category: "Suy luận",
     image: "/images/boards/avalon.png",
-    href: "#game-detail",
+    href: "/games/avalon",
   },
   {
     name: "Ai Là Gián Điệp",
