@@ -3921,22 +3921,20 @@
 }
 
 .avalonLeaderOrder {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.45rem;
   min-width: 0;
-  overflow-x: auto;
-  padding: 0.15rem 0.05rem 0.35rem;
-  scrollbar-width: thin;
+  padding: 0.15rem 0;
 }
 
 .avalonOrderPlayer {
-  display: inline-grid;
-  grid-template-columns: auto minmax(0, auto) auto;
-  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) 1.25rem;
   align-items: center;
   gap: 0.32rem;
+  width: 100%;
   min-height: 2.75rem;
-  max-width: min(52vw, 10rem);
   padding: 0.45rem 0.6rem;
   border: 0;
   border-radius: 0.65rem;
@@ -3960,6 +3958,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .avalonOrderPlayer svg {
