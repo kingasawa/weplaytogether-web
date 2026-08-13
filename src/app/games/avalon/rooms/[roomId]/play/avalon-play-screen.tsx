@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowDown,
   ArrowUp,
   Check,
   Crown,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
 import {
   AVALON_ROLE_LABELS,
   getAvalonRoleImagePath,
@@ -47,6 +48,9 @@ import {
 import styles from "../../../../wolf/page.module.css";
 
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
+const PRIVATE_REVEAL_OPEN_DRAG_RATIO = 1 / 3;
+const PRIVATE_REVEAL_CLOSE_DRAG_RATIO = 1 / 4;
+const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;
 
 type AvalonPlayScreenProps = {
   initialState: AvalonPlayState;
@@ -92,8 +96,11 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
   const [unlockedPrivateRevealKey, setUnlockedPrivateRevealKey] = useState<string | null>(
     initialState.game.phase === "role_reveal" ? null : `${initialState.game.id}:${initialState.game.phase}`
   );
+  const [hasViewedPrivateReveal, setHasViewedPrivateReveal] = useState(initialState.game.phase !== "role_reveal");
   const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
   const [coverDragOffset, setCoverDragOffset] = useState(0);
+  const [coverDragMode, setCoverDragMode] = useState<"opening" | "closing" | null>(null);
+  const coverHasDraggedRef = useRef(false);
   const [isPrivateInfoOpen, setIsPrivateInfoOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -305,36 +312,118 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
     });
   }
 
+  function openPrivateReveal() {
+    if (!privateRevealKey) {
+      return;
+    }
+
+    setUnlockedPrivateRevealKey(privateRevealKey);
+    setHasViewedPrivateReveal(true);
+    setCoverPointerStartY(null);
+    setCoverDragOffset(0);
+    setCoverDragMode(null);
+  }
+
   function startPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
     event.preventDefault();
+    event.stopPropagation();
+    coverHasDraggedRef.current = false;
     setCoverPointerStartY(event.clientY);
     setCoverDragOffset(0);
+    setCoverDragMode("opening");
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function movePrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY === null) {
+    if (coverPointerStartY === null || coverDragMode !== "opening") {
       return;
     }
 
     event.preventDefault();
+    event.stopPropagation();
     const nextOffset = Math.min(0, event.clientY - coverPointerStartY);
     const maxLift = event.currentTarget.offsetHeight;
+    const liftedDistance = coverPointerStartY - event.clientY;
 
-    if (coverPointerStartY - event.clientY >= 44 && privateRevealKey) {
-      setUnlockedPrivateRevealKey(privateRevealKey);
+    if (Math.abs(event.clientY - coverPointerStartY) > PRIVATE_REVEAL_DRAG_TAP_TOLERANCE) {
+      coverHasDraggedRef.current = true;
+    }
+
+    if (liftedDistance >= maxLift * PRIVATE_REVEAL_OPEN_DRAG_RATIO) {
+      openPrivateReveal();
+      return;
     }
 
     setCoverDragOffset(Math.max(nextOffset, -maxLift));
   }
 
   function endPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY !== null && coverPointerStartY - event.clientY >= 44) {
-      setUnlockedPrivateRevealKey(privateRevealKey);
+    event.stopPropagation();
+
+    if (coverPointerStartY !== null && coverDragMode === "opening") {
+      const liftedDistance = coverPointerStartY - event.clientY;
+
+      if (liftedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_OPEN_DRAG_RATIO) {
+        openPrivateReveal();
+        return;
+      }
     }
 
     setCoverPointerStartY(null);
     setCoverDragOffset(0);
+    setCoverDragMode(null);
+  }
+
+  function startPrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
+    if (!privateRevealUnlocked || !privateRevealKey) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    coverHasDraggedRef.current = false;
+    setCoverPointerStartY(event.clientY);
+    setCoverDragOffset(0);
+    setCoverDragMode("closing");
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function movePrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
+    if (coverPointerStartY === null || coverDragMode !== "closing") {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const droppedDistance = Math.max(0, event.clientY - coverPointerStartY);
+
+    if (Math.abs(event.clientY - coverPointerStartY) > PRIVATE_REVEAL_DRAG_TAP_TOLERANCE) {
+      coverHasDraggedRef.current = true;
+    }
+
+    if (droppedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_CLOSE_DRAG_RATIO) {
+      coverPrivateReveal();
+      return;
+    }
+
+    setCoverDragOffset(droppedDistance);
+  }
+
+  function endPrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
+    event.stopPropagation();
+
+    if (coverPointerStartY !== null && coverDragMode === "closing") {
+      const droppedDistance = event.clientY - coverPointerStartY;
+
+      if (droppedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_CLOSE_DRAG_RATIO) {
+        coverPrivateReveal();
+        return;
+      }
+    }
+
+    setCoverPointerStartY(null);
+    setCoverDragOffset(0);
+    setCoverDragMode(null);
   }
 
   function coverPrivateReveal() {
@@ -345,6 +434,19 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
     setUnlockedPrivateRevealKey(null);
     setCoverPointerStartY(null);
     setCoverDragOffset(0);
+    setCoverDragMode(null);
+  }
+
+  function getPrivateCoverTransform() {
+    if (privateRevealUnlocked && coverDragMode === "closing") {
+      return `translateY(calc(-100% + var(--private-reveal-peek-height) + ${coverDragOffset}px))`;
+    }
+
+    if (privateRevealUnlocked) {
+      return "translateY(calc(-100% + var(--private-reveal-peek-height)))";
+    }
+
+    return `translateY(${coverDragOffset}px)`;
   }
 
   function renderPrivateCover() {
@@ -352,19 +454,23 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
       <div
         aria-hidden={privateRevealUnlocked}
         className={`${styles.privateRevealCover} ${coverPointerStartY !== null ? styles.privateRevealCoverDragging : ""}`}
-        style={{ transform: privateRevealUnlocked ? "translateY(-105%)" : `translateY(${coverDragOffset}px)` }}
+        style={{ transform: getPrivateCoverTransform() }}
         onClick={() => {
-          if (privateRevealKey) {
-            setUnlockedPrivateRevealKey(privateRevealKey);
+          if (coverHasDraggedRef.current) {
+            coverHasDraggedRef.current = false;
+            return;
           }
+
+          openPrivateReveal();
         }}
         onPointerCancel={() => {
           setCoverPointerStartY(null);
           setCoverDragOffset(0);
+          setCoverDragMode(null);
         }}
-        onPointerDown={startPrivateRevealGesture}
-        onPointerMove={movePrivateRevealGesture}
-        onPointerUp={endPrivateRevealGesture}
+        onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : startPrivateRevealGesture}
+        onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : movePrivateRevealGesture}
+        onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : endPrivateRevealGesture}
       >
         <Image
           alt=""
@@ -375,9 +481,8 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
           sizes="(max-width: 768px) 100vw, 30rem"
           src={PRIVATE_CARD_COVER_IMAGE_PATH}
         />
-        <span className={styles.privateRevealHint}>Kéo lên để xem vai</span>
         <div aria-hidden="true" className={styles.privateRevealHandle}>
-          <ArrowUp aria-hidden="true" />
+          {privateRevealUnlocked ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
         </div>
       </div>
     );
@@ -506,7 +611,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
 
     return (
       <div className={`${styles.avalonRevealNotes} ${isEvil ? styles.avalonRevealNotesEvil : ""}`}>
-        <strong>{isEvil ? "Đồng đội Evil" : "Thông tin bạn biết"}</strong>
+        <strong>{isEvil ? "Đồng đội Evil" : "Những người bên dưới là Evil"}</strong>
         <div className={styles.avalonRevealNameList}>
           {knownPlayers.map((knownPlayer) => (
             <span
@@ -514,7 +619,6 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
               key={`${knownPlayer.playerId}-${knownPlayer.note}`}
             >
               {knownPlayer.playerName}
-              {knownPlayer.note && !isEvil ? `: ${knownPlayer.note}` : ""}
             </span>
           ))}
         </div>
@@ -533,18 +637,28 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
 
     return (
       <section className={`${styles.playPanel} ${styles.avalonRoleRevealPanel}`}>
-        <div className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}>
+        <div
+          className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}
+          onPointerCancel={() => {
+            if (coverDragMode === "closing") {
+              setCoverPointerStartY(null);
+              setCoverDragOffset(0);
+              setCoverDragMode(null);
+            }
+          }}
+          onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : undefined}
+          onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : undefined}
+          onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : undefined}
+        >
           <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
-            <Crown aria-hidden="true" />
-            <span>Vai bí mật</span>
             {roleImagePath && (
               <Image
                 alt={playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : ""}
                 className={styles.avalonRoleRevealImage}
-                height={146}
+                height={290}
                 priority
                 src={roleImagePath}
-                width={82}
+                width={160}
               />
             )}
             <h2>{playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}</h2>
@@ -555,23 +669,12 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
             {renderRoleRevealKnownInfo()}
           </div>
           {currentPlayer && renderPrivateCover()}
-          {currentPlayer && privateRevealUnlocked && (
-            <button
-              aria-label="Che lại vai"
-              className={styles.avalonRoleCoverButton}
-              title="Che lại"
-              type="button"
-              onClick={coverPrivateReveal}
-            >
-              <EyeOff aria-hidden="true" />
-            </button>
-          )}
         </div>
         {currentPlayer && (
           <button
             className={styles.primaryButton}
             type="button"
-            disabled={isPending || hasConfirmed || !privateRevealUnlocked}
+            disabled={isPending || hasConfirmed || !hasViewedPrivateReveal}
             onClick={() => runMutation("Đang xác nhận...", () => confirmAvalonRoleReveal(playState.room.code))}
           >
             <Check aria-hidden="true" />
@@ -990,28 +1093,57 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
 
   return (
     <main className={`${styles.page} ${styles.playPage} ${styles.avalonTheme}`}>
-      <section className={`${styles.playHeader} ${isResultPhase ? styles.resultHeader : ""}`}>
+      <section
+        className={`${styles.playHeader} ${isResultPhase ? styles.resultHeader : ""} ${
+          isRoleRevealPhase ? styles.avalonRoleRevealHeader : ""
+        }`}
+      >
         <div>
           <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{playState.game.phaseLabel}</h1>
         </div>
-        <div className={styles.avalonHeaderActions}>
-          <p>
-            Good {playState.successCount}/3 · Evil {playState.failCount}/3
-            {!isTeamProposalPhase && <> · Leader {playState.leaderName}</>}
-          </p>
-          {currentPlayer && (
+        {currentPlayer && isRoleRevealPhase && (
+          privateRevealUnlocked ? (
             <button
-              aria-label="Xem thông tin riêng"
-              className={styles.avalonPrivateInfoButton}
-              title="Thông tin riêng"
+              aria-label="Che lại vai"
+              className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleCoverButton}`}
+              title="Che lại"
               type="button"
-              onClick={() => setIsPrivateInfoOpen(true)}
+              onClick={coverPrivateReveal}
+            >
+              <EyeOff aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              aria-label="Mở vai"
+              className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleOpenButton}`}
+              title="Mở vai"
+              type="button"
+              onClick={openPrivateReveal}
             >
               <Eye aria-hidden="true" />
             </button>
-          )}
-        </div>
+          )
+        )}
+        {!isRoleRevealPhase && (
+          <div className={styles.avalonHeaderActions}>
+            <p>
+              Good {playState.successCount}/3 · Evil {playState.failCount}/3
+              {!isTeamProposalPhase && <> · Leader {playState.leaderName}</>}
+            </p>
+            {currentPlayer && (
+              <button
+                aria-label="Xem thông tin riêng"
+                className={styles.avalonPrivateInfoButton}
+                title="Thông tin riêng"
+                type="button"
+                onClick={() => setIsPrivateInfoOpen(true)}
+              >
+                <Eye aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {!isRoleRevealPhase && renderQuestTrack()}

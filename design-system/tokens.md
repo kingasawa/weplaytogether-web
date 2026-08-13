@@ -17,6 +17,7 @@
 | `--bg-primary`  | `#0D1324` | Main page background              |
 | `--bg-secondary`| `#1B2440` | Sidebar, panels, alternate areas  |
 | `--bg-card`     | `#202B4A` | Cards, modals, surface elements   |
+| `--bg-mask`     | `#100c0c` | Private reveal mask surfaces      |
 
 ### Brand / Interactive
 

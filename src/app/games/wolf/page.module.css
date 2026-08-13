@@ -1192,6 +1192,8 @@
 }
 
 .privateRevealBox {
+  --private-reveal-peek-height: clamp(4.15rem, 13vw, 4.75rem);
+
   position: relative;
   display: grid;
   gap: var(--spacing-sm);
@@ -1208,7 +1210,7 @@
   padding: 0;
   border: 0;
   border-radius: inherit;
-  background: var(--bg-card);
+  background: var(--bg-mask);
   color: var(--text);
   cursor: grab;
   touch-action: none;
@@ -1231,34 +1233,10 @@
   user-select: none;
 }
 
-.privateRevealHint {
-  position: absolute;
-  right: 50%;
-  bottom: clamp(0.9rem, 4vw, 1.4rem);
-  z-index: 1;
-  display: inline-flex;
-  min-height: 2.5rem;
-  max-width: calc(100% - 2rem);
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: clamp(0.88rem, 3.5vw, 1rem);
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1.15;
-  text-align: center;
-  pointer-events: none;
-  transform: translateX(50%);
-  user-select: none;
-  white-space: nowrap;
-}
-
 .privateRevealHandle {
   position: absolute;
   right: 50%;
-  bottom: clamp(3.2rem, 15vw, 5.1rem);
+  bottom: calc((var(--private-reveal-peek-height) - 3rem) / 2);
   z-index: 1;
   display: inline-flex;
   width: 3rem;
@@ -3675,7 +3653,7 @@
 }
 
 .avalonRoleRevealImage {
-  width: clamp(4rem, 18vw, 5.25rem);
+  width: clamp(6rem, 28vw, 8rem);
   height: auto;
   border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
   border-radius: 0.65rem;
@@ -3767,8 +3745,9 @@
   width: 100%;
   padding: var(--spacing-md);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary));
-  text-align: left;
+  background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  justify-items: center;
+  text-align: center;
 }
 
 .avalonRevealNotesEvil {
@@ -3778,6 +3757,7 @@
 .avalonRevealNameList {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.45rem;
 }
 
@@ -3821,21 +3801,30 @@
   gap: var(--spacing-md);
 }
 
+.avalonRoleRevealHeader {
+  position: relative;
+  padding-right: clamp(5rem, 16vw, 6rem);
+}
+
 .avalonRoleRevealBox {
   position: relative;
   min-height: min(72svh, 34rem);
   border-radius: 1rem;
+  touch-action: none;
 }
 
 .avalonRoleRevealBox .avalonPhaseHero {
   min-height: min(72svh, 34rem);
   align-content: center;
+  border-color: color-mix(in srgb, var(--primary-light) 14%, transparent);
+  background: var(--bg-mask);
+  padding-top: calc(var(--spacing-lg) + var(--private-reveal-peek-height));
 }
 
-.avalonRoleCoverButton {
+.avalonRoleRevealToggleButton {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 50%;
+  right: clamp(1rem, 4vw, 2rem);
   z-index: 4;
   display: inline-flex;
   width: 2.75rem;
@@ -3843,16 +3832,40 @@
   min-height: 2.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 30%, transparent);
+  border: 1px solid transparent;
   border-radius: 999rem;
-  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
-  color: var(--primary-light);
   cursor: pointer;
+  animation: avalonRoleCoverFloat 1.35s ease-in-out infinite;
 }
 
-.avalonRoleCoverButton svg {
+.avalonRoleRevealToggleButton svg {
   width: 1.1rem;
   min-width: 1.1rem;
+}
+
+.avalonRoleOpenButton {
+  border-color: color-mix(in srgb, var(--success) 56%, transparent);
+  background: color-mix(in srgb, var(--success) 18%, var(--bg-primary));
+  box-shadow: 0 0 1.15rem color-mix(in srgb, var(--success) 28%, transparent);
+  color: var(--success);
+}
+
+.avalonRoleCoverButton {
+  border-color: color-mix(in srgb, var(--danger) 56%, transparent);
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg-primary));
+  box-shadow: 0 0 1.15rem color-mix(in srgb, var(--danger) 28%, transparent);
+  color: var(--danger);
+}
+
+@keyframes avalonRoleCoverFloat {
+  0%,
+  100% {
+    transform: translateY(-54%);
+  }
+
+  50% {
+    transform: translateY(-42%);
+  }
 }
 
 .avalonPhaseSummary {
