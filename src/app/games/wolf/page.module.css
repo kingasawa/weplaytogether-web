@@ -3674,6 +3674,16 @@
   line-height: 1.2;
 }
 
+.avalonRoleRevealImage {
+  width: clamp(4rem, 18vw, 5.25rem);
+  height: auto;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 28%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-primary) 64%, transparent);
+  box-shadow: 0 0.7rem 1.4rem color-mix(in srgb, var(--bg-primary) 46%, transparent);
+  object-fit: contain;
+}
+
 .avalonPhaseHero p,
 .avalonPrivatePanel p,
 .avalonWaitingText {

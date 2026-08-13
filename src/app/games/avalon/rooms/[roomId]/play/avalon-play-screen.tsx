@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition, type PointerEvent } from "react";
 import {
   AVALON_ROLE_LABELS,
+  getAvalonRoleImagePath,
   getAvalonQuestRequiredFails,
   getAvalonQuestTeamSize,
   type AvalonQuestCard,
@@ -528,6 +529,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
       playState.myRole === "percival" && playState.privateInfo.knownPlayers.length > 0
         ? null
         : playState.privateInfo.roleDescription ?? "Chờ người chơi trong phòng xác nhận đã xem vai.";
+    const roleImagePath = playState.myRole ? getAvalonRoleImagePath(playState.myRole) : null;
 
     return (
       <section className={`${styles.playPanel} ${styles.avalonRoleRevealPanel}`}>
@@ -535,6 +537,16 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
           <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
             <Crown aria-hidden="true" />
             <span>Vai bí mật</span>
+            {roleImagePath && (
+              <Image
+                alt={playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : ""}
+                className={styles.avalonRoleRevealImage}
+                height={146}
+                priority
+                src={roleImagePath}
+                width={82}
+              />
+            )}
             <h2>{playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}</h2>
             <strong className={isEvil ? styles.avalonLoyaltyEvil : styles.avalonLoyaltyGood}>
               {getTeamLabel(playState.myLoyalty)}

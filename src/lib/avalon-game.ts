@@ -54,6 +54,21 @@ export const AVALON_ROLE_DESCRIPTIONS: Record<AvalonRole, string> = {
   minion: "Evil. Biết các đồng đội Evil, trừ Oberon, và có thể sabotage quest.",
 };
 
+export const AVALON_ROLE_CARD_IMAGES: Record<AvalonRole, { alt: string; src: string }> = {
+  merlin: { alt: "Lá bài Merlin", src: "/images/boards/cards/avalon/merlin.png" },
+  percival: { alt: "Lá bài Percival", src: "/images/boards/cards/avalon/percival.png" },
+  loyal_servant: { alt: "Lá bài Loyal Servant", src: "/images/boards/cards/avalon/servant.png" },
+  assassin: { alt: "Lá bài Assassin", src: "/images/boards/cards/avalon/assassin.png" },
+  morgana: { alt: "Lá bài Morgana", src: "/images/boards/cards/avalon/morgana.png" },
+  mordred: { alt: "Lá bài Mordred", src: "/images/boards/cards/avalon/mordred.png" },
+  oberon: { alt: "Lá bài Oberon", src: "/images/boards/cards/avalon/oberon.png" },
+  minion: { alt: "Lá bài Minion", src: "/images/boards/cards/avalon/minion.png" },
+};
+
+export function getAvalonRoleImagePath(role: AvalonRole) {
+  return AVALON_ROLE_CARD_IMAGES[role].src;
+}
+
 export const AVALON_PHASE_LABELS: Record<AvalonPhase, string> = {
   role_reveal: "Xem vai",
   team_proposal: "Chọn đội",
