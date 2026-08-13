@@ -3503,6 +3503,11 @@
 .avalonBoardLayout {
   display: grid;
   gap: var(--spacing-md);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.avalonBoardLayout.avalonBoardLayoutRoleReveal {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .avalonMainColumn,
@@ -3580,10 +3585,60 @@
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
+.avalonHeaderActions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.avalonHeaderActions p {
+  min-width: 0;
+  margin: 0;
+}
+
+.avalonPrivateInfoButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 26%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--primary-light);
+  cursor: pointer;
+}
+
+.avalonPrivateInfoButton svg {
+  width: 1.1rem;
+  min-width: 1.1rem;
+}
+
+.avalonPrivateInfoModal {
+  display: grid;
+  width: min(100%, 32rem);
+  gap: var(--spacing-md);
+}
+
+.avalonPrivateInfoModal .avalonPrivatePanel {
+  padding-right: var(--spacing-md);
+}
+
 .avalonPhaseHero {
   justify-items: center;
   padding: var(--spacing-lg);
   text-align: center;
+}
+
+.avalonPhaseHeroEvil {
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--danger) 18%, transparent), transparent 11rem),
+    color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
 .avalonPhaseHero svg {
@@ -3610,6 +3665,15 @@
   line-height: 1.05;
 }
 
+.avalonPhaseHero > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .avalonPhaseHero p,
 .avalonPrivatePanel p,
 .avalonWaitingText {
@@ -3631,12 +3695,25 @@
   color: var(--primary-light);
 }
 
+.avalonPrivatePanelEvil {
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
+}
+
 .avalonRoleCard {
   display: grid;
   gap: 0.25rem;
   padding: var(--spacing-md);
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--primary) 16%, var(--bg-secondary));
+}
+
+.avalonRoleCardGood {
+  background: color-mix(in srgb, var(--success) 14%, var(--bg-secondary));
+}
+
+.avalonRoleCardEvil {
+  background: color-mix(in srgb, var(--danger) 16%, var(--bg-secondary));
 }
 
 .avalonRoleCard strong {
@@ -3649,8 +3726,68 @@
 }
 
 .avalonRoleCard p {
-  color: var(--primary-light);
   font-size: 0.9rem;
+}
+
+.avalonLoyaltyGood {
+  color: var(--success);
+}
+
+.avalonLoyaltyEvil {
+  color: var(--danger);
+}
+
+.avalonKnownSection,
+.avalonRevealNotes {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.avalonKnownTitle,
+.avalonRevealNotes strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.avalonRevealNotes {
+  width: 100%;
+  padding: var(--spacing-md);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary));
+  text-align: left;
+}
+
+.avalonRevealNotesEvil {
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-secondary));
+}
+
+.avalonRevealNameList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.avalonRevealNameList span,
+.avalonKnownPlayerEvil {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--success) 14%, var(--bg-card));
+  color: var(--success);
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.avalonRevealNameList .avalonKnownPlayerEvil,
+.avalonInfoList .avalonKnownPlayerEvil {
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
+  color: var(--danger);
 }
 
 .avalonInfoList {
@@ -3668,6 +3805,20 @@
   font-size: 0.88rem;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.avalonRoleRevealPanel {
+  gap: var(--spacing-md);
+}
+
+.avalonRoleRevealBox {
+  min-height: min(72svh, 34rem);
+  border-radius: 1rem;
+}
+
+.avalonRoleRevealBox .avalonPhaseHero {
+  min-height: min(72svh, 34rem);
+  align-content: center;
 }
 
 .avalonPhaseSummary {
@@ -3769,6 +3920,67 @@
   background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
 }
 
+.avalonLeaderOrder {
+  display: flex;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.15rem 0.05rem 0.35rem;
+  scrollbar-width: thin;
+}
+
+.avalonOrderPlayer {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, auto) auto;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.32rem;
+  min-height: 2.75rem;
+  max-width: min(52vw, 10rem);
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.avalonOrderPlayer:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.avalonOrderPlayer span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avalonOrderPlayer svg {
+  width: 0.92rem;
+  min-width: 0.92rem;
+}
+
+.avalonOrderPlayerLeader {
+  color: var(--success);
+  font-weight: 900;
+}
+
+.avalonOrderPlayerSelected {
+  background: color-mix(in srgb, var(--success) 16%, var(--bg-card));
+  color: var(--text);
+}
+
+.avalonOrderPlayerSelected svg {
+  color: var(--success);
+}
+
 .avalonSelectedTeam {
   display: flex;
   flex-wrap: wrap;
@@ -3792,6 +4004,148 @@
   padding: var(--spacing-md);
   border-radius: 0.8rem;
   background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.avalonVoteColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.avalonVoteColumn {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  padding: var(--spacing-md);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.avalonVoteApproveTitle,
+.avalonVoteRejectTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.avalonVoteApproveTitle {
+  color: var(--success);
+}
+
+.avalonVoteRejectTitle {
+  color: var(--danger);
+}
+
+.avalonQuestRevealCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6rem), 1fr));
+  gap: var(--spacing-sm);
+}
+
+.avalonQuestRevealCard {
+  display: grid;
+  min-height: 7.2rem;
+  place-items: center;
+  gap: 0.35rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.8rem;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 14%, transparent) 0,
+      color-mix(in srgb, var(--primary) 14%, transparent) 0.12rem,
+      transparent 0.12rem,
+      transparent 0.55rem
+    ),
+    var(--bg-card);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.avalonQuestRevealCard svg {
+  width: 1.55rem;
+  min-width: 1.55rem;
+}
+
+.avalonQuestRevealCard strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.avalonQuestRevealCardSuccess {
+  border-color: color-mix(in srgb, var(--success) 54%, transparent);
+  background: color-mix(in srgb, var(--success) 16%, var(--bg-card));
+  color: var(--success);
+}
+
+.avalonQuestRevealCardFail {
+  border-color: color-mix(in srgb, var(--danger) 54%, transparent);
+  background: color-mix(in srgb, var(--danger) 16%, var(--bg-card));
+  color: var(--danger);
+}
+
+.avalonResultList {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--bg-secondary) 64%, transparent);
+}
+
+.avalonResultRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, auto);
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 3.75rem;
+  padding: 0.75rem;
+}
+
+.avalonResultRow + .avalonResultRow {
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 12%, transparent);
+}
+
+.avalonResultPlayer {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.avalonResultPlayer strong,
+.avalonResultRole {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.avalonResultPlayer strong {
+  color: var(--text);
+  font-size: 0.96rem;
+}
+
+.avalonResultPlayer span {
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.avalonResultRole {
+  justify-self: end;
+  color: var(--success);
+  font-family: var(--font-heading);
+  font-size: 0.98rem;
+  text-align: right;
+}
+
+.avalonResultRoleEvil {
+  color: var(--danger);
 }
 
 @keyframes playSpin {
@@ -4037,7 +4391,7 @@
   }
 
   .avalonBoardLayout {
-    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 

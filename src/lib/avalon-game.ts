@@ -15,6 +15,7 @@ export type AvalonPhase =
   | "team_proposal"
   | "team_vote"
   | "quest"
+  | "quest_reveal"
   | "lady"
   | "assassination"
   | "result";
@@ -44,7 +45,7 @@ export const AVALON_ROLE_LABELS: Record<AvalonRole, string> = {
 
 export const AVALON_ROLE_DESCRIPTIONS: Record<AvalonRole, string> = {
   merlin: "Biết các người chơi Evil, trừ Mordred. Dẫn dắt phe Good mà không để Assassin nhận ra.",
-  percival: "Thấy Merlin, và nếu có Morgana thì thấy cả Morgana nhưng không biết ai là Merlin thật.",
+  percival: "Thấy Merlin và Morgana, nhưng không biết ai là Morgana và ai là Merlin thật.",
   loyal_servant: "Không có thông tin riêng. Theo dõi đội được đề cử, phiếu vote và kết quả quest.",
   assassin: "Evil. Nếu Good hoàn thành 3 quest, chọn một người Good để đoán Merlin.",
   morgana: "Evil. Xuất hiện như Merlin trước mắt Percival.",
@@ -58,6 +59,7 @@ export const AVALON_PHASE_LABELS: Record<AvalonPhase, string> = {
   team_proposal: "Chọn đội",
   team_vote: "Vote đội",
   quest: "Đi quest",
+  quest_reveal: "Mở bài quest",
   lady: "Lady of the Lake",
   assassination: "Assassin đoán Merlin",
   result: "Kết quả",

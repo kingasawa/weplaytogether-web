@@ -100,6 +100,13 @@ type AvalonLadyInspection = {
   loyalty: AvalonTeam;
 };
 
+type AvalonQuestRevealState = {
+  questIndex: number | null;
+  cards: AvalonQuestCard[];
+  revealedCount: number;
+  result: AvalonQuestResult | null;
+};
+
 type AvalonGameState = {
   version: 1;
   phase: AvalonPhase;
@@ -115,6 +122,7 @@ type AvalonGameState = {
   teamVotesByPlayerId: Record<string, AvalonTeamVote>;
   questCardsByPlayerId: Record<string, AvalonQuestCard>;
   questResults: AvalonQuestResult[];
+  questReveal: AvalonQuestRevealState;
   phaseConfirmations: Record<string, string[]>;
   options: {
     rolePreset: AvalonRolePreset;
@@ -278,6 +286,13 @@ export type AvalonPlayState = {
     approve: number;
     reject: number;
   };
+  questReveal: {
+    questIndex: number | null;
+    revealedCount: number;
+    totalCount: number;
+    revealedCards: AvalonQuestCard[];
+    isComplete: boolean;
+  };
   ladyOfLake: {
     enabled: boolean;
     holderPlayerId: string | null;
@@ -370,6 +385,28 @@ function shuffleRoles(roles: AvalonRole[]) {
   }
 
   return shuffled;
+}
+
+function shuffleQuestCards(cards: AvalonQuestCard[]) {
+  const shuffled = [...cards];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomByte = new Uint8Array(1);
+    crypto.getRandomValues(randomByte);
+    const swapIndex = randomByte[0] % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
+function createEmptyQuestReveal(): AvalonQuestRevealState {
+  return {
+    questIndex: null,
+    cards: [],
+    revealedCount: 0,
+    result: null,
+  };
 }
 
 async function getOrCreatePlayerSessionId() {
@@ -581,7 +618,7 @@ function mapAvalonPhaseToSessionPhase(phase: AvalonPhase): WolfGamePhase {
     return "voting";
   }
 
-  if (phase === "quest") {
+  if (phase === "quest" || phase === "quest_reveal") {
     return "night";
   }
 
@@ -615,6 +652,7 @@ function createResultState(
     selectedTeamPlayerIds: [],
     teamVotesByPlayerId: {},
     questCardsByPlayerId: {},
+    questReveal: createEmptyQuestReveal(),
     ladyOfLake: {
       ...state.ladyOfLake,
       pendingAfterQuestIndex: null,
@@ -643,6 +681,7 @@ function beginNextProposalState(state: AvalonGameState): AvalonGameState {
     selectedTeamPlayerIds: [],
     teamVotesByPlayerId: {},
     questCardsByPlayerId: {},
+    questReveal: createEmptyQuestReveal(),
   };
 }
 
@@ -686,6 +725,7 @@ function parseAvalonState(rawState: unknown, players: PlayerRow[]): AvalonGameSt
     teamVotesByPlayerId: {},
     questCardsByPlayerId: {},
     questResults: [],
+    questReveal: createEmptyQuestReveal(),
     phaseConfirmations: {},
     options: {
       rolePreset: "recommended",
@@ -715,6 +755,11 @@ function parseAvalonState(rawState: unknown, players: PlayerRow[]): AvalonGameSt
 
   const state = rawState as Partial<AvalonGameState>;
   const phase = state.phase && AVALON_PHASE_LABELS[state.phase] ? state.phase : fallback.phase;
+  const rawQuestReveal =
+    state.questReveal && typeof state.questReveal === "object" ? state.questReveal : fallback.questReveal;
+  const questRevealCards = Array.isArray(rawQuestReveal.cards)
+    ? rawQuestReveal.cards.filter((card): card is AvalonQuestCard => card === "success" || card === "fail")
+    : [];
   const options = {
     ...fallback.options,
     ...(state.options ?? {}),
@@ -752,6 +797,15 @@ function parseAvalonState(rawState: unknown, players: PlayerRow[]): AvalonGameSt
     teamVotesByPlayerId: state.teamVotesByPlayerId ?? {},
     questCardsByPlayerId: state.questCardsByPlayerId ?? {},
     questResults: Array.isArray(state.questResults) ? state.questResults : [],
+    questReveal: {
+      questIndex: typeof rawQuestReveal.questIndex === "number" ? rawQuestReveal.questIndex : null,
+      cards: questRevealCards,
+      revealedCount:
+        typeof rawQuestReveal.revealedCount === "number"
+          ? Math.min(Math.max(0, rawQuestReveal.revealedCount), questRevealCards.length)
+          : 0,
+      result: rawQuestReveal.result ?? null,
+    },
     phaseConfirmations: normalizeConfirmations(state.phaseConfirmations),
     options,
     ladyOfLake: {
@@ -863,6 +917,7 @@ function buildInitialAvalonState(
     teamVotesByPlayerId: {},
     questCardsByPlayerId: {},
     questResults: [],
+    questReveal: createEmptyQuestReveal(),
     phaseConfirmations: {},
     options: {
       rolePreset: input.rolePreset,
@@ -934,7 +989,7 @@ function buildPrivateInfo(state: AvalonGameState, currentPlayer: PlayerRow | nul
           playerName: getPlayerNameFromState(state, playerId),
           role: null,
           loyalty: null,
-          note: "Một trong các người chơi này xuất hiện như Merlin",
+          note: "",
         });
       }
     }
@@ -944,13 +999,13 @@ function buildPrivateInfo(state: AvalonGameState, currentPlayer: PlayerRow | nul
     for (const playerId of state.playerOrderIds) {
       const role = state.roleByPlayerId[playerId];
 
-      if (role && isAvalonEvilRole(role) && role !== "oberon") {
+      if (role && isAvalonEvilRole(role) && role !== "oberon" && playerId !== currentPlayer.id) {
         knownPlayers.push({
           playerId,
           playerName: getPlayerNameFromState(state, playerId),
           role,
           loyalty: "evil",
-          note: playerId === currentPlayer.id ? "Bạn" : "Đồng đội Evil",
+          note: "Đồng đội Evil",
         });
       }
     }
@@ -1013,12 +1068,7 @@ function buildAvalonPlayPlayers(
       isOnQuestTeam: state.selectedTeamPlayerIds.includes(playerId),
       hasConfirmedRole: confirmedRolePlayerIds.has(playerId),
       hasTeamVoted: Boolean(teamVote),
-      teamVote:
-        state.phase !== "team_vote" || Object.keys(state.teamVotesByPlayerId).length >= state.playerOrderIds.length
-          ? teamVote
-          : currentPlayer?.id === playerId
-            ? teamVote
-            : null,
+      teamVote,
       hasQuestSubmitted,
     };
   });
@@ -1067,6 +1117,7 @@ function advanceAfterQuest(state: AvalonGameState, questIndex: number): AvalonGa
       selectedTeamPlayerIds: [],
       teamVotesByPlayerId: {},
       questCardsByPlayerId: {},
+      questReveal: createEmptyQuestReveal(),
       ladyOfLake: {
         ...state.ladyOfLake,
         pendingAfterQuestIndex: null,
@@ -1088,6 +1139,7 @@ function advanceAfterQuest(state: AvalonGameState, questIndex: number): AvalonGa
       selectedTeamPlayerIds: [],
       teamVotesByPlayerId: {},
       questCardsByPlayerId: {},
+      questReveal: createEmptyQuestReveal(),
       ladyOfLake: {
         ...state.ladyOfLake,
         pendingAfterQuestIndex: questIndex,
@@ -1638,6 +1690,13 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
       approve: teamVotes.filter((vote) => vote === "approve").length,
       reject: teamVotes.filter((vote) => vote === "reject").length,
     },
+    questReveal: {
+      questIndex: state.questReveal.questIndex,
+      revealedCount: state.questReveal.revealedCount,
+      totalCount: state.questReveal.cards.length,
+      revealedCards: state.questReveal.cards.slice(0, state.questReveal.revealedCount),
+      isComplete: state.questReveal.cards.length > 0 && state.questReveal.revealedCount >= state.questReveal.cards.length,
+    },
     ladyOfLake: {
       enabled: state.ladyOfLake.enabled,
       holderPlayerId: state.ladyOfLake.holderPlayerId,
@@ -1756,6 +1815,69 @@ export async function proposeAvalonTeam(
       selectedTeamPlayerIds: uniquePlayerIds,
       teamVotesByPlayerId: {},
       questCardsByPlayerId: {},
+    };
+  });
+
+  if (result.ok) {
+    await safeBroadcastWolfPlayUpdate(room.code);
+  }
+
+  return result;
+}
+
+export async function updateAvalonTeamDraft(
+  roomCode: string,
+  input: { playerIds: string[]; questIndex?: number | null }
+): Promise<AvalonMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván Avalon." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const result = await updateAvalonState(supabase, room.current_game_id, players, (state) => {
+    if (state.phase !== "team_proposal") {
+      return { error: "Chưa đến bước chọn đội." };
+    }
+
+    if (getLeaderPlayerId(state) !== currentPlayer.id) {
+      return { error: "Chỉ Leader hiện tại mới được chọn đội." };
+    }
+
+    const questIndex = input.questIndex ?? state.proposedQuestIndex ?? state.questIndex;
+    const availableQuestIndexes = getAvailableAvalonQuestIndexes(
+      getCompletedQuestIndexes(state),
+      getQuestCounts(state).success,
+      state.options.targeting
+    );
+
+    if (!availableQuestIndexes.includes(questIndex)) {
+      return { error: "Quest được chọn không hợp lệ." };
+    }
+
+    const requiredTeamSize = getAvalonQuestTeamSize(state.playerOrderIds.length, questIndex);
+    const uniquePlayerIds = Array.from(new Set(input.playerIds));
+
+    if (uniquePlayerIds.length > requiredTeamSize) {
+      return { error: `Quest ${questIndex + 1} chỉ được chọn ${requiredTeamSize} người.` };
+    }
+
+    if (uniquePlayerIds.some((playerId) => !state.playerOrderIds.includes(playerId))) {
+      return { error: "Đội đang chọn có người chơi không hợp lệ." };
+    }
+
+    return {
+      ...state,
+      proposedQuestIndex: questIndex,
+      selectedTeamPlayerIds: uniquePlayerIds,
     };
   });
 
@@ -1909,24 +2031,83 @@ export async function submitAvalonQuestCard(
     const failCount = Object.values(nextQuestCards).filter((selectedCard) => selectedCard === "fail").length;
     const requiredFails = getAvalonQuestRequiredFails(state.playerOrderIds.length, questIndex);
     const outcome: AvalonQuestOutcome = failCount >= requiredFails ? "fail" : "success";
+    const questResult: AvalonQuestResult = {
+      questIndex,
+      teamPlayerIds: state.selectedTeamPlayerIds,
+      failCount,
+      requiredFails,
+      outcome,
+      leaderPlayerId: getLeaderPlayerId(state) ?? currentPlayer.id,
+      proposalAttempt: state.proposalAttempt,
+      votesByPlayerId: state.teamVotesByPlayerId,
+    };
+
+    return {
+      ...state,
+      phase: "quest_reveal",
+      questIndex,
+      questCardsByPlayerId: nextQuestCards,
+      questReveal: {
+        questIndex,
+        cards: shuffleQuestCards(Object.values(nextQuestCards)),
+        revealedCount: 0,
+        result: questResult,
+      },
+    };
+  });
+
+  if (result.ok) {
+    await safeBroadcastWolfPlayUpdate(room.code);
+  }
+
+  return result;
+}
+
+export async function revealAvalonQuestCard(roomCode: string): Promise<AvalonMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván Avalon." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const result = await updateAvalonState(supabase, room.current_game_id, players, (state) => {
+    if (state.phase !== "quest_reveal") {
+      return { error: "Chưa đến bước mở bài quest." };
+    }
+
+    if (getLeaderPlayerId(state) !== currentPlayer.id) {
+      return { error: "Chỉ Leader của quest mới được mở bài." };
+    }
+
+    if (state.questReveal.cards.length === 0 || !state.questReveal.result) {
+      return { error: "Không tìm thấy bộ bài quest cần mở." };
+    }
+
+    if (state.questReveal.revealedCount < state.questReveal.cards.length) {
+      return {
+        ...state,
+        questReveal: {
+          ...state.questReveal,
+          revealedCount: state.questReveal.revealedCount + 1,
+        },
+      };
+    }
+
+    const questIndex = state.questReveal.questIndex ?? state.proposedQuestIndex ?? state.questIndex;
     const nextState: AvalonGameState = {
       ...state,
       leaderIndex: getNextLeaderIndex(state),
       questIndex,
-      questCardsByPlayerId: nextQuestCards,
-      questResults: [
-        ...state.questResults,
-        {
-          questIndex,
-          teamPlayerIds: state.selectedTeamPlayerIds,
-          failCount,
-          requiredFails,
-          outcome,
-          leaderPlayerId: getLeaderPlayerId(state) ?? currentPlayer.id,
-          proposalAttempt: state.proposalAttempt,
-          votesByPlayerId: state.teamVotesByPlayerId,
-        },
-      ],
+      questResults: [...state.questResults, state.questReveal.result],
+      questReveal: createEmptyQuestReveal(),
     };
 
     return advanceAfterQuest(nextState, questIndex);
