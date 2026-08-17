@@ -4272,56 +4272,204 @@
   text-align: center;
 }
 
+/* --- Mở bài (quest reveal) panel --- */
+.avalonRevealDivider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: calc(var(--spacing-md) * -0.5) 0;
+}
+
+.avalonRevealDivider::before,
+.avalonRevealDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--primary-light) 42%, transparent)
+  );
+}
+
+.avalonRevealDivider::after {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary-light) 42%, transparent),
+    transparent
+  );
+}
+
+.avalonRevealDividerGem {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  margin: 0 0.6rem;
+  transform: rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 70%, transparent);
+  background: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+.avalonRevealHeading {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+  margin-bottom: 0.15rem;
+}
+
+.avalonRevealHeading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.15rem, 5vw, 1.4rem);
+  line-height: 1.2;
+}
+
+.avalonRevealHeading span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
 .avalonQuestRevealCards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.4rem), 1fr));
   gap: var(--spacing-sm);
 }
 
 .avalonQuestRevealCard {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  min-height: 8.5rem;
+  color: var(--text-secondary);
+  text-align: center;
+  perspective: 900px;
+}
+
+.avalonQuestRevealInner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+}
+
+.avalonQuestRevealInnerRevealed {
+  transform: rotateY(180deg);
+}
+
+.avalonQuestRevealInnerFlipping {
+  z-index: 2;
+  animation: avalonQuestFlip 0.9s ease forwards;
+}
+
+@keyframes avalonQuestFlip {
+  0% {
+    transform: translateY(0) scale(1) rotateY(0deg);
+  }
+  28% {
+    transform: translateY(-1.3rem) scale(1.08) rotateY(0deg);
+  }
+  70% {
+    transform: translateY(-1.3rem) scale(1.08) rotateY(180deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateY(180deg);
+  }
+}
+
+.avalonQuestRevealFace {
+  position: absolute;
+  inset: 0;
   display: grid;
-  min-height: 7.2rem;
   place-items: center;
-  gap: 0.35rem;
-  padding: var(--spacing-md);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
-  border-radius: 0.8rem;
+  align-content: center;
+  gap: 0.5rem;
+  padding: var(--spacing-sm);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.avalonQuestRevealFront {
   background:
     repeating-linear-gradient(
       135deg,
-      color-mix(in srgb, var(--primary) 14%, transparent) 0,
-      color-mix(in srgb, var(--primary) 14%, transparent) 0.12rem,
-      transparent 0.12rem,
-      transparent 0.55rem
+      color-mix(in srgb, var(--primary) 10%, transparent) 0,
+      color-mix(in srgb, var(--primary) 10%, transparent) 0.1rem,
+      transparent 0.1rem,
+      transparent 0.6rem
     ),
-    var(--bg-card);
-  color: var(--text-secondary);
-  text-align: center;
+    var(--bg-secondary);
 }
 
-.avalonQuestRevealCard svg {
-  width: 1.55rem;
-  min-width: 1.55rem;
+.avalonQuestRevealBack {
+  transform: rotateY(180deg);
 }
 
 .avalonQuestRevealCard strong {
   min-width: 0;
   overflow-wrap: anywhere;
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
   line-height: 1.15;
+  text-transform: uppercase;
+}
+
+/* revealed badge (Check / X inside a ring) — inherit the face's success/fail color */
+.avalonQuestRevealFace .avalonQuestRevealBadge {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999rem;
+  border: 2px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
+}
+
+.avalonQuestRevealBadge svg {
+  width: 1.5rem;
+  min-width: 1.5rem;
 }
 
 .avalonQuestRevealCardSuccess {
-  border-color: color-mix(in srgb, var(--success) 54%, transparent);
-  background: color-mix(in srgb, var(--success) 16%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success) 70%, transparent);
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--success) 26%, transparent), transparent 5rem),
+    color-mix(in srgb, var(--success) 12%, var(--bg-card));
   color: var(--success);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent),
+    0 0 1.6rem color-mix(in srgb, var(--success) 34%, transparent);
 }
 
 .avalonQuestRevealCardFail {
-  border-color: color-mix(in srgb, var(--danger) 54%, transparent);
-  background: color-mix(in srgb, var(--danger) 16%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--danger) 70%, transparent);
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--danger) 26%, transparent), transparent 5rem),
+    color-mix(in srgb, var(--danger) 12%, var(--bg-card));
   color: var(--danger);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent),
+    0 0 1.6rem color-mix(in srgb, var(--danger) 34%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avalonQuestRevealInner {
+    transition: none;
+  }
+  .avalonQuestRevealInnerFlipping {
+    animation: none;
+  }
 }
 
 .avalonResultList {

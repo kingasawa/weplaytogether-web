@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
 import {
   AVALON_ROLE_LABELS,
   getAvalonRoleImagePath,
@@ -57,6 +57,7 @@ const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;
 
 type AvalonPlayScreenProps = {
   initialState: AvalonPlayState;
+  debugQuestOutcomes?: AvalonQuestCard[];
 };
 
 type AvalonSelectionState = {
@@ -85,7 +86,7 @@ function getPlayerName(players: AvalonPlayPlayer[], playerId: string | null) {
   return players.find((player) => player.id === playerId)?.name ?? "Không rõ";
 }
 
-export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps) {
+export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: AvalonPlayScreenProps) {
   const router = useRouter();
   const [playState, setPlayState] = useState(initialState);
   const [selectionState, setSelectionState] = useState<AvalonSelectionState>(() => ({
@@ -109,6 +110,29 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
   const [isPrivateInfoOpen, setIsPrivateInfoOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [flippingCardKey, setFlippingCardKey] = useState<string | null>(null);
+  const previousRevealRef = useRef<{ questIndex: number | null; revealedCount: number }>({
+    questIndex: initialState.questReveal.questIndex,
+    revealedCount: initialState.questReveal.revealedCount,
+  });
+
+  useEffect(() => {
+    const questIndex = playState.questReveal.questIndex;
+    const revealedCount = playState.questReveal.revealedCount;
+    const previous = previousRevealRef.current;
+    if (previous.questIndex === questIndex && revealedCount > previous.revealedCount) {
+      setFlippingCardKey(`${questIndex}:${revealedCount - 1}`);
+    }
+    previousRevealRef.current = { questIndex, revealedCount };
+  }, [playState.questReveal.questIndex, playState.questReveal.revealedCount]);
+
+  useEffect(() => {
+    if (!flippingCardKey) {
+      return;
+    }
+    const timer = setTimeout(() => setFlippingCardKey(null), 900);
+    return () => clearTimeout(timer);
+  }, [flippingCardKey]);
 
   const currentPlayer = playState.players.find((player) => player.id === playState.currentPlayerId) ?? null;
   const isLeader = Boolean(currentPlayer && playState.leaderPlayerId === currentPlayer.id);
@@ -304,6 +328,23 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
   }
 
   function revealQuestCard() {
+    if (debugQuestOutcomes) {
+      setPlayState((current) => {
+        const total = current.questReveal.totalCount;
+        const nextCount = Math.min(current.questReveal.revealedCount + 1, total);
+        return {
+          ...current,
+          questReveal: {
+            ...current.questReveal,
+            revealedCount: nextCount,
+            revealedCards: debugQuestOutcomes.slice(0, nextCount),
+            isComplete: nextCount >= total,
+          },
+        };
+      });
+      return;
+    }
+
     runMutation(
       playState.questReveal.isComplete ? "Đang chốt kết quả quest..." : "Đang mở lá quest...",
       () => revealAvalonQuestCard(playState.room.code)
@@ -913,7 +954,10 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
           <Eye aria-hidden="true" />
           <span>Mở bài Quest {currentQuestNumber}</span>
         </div>
-        <div className={styles.avalonPhaseSummary}>
+        <div className={styles.avalonRevealDivider} aria-hidden="true">
+          <span className={styles.avalonRevealDividerGem} />
+        </div>
+        <div className={styles.avalonRevealHeading}>
           <strong>
             Đã mở {playState.questReveal.revealedCount}/{totalCards} lá
           </strong>
@@ -922,31 +966,43 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
         <div className={styles.avalonQuestRevealCards}>
           {Array.from({ length: totalCards }, (_, cardIndex) => {
             const card = revealedCards[cardIndex] ?? null;
+            const isRevealed = card !== null;
+            const isFlipping = flippingCardKey === `${playState.questReveal.questIndex}:${cardIndex}`;
 
             return (
-              <article
-                className={`${styles.avalonQuestRevealCard} ${
-                  card === "success"
-                    ? styles.avalonQuestRevealCardSuccess
-                    : card === "fail"
-                      ? styles.avalonQuestRevealCardFail
-                      : ""
-                }`}
-                key={cardIndex}
-              >
-                {card === "success" ? (
-                  <>
-                    <Check aria-hidden="true" />
-                    <strong>Success</strong>
-                  </>
-                ) : card === "fail" ? (
-                  <>
-                    <X aria-hidden="true" />
-                    <strong>Fail</strong>
-                  </>
-                ) : (
-                  <strong>?</strong>
-                )}
+              <article className={styles.avalonQuestRevealCard} key={cardIndex}>
+                <div
+                  className={`${styles.avalonQuestRevealInner} ${
+                    isRevealed ? styles.avalonQuestRevealInnerRevealed : ""
+                  } ${isFlipping ? styles.avalonQuestRevealInnerFlipping : ""}`}
+                >
+                  <div className={`${styles.avalonQuestRevealFace} ${styles.avalonQuestRevealFront}`} />
+                  <div
+                    className={`${styles.avalonQuestRevealFace} ${styles.avalonQuestRevealBack} ${
+                      card === "success"
+                        ? styles.avalonQuestRevealCardSuccess
+                        : card === "fail"
+                          ? styles.avalonQuestRevealCardFail
+                          : ""
+                    }`}
+                  >
+                    {card === "success" ? (
+                      <>
+                        <span className={styles.avalonQuestRevealBadge}>
+                          <Check aria-hidden="true" />
+                        </span>
+                        <strong>Success</strong>
+                      </>
+                    ) : card === "fail" ? (
+                      <>
+                        <span className={styles.avalonQuestRevealBadge}>
+                          <X aria-hidden="true" />
+                        </span>
+                        <strong>Fail</strong>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               </article>
             );
           })}
@@ -954,7 +1010,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
         {isLeader ? (
           <button className={styles.primaryButton} type="button" disabled={isPending} onClick={revealQuestCard}>
             <Eye aria-hidden="true" />
-            {playState.questReveal.isComplete ? "Chốt kết quả quest" : "Mở lá tiếp theo"}
+            {playState.questReveal.isComplete ? "Tiếp tục" : "Mở lá tiếp theo"}
           </button>
         ) : (
           <p className={styles.avalonWaitingText}>Đang chờ Leader {playState.leaderName} mở bài quest.</p>

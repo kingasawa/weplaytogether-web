@@ -320,9 +320,9 @@ export function buildDebugAvalonState({ phase, playerId, role, view, votes }: Bu
     phase === "quest_reveal"
       ? {
           questIndex: 1,
-          revealedCount: 1,
+          revealedCount: 0,
           totalCount: 3,
-          revealedCards: ["success" as const],
+          revealedCards: [],
           isComplete: false,
         }
       : {

@@ -1,6 +1,8 @@
-import type { AvalonPhase } from "@/lib/avalon-game";
+import type { AvalonPhase, AvalonQuestCard } from "@/lib/avalon-game";
 import AvalonPlayScreen from "../games/avalon/rooms/[roomId]/play/avalon-play-screen";
 import { buildDebugAvalonState } from "./avalon-debug-state";
+
+const DEBUG_QUEST_REVEAL_OUTCOMES: AvalonQuestCard[] = ["success", "fail", "fail"];
 
 export type DebugAvalonPhasePageProps = {
   searchParams: Promise<{
@@ -14,5 +16,10 @@ export type DebugAvalonPhasePageProps = {
 export async function renderDebugAvalonPhase(phase: AvalonPhase, searchParams: DebugAvalonPhasePageProps["searchParams"]) {
   const { playerId, role, view, votes } = await searchParams;
 
-  return <AvalonPlayScreen initialState={buildDebugAvalonState({ phase, playerId, role, view, votes })} />;
+  return (
+    <AvalonPlayScreen
+      initialState={buildDebugAvalonState({ phase, playerId, role, view, votes })}
+      debugQuestOutcomes={phase === "quest_reveal" ? DEBUG_QUEST_REVEAL_OUTCOMES : undefined}
+    />
+  );
 }
