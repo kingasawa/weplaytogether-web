@@ -48,7 +48,7 @@ export function getDebugAvalonRole(role?: string, fallback: AvalonRole = "merlin
   return DEBUG_AVALON_ROLE_OPTIONS.includes(role as AvalonRole) ? (role as AvalonRole) : fallback;
 }
 
-function getRoleByPlayerId(currentRole: AvalonRole) {
+function getRoleByPlayerId(currentRole: AvalonRole): Record<string, AvalonRole> {
   return {
     ...DEBUG_FALLBACK_ROLE_BY_PLAYER_ID,
     p1: currentRole,
@@ -95,7 +95,7 @@ function getDebugKnownPlayers(role: AvalonRole): AvalonPlayState["privateInfo"][
   }
 
   if (getAvalonRoleTeam(role) === "evil") {
-    return [
+    const knownPlayers: AvalonPlayState["privateInfo"]["knownPlayers"] = [
       {
         playerId: "p4",
         playerName: "Dai Chua",
@@ -110,7 +110,9 @@ function getDebugKnownPlayers(role: AvalonRole): AvalonPlayState["privateInfo"][
         loyalty: "evil",
         note: "Đồng đội Evil",
       },
-    ].filter((player) => DEBUG_FALLBACK_ROLE_BY_PLAYER_ID[player.playerId] !== role);
+    ];
+
+    return knownPlayers.filter((player) => DEBUG_FALLBACK_ROLE_BY_PLAYER_ID[player.playerId] !== role);
   }
 
   return [];
