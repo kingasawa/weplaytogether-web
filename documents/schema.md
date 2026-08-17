@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-12 -->
+﻿<!-- Last updated: 2026-08-17 -->
 
 # Database Schema
 
@@ -16,13 +16,15 @@ On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was cre
 
 On 2026-07-28, local migration `202607280001_classic_wolf_state.sql` was created to add the separate `classic_wolf_game_states` table for Ma Sói nhiều đêm state stored as JSON. This keeps one-night Ma Sói gameplay tables and constraints unchanged.
 
-On 2026-07-30, local migration `202607300001_wolf_avatar_key_new_assets.sql` was created to allow the new avatar asset keys `duong`, `lan`, and `tri`.
+On 2026-07-30, local migration `202607300001_wolf_avatar_key_new_assets.sql` was created to allow the named avatar asset keys `khanh`, `duong`, `duy`, `lan`, `na`, `oanh`, and `tri`.
 
 On 2026-08-11, local migration `202608110001_wolf_room_visibility.sql` was created to add public/private room visibility. Public room lists should show only `waiting` rooms where `is_public = true`; private rooms remain joinable by code through server actions.
 
 On 2026-08-11, local migration `202608110002_wolf_hourly_room_maintenance.sql` was created to close inactive rooms and run cleanup hourly. Waiting rooms inactive for 2 hours are marked `finished`; playing rooms inactive for 30 minutes are marked `finished`; already closed room data is deleted hourly after 1 hour.
 
 On 2026-08-12, local migration `202608120001_wolf_result_snapshot.sql` was created to add `wolf_game_sessions.result_snapshot`. One-night Ma Sói result data should be frozen into this JSON payload when a game enters `result`, so role summaries, vote counts, winner text, and night movement logs no longer depend on rows remaining in `wolf_room_players`.
+
+On 2026-08-17, local migration `202608170001_wolf_avatar_key_all_assets.sql` was created to repair the avatar key check constraint for deployments that already applied the older named-avatar migration without `duy`, `na`, and `oanh`.
 
 ## Current Remote State
 
@@ -42,6 +44,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608110001_wolf_room_visibility.sql`
 - `supabase/migrations/202608110002_wolf_hourly_room_maintenance.sql`
 - `supabase/migrations/202608120001_wolf_result_snapshot.sql`
+- `supabase/migrations/202608170001_wolf_avatar_key_all_assets.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -155,7 +158,7 @@ Local migration file created in this task and still pending manual remote apply:
 - Unique vote per game/voter: `wolf_game_votes(game_id, voter_player_id)`
 - Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
 - Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
-- Avatar key check allows `avatar0`, `img` through `img_19`, `duong`, `lan`, and `tri`
+- Avatar key check allows `avatar0`, `img` through `img_19`, `khanh`, `duong`, `duy`, `lan`, `na`, `oanh`, and `tri`
 - Result snapshot consistency: `wolf_game_sessions.result_snapshot` must be null or a JSON object
 
 ### Functions And Scheduled Jobs
@@ -193,5 +196,7 @@ Local migration file created in this task and still pending manual remote apply:
 
 ## Remote Apply Notes
 
-Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
+Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`.
+
+On 2026-08-17, remote apply for `202608170001_wolf_avatar_key_all_assets.sql` was attempted from this workspace. Management API database query returned 403, the direct database host could not be used by Supabase CLI from this network, and the tested `ap-southeast-1` session pooler returned tenant/user not found. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
 

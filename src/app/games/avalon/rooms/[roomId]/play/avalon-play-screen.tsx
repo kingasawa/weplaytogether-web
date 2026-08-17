@@ -64,6 +64,8 @@ type AvalonSelectionState = {
   assassinationTargetId: string | null;
 };
 
+type AvalonKnownPlayer = AvalonPlayState["privateInfo"]["knownPlayers"][number];
+
 function getTeamLabel(team: AvalonPlayState["myLoyalty"]) {
   if (team === "good") {
     return "Good";
@@ -151,6 +153,36 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
   const rejectedTeamVoters = playState.players.filter((player) => player.teamVote === "reject");
   const currentPlayerWonResult =
     playState.result && playState.myLoyalty ? playState.result.winnerTeam === playState.myLoyalty : null;
+
+  function getPlayerAvatarKey(playerId: string) {
+    return playState.players.find((player) => player.id === playerId)?.avatarKey;
+  }
+
+  function renderKnownPlayerChip(knownPlayer: AvalonKnownPlayer, showNote = false, concealLoyalty = false) {
+    return (
+      <span
+        className={`${styles.avalonKnownPlayerChip} ${
+          !concealLoyalty && knownPlayer.loyalty === "evil" ? styles.avalonKnownPlayerEvil : ""
+        }`}
+        key={`${knownPlayer.playerId}-${knownPlayer.note}`}
+      >
+        <Image
+          alt=""
+          aria-hidden="true"
+          className={styles.avalonKnownPlayerAvatar}
+          height={32}
+          src={getPlayerAvatarPath(getPlayerAvatarKey(knownPlayer.playerId))}
+          width={32}
+        />
+        <span className={styles.avalonKnownPlayerText}>
+          <span className={styles.avalonKnownPlayerName}>{knownPlayer.playerName}</span>
+          {showNote && knownPlayer.note ? (
+            <span className={styles.avalonKnownPlayerNote}>{knownPlayer.note}</span>
+          ) : null}
+        </span>
+      </span>
+    );
+  }
 
   const refreshPlayState = useCallback(async () => {
     const nextState = await getAvalonPlayState(playState.room.code);
@@ -561,15 +593,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
           <div className={styles.avalonKnownSection}>
             {isEvil && <strong className={styles.avalonKnownTitle}>Đồng đội Evil</strong>}
             <div className={styles.avalonInfoList}>
-              {playState.privateInfo.knownPlayers.map((knownPlayer) => (
-                <span
-                  className={knownPlayer.loyalty === "evil" ? styles.avalonKnownPlayerEvil : ""}
-                  key={`${knownPlayer.playerId}-${knownPlayer.note}`}
-                >
-                  {knownPlayer.playerName}
-                  {knownPlayer.note ? `: ${knownPlayer.note}` : ""}
-                </span>
-              ))}
+              {playState.privateInfo.knownPlayers.map((knownPlayer) => renderKnownPlayerChip(knownPlayer, true))}
             </div>
           </div>
         )}
@@ -599,9 +623,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
           <strong>Ghi chú</strong>
           <p>Thấy Merlin và Morgana, nhưng không biết ai là Morgana và ai là Merlin thật.</p>
           <div className={styles.avalonRevealNameList}>
-            {knownPlayers.map((knownPlayer) => (
-              <span key={knownPlayer.playerId}>{knownPlayer.playerName}</span>
-            ))}
+            {knownPlayers.map((knownPlayer) => renderKnownPlayerChip(knownPlayer, false, true))}
           </div>
         </div>
       );
@@ -613,14 +635,7 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
       <div className={`${styles.avalonRevealNotes} ${isEvil ? styles.avalonRevealNotesEvil : ""}`}>
         <strong>{isEvil ? "Đồng đội Evil" : "Những người bên dưới là Evil"}</strong>
         <div className={styles.avalonRevealNameList}>
-          {knownPlayers.map((knownPlayer) => (
-            <span
-              className={knownPlayer.loyalty === "evil" ? styles.avalonKnownPlayerEvil : ""}
-              key={`${knownPlayer.playerId}-${knownPlayer.note}`}
-            >
-              {knownPlayer.playerName}
-            </span>
-          ))}
+          {knownPlayers.map((knownPlayer) => renderKnownPlayerChip(knownPlayer))}
         </div>
       </div>
     );
@@ -1036,7 +1051,17 @@ export default function AvalonPlayScreen({ initialState }: AvalonPlayScreenProps
             return (
               <div className={styles.avalonResultRow} key={player.id}>
                 <div className={styles.avalonResultPlayer}>
-                  <strong>{player.name}</strong>
+                  <div className={styles.avalonResultIdentity}>
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className={styles.avalonResultAvatar}
+                      height={36}
+                      src={getPlayerAvatarPath(player.avatarKey)}
+                      width={36}
+                    />
+                    <strong>{player.name}</strong>
+                  </div>
                   <span className={isEvil ? styles.avalonLoyaltyEvil : styles.avalonLoyaltyGood}>
                     {getTeamLabel(player.loyalty)}
                   </span>

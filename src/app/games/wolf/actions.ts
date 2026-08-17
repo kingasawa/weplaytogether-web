@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import { normalizePlayerAvatarKey } from "@/lib/player-avatars";
+import { isMissingAvatarKeyColumnError } from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRole, WolfRoomStatus } from "@/lib/supabase/types";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
@@ -454,18 +455,6 @@ function getRoomVisibilityErrorMessage(error?: DatabaseMutationError | null) {
   return null;
 }
 
-function isMissingAvatarKeyError(error?: DatabaseMutationError | null) {
-  if (!error) {
-    return false;
-  }
-
-  const errorText = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""} ${
-    error.hint ?? ""
-  }`.toLowerCase();
-
-  return errorText.includes("avatar_key");
-}
-
 function shuffleRoles(roles: WolfRole[]) {
   const shuffled = [...roles];
 
@@ -564,7 +553,7 @@ async function getActivePlayers(
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
 
-  if (isMissingAvatarKeyError(error)) {
+  if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
       .from("wolf_room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
@@ -597,7 +586,7 @@ async function insertWolfRoomPlayer(
     .select("id")
     .single();
 
-  if (!isMissingAvatarKeyError(error)) {
+  if (!isMissingAvatarKeyColumnError(error)) {
     return { data, error };
   }
 
@@ -627,7 +616,7 @@ async function updateWolfRoomPlayerIdentity(
     .update({ name, avatar_key: avatarKey })
     .eq("id", playerId);
 
-  if (!isMissingAvatarKeyError(error)) {
+  if (!isMissingAvatarKeyColumnError(error)) {
     return error;
   }
 
@@ -2702,7 +2691,16 @@ export async function joinWolfRoom(
     .maybeSingle();
 
   if (existingPlayer) {
-    await updateWolfRoomPlayerIdentity(supabase, existingPlayer.id, name, playerAvatarKey);
+    const updateError = await updateWolfRoomPlayerIdentity(
+      supabase,
+      existingPlayer.id,
+      name,
+      playerAvatarKey
+    );
+
+    if (updateError) {
+      return { ok: false, error: "Không thể cập nhật tên hoặc avatar người chơi." };
+    }
 
     await safeBroadcastWolfRoomUpdate(room.code);
 

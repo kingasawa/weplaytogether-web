@@ -46,6 +46,12 @@ Rules:
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+<!-- BEGIN:default-ci-scope-rules -->
+# Default CI scope
+
+When a CI/GitHub Actions failure is reported, do not fix or refactor eslint and build errors by default. Only inspect, run, or change eslint/build-related code when the user explicitly asks for it.
+<!-- END:default-ci-scope-rules -->
+
 <!-- BEGIN:design-system-rules -->
 # Design System — MANDATORY for all UI work
 

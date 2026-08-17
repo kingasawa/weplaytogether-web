@@ -25,6 +25,7 @@ import {
 } from "@/lib/avalon-game";
 import { normalizePlayerAvatarKey } from "@/lib/player-avatars";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
+import { isMissingAvatarKeyColumnError } from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRoomStatus } from "@/lib/supabase/types";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
@@ -364,16 +365,6 @@ function getRoomVisibilityErrorMessage(error?: DatabaseMutationError | null) {
     : null;
 }
 
-function isMissingAvatarKeyError(error?: DatabaseMutationError | null) {
-  if (!error) {
-    return false;
-  }
-
-  return `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`
-    .toLowerCase()
-    .includes("avatar_key");
-}
-
 function shuffleRoles(roles: AvalonRole[]) {
   const shuffled = [...roles];
 
@@ -456,7 +447,7 @@ async function getActivePlayers(
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
 
-  if (isMissingAvatarKeyError(error)) {
+  if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
       .from("wolf_room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
@@ -485,7 +476,7 @@ async function insertRoomPlayer(
 ) {
   const { data, error } = await supabase.from("wolf_room_players").insert(values).select("id").single();
 
-  if (!isMissingAvatarKeyError(error)) {
+  if (!isMissingAvatarKeyColumnError(error)) {
     return { data, error };
   }
 
@@ -511,7 +502,7 @@ async function updateRoomPlayerIdentity(
     .update({ name, avatar_key: avatarKey })
     .eq("id", playerId);
 
-  if (!isMissingAvatarKeyError(error)) {
+  if (!isMissingAvatarKeyColumnError(error)) {
     return error;
   }
 
@@ -1316,7 +1307,7 @@ export async function joinAvalonRoom(
     );
 
     if (updateError) {
-      return { ok: false, error: "Không thể cập nhật tên người chơi." };
+      return { ok: false, error: "Không thể cập nhật tên hoặc avatar người chơi." };
     }
 
     await safeBroadcastWolfRoomUpdate(room.code);

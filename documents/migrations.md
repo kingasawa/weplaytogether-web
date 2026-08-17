@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-12 -->
+﻿<!-- Last updated: 2026-08-17 -->
 
 # Migrations
 
@@ -179,7 +179,7 @@ Path:
 
 Purpose:
 
-- Update `wolf_room_players_avatar_key_check` to allow the new avatar asset keys `duong`, `lan`, and `tri`.
+- Update `wolf_room_players_avatar_key_check` to allow the named avatar asset keys `khanh`, `duong`, `duy`, `lan`, `na`, `oanh`, and `tri`.
 - Keep the existing avatar keys valid and append the new choices after the current avatar list in the app.
 - This migration depends on `202606040001_wolf_player_avatars.sql`; apply the avatar column migration first on a fresh database.
 
@@ -229,6 +229,20 @@ Purpose:
 - Keep winner text, vote counts, all player role summaries, and night movement logs available even if players leave the room and their live membership/gameplay rows are later deleted.
 - Add a check constraint requiring the snapshot to be null or a JSON object.
 
+## 202608170001_wolf_avatar_key_all_assets.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608170001_wolf_avatar_key_all_assets.sql`
+
+Purpose:
+
+- Repair `wolf_room_players_avatar_key_check` for databases that already applied an older named-avatar constraint without `duy`, `na`, and `oanh`.
+- Keep the database constraint aligned with `PLAYER_AVATAR_KEYS` in `src/lib/player-avatars.ts`.
+- This migration depends on `202606040001_wolf_player_avatars.sql`; apply the avatar column migration first on a fresh database.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -245,8 +259,15 @@ Remote execution update on 2026-06-12:
 - Direct session pooler execution succeeded for `202606120002_wolf_action_third_center_target.sql`.
 - Verified `public.wolf_game_actions.target_center_index_3` and `wolf_game_actions_center_index_3_check`.
 
+Remote execution update on 2026-08-17:
+
+- Supabase Management API database query for the avatar constraint returned 403.
+- Supabase CLI direct database query could not use the project database host from this workspace.
+- Supabase CLI query through the tested `ap-southeast-1` session pooler returned tenant/user not found.
+- `202608170001_wolf_avatar_key_all_assets.sql` remains pending manual remote apply.
+
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, and `202608120001_wolf_result_snapshot.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, and `202608170001_wolf_avatar_key_all_assets.sql` in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 
