@@ -34,25 +34,51 @@ const DEBUG_FALLBACK_ROLE_BY_PLAYER_ID: Record<string, AvalonRole> = {
   p5: "morgana",
 };
 
-const DEBUG_TEAM_VOTES: Record<string, AvalonTeamVote> = {
+const DEBUG_PENDING_TEAM_VOTES: Record<string, AvalonTeamVote> = {
   p2: "approve",
   p4: "reject",
 };
 
+const DEBUG_COMPLETE_TEAM_VOTES: Record<string, AvalonTeamVote> = {
+  ...DEBUG_PENDING_TEAM_VOTES,
+  p1: "approve",
+  p3: "approve",
+  p5: "reject",
+};
+
 type BuildDebugAvalonStateInput = {
   phase: AvalonPhase;
+  playerId?: string;
   role?: string;
+  view?: string;
+  votes?: string;
 };
 
 export function getDebugAvalonRole(role?: string, fallback: AvalonRole = "merlin") {
   return DEBUG_AVALON_ROLE_OPTIONS.includes(role as AvalonRole) ? (role as AvalonRole) : fallback;
 }
 
-function getRoleByPlayerId(currentRole: AvalonRole): Record<string, AvalonRole> {
+function getRoleByPlayerId(currentRole: AvalonRole, currentPlayerId: string): Record<string, AvalonRole> {
   return {
     ...DEBUG_FALLBACK_ROLE_BY_PLAYER_ID,
-    p1: currentRole,
+    [currentPlayerId]: currentRole,
   };
+}
+
+function getDebugCurrentPlayerId(view: string | undefined, playerId: string | undefined, leaderPlayerId: string) {
+  if (playerId && DEBUG_PLAYERS.some((player) => player.id === playerId)) {
+    return playerId;
+  }
+
+  if (view === "leader") {
+    return leaderPlayerId;
+  }
+
+  return "p1";
+}
+
+function getDebugTeamVotes(votes: string | undefined) {
+  return votes === "complete" ? DEBUG_COMPLETE_TEAM_VOTES : DEBUG_PENDING_TEAM_VOTES;
 }
 
 function getDebugKnownPlayers(role: AvalonRole): AvalonPlayState["privateInfo"]["knownPlayers"] {
@@ -228,7 +254,7 @@ function getPhaseDefaults(phase: AvalonPhase) {
       leaderPlayerId: "p1",
       selectedTeamPlayerIds: [] as string[],
       proposedQuestIndex: 0,
-      availableQuestIndexes: [0, 1],
+      availableQuestIndexes: [0],
     };
   }
 
@@ -276,12 +302,14 @@ function getPhaseDefaults(phase: AvalonPhase) {
   };
 }
 
-export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInput): AvalonPlayState {
+export function buildDebugAvalonState({ phase, playerId, role, view, votes }: BuildDebugAvalonStateInput): AvalonPlayState {
+  const phaseDefaults = getPhaseDefaults(phase);
+  const currentPlayerId = getDebugCurrentPlayerId(view, playerId, phaseDefaults.leaderPlayerId);
+  const teamVotesByPlayerId = getDebugTeamVotes(votes);
   const selectedRole = getDebugAvalonRole(role, phase === "assassination" ? "assassin" : "merlin");
   const loyalty = getAvalonRoleTeam(selectedRole);
-  const roleByPlayerId = getRoleByPlayerId(selectedRole);
+  const roleByPlayerId = getRoleByPlayerId(selectedRole, currentPlayerId);
   const questResults = getQuestResults(phase);
-  const phaseDefaults = getPhaseDefaults(phase);
   const successCount = questResults.filter((questResult) => questResult.outcome === "success").length;
   const failCount = questResults.filter((questResult) => questResult.outcome === "fail").length;
   const isResultPhase = phase === "result";
@@ -324,7 +352,7 @@ export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInpu
     players: DEBUG_PLAYERS.map((player) => {
       const playerRole = roleByPlayerId[player.id];
       const playerLoyalty = getAvalonRoleTeam(playerRole);
-      const teamVote = isTeamVotePhase ? DEBUG_TEAM_VOTES[player.id] ?? null : null;
+      const teamVote = isTeamVotePhase ? teamVotesByPlayerId[player.id] ?? null : null;
 
       return {
         id: player.id,
@@ -333,8 +361,8 @@ export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInpu
         isHost: player.id === "p1",
         isReady: true,
         joinedAt: "",
-        role: isResultPhase || player.id === "p1" ? playerRole : null,
-        loyalty: isResultPhase || player.id === "p1" ? playerLoyalty : null,
+        role: isResultPhase || player.id === currentPlayerId ? playerRole : null,
+        loyalty: isResultPhase || player.id === currentPlayerId ? playerLoyalty : null,
         isOnQuestTeam: phaseDefaults.selectedTeamPlayerIds.includes(player.id),
         hasConfirmedRole: phase !== "role_reveal",
         hasTeamVoted: Boolean(teamVote),
@@ -342,8 +370,8 @@ export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInpu
         hasQuestSubmitted: isQuestPhase && player.id === "p3",
       };
     }),
-    currentPlayerId: "p1",
-    isCurrentPlayerHost: true,
+    currentPlayerId,
+    isCurrentPlayerHost: currentPlayerId === "p1",
     leaderPlayerId: phaseDefaults.leaderPlayerId,
     leaderName,
     selectedTeamPlayerIds: phaseDefaults.selectedTeamPlayerIds,
@@ -374,10 +402,10 @@ export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInpu
             ]
           : [],
     },
-    isTeamVoteRevealed: isTeamVotePhase,
+    isTeamVoteRevealed: isTeamVotePhase && Object.keys(teamVotesByPlayerId).length >= DEBUG_PLAYERS.length,
     teamVoteCounts: {
-      approve: Object.values(DEBUG_TEAM_VOTES).filter((vote) => vote === "approve").length,
-      reject: Object.values(DEBUG_TEAM_VOTES).filter((vote) => vote === "reject").length,
+      approve: Object.values(teamVotesByPlayerId).filter((vote) => vote === "approve").length,
+      reject: Object.values(teamVotesByPlayerId).filter((vote) => vote === "reject").length,
     },
     questReveal,
     ladyOfLake: {
@@ -403,7 +431,7 @@ export function buildDebugAvalonState({ phase, role }: BuildDebugAvalonStateInpu
     options: {
       rolePreset: "recommended",
       ladyOfLake: phase === "lady" || phase === "result",
-      targeting: phase === "team_proposal",
+      targeting: false,
     },
     roleDeckSummary: DEBUG_AVALON_ROLE_OPTIONS.map((debugRole) => ({
       role: debugRole,

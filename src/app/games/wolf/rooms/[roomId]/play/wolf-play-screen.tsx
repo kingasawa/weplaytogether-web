@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
@@ -915,6 +915,14 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     });
   }
 
+  function requestResetGame() {
+    if (!window.confirm("Reset game và đưa tất cả người chơi về phòng chờ? Mọi người sẽ phải bấm sẵn sàng lại từ đầu.")) {
+      return;
+    }
+
+    returnToLobby();
+  }
+
   function exitGame() {
     setMessage("");
     setPendingLabel("Đang thoát phòng...");
@@ -1332,6 +1340,18 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{WOLF_PHASE_LABELS[playState.game.phase]}</h1>
         </div>
+        {playState.isCurrentPlayerHost && (
+          <button
+            aria-label="Reset game về phòng chờ"
+            className={styles.resetGameButton}
+            title="Reset game"
+            type="button"
+            disabled={isPending}
+            onClick={requestResetGame}
+          >
+            <RotateCcw aria-hidden="true" />
+          </button>
+        )}
         {isCardRevealPhase && (
           <p>
             Hãy xem kĩ lá bài của bạn và ghi nhớ nó

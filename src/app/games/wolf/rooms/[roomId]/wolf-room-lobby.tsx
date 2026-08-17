@@ -692,7 +692,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
             </button>
           )}
 
-          {currentPlayer && !isCurrentPlayerHost && (
+          {currentPlayer && (
             <button
               className={styles.secondaryButton}
               type="button"

@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   LogOut,
   Moon,
+  RotateCcw,
   Shield,
   Skull,
   Users,
@@ -738,6 +739,14 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     });
   }
 
+  function requestResetGame() {
+    if (!window.confirm("Reset game và đưa tất cả người chơi về phòng chờ? Mọi người sẽ phải bấm sẵn sàng lại từ đầu.")) {
+      return;
+    }
+
+    returnToLobby();
+  }
+
   function exitGame() {
     setMessage("");
     setPendingLabel("Đang thoát phòng...");
@@ -1315,6 +1324,18 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
           <h1>{currentPhaseLabel}</h1>
         </div>
         {isCardRevealPhase && <p>Xem vai bí mật của bạn. Khi đã nhớ role, bấm OK.</p>}
+        {playState.isCurrentPlayerHost && (
+          <button
+            aria-label="Reset game về phòng chờ"
+            className={styles.resetGameButton}
+            title="Reset game"
+            type="button"
+            disabled={isPending}
+            onClick={requestResetGame}
+          >
+            <RotateCcw aria-hidden="true" />
+          </button>
+        )}
         {isNightPhase && (
           <p>
             {isMyNightTurn && myRole

@@ -2919,7 +2919,7 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
     .eq("session_id", sessionId)
     .maybeSingle();
 
-  if (!player || player.is_host) {
+  if (!player) {
     return;
   }
 
@@ -3068,7 +3068,7 @@ export async function startWolfGame(
     return { ok: false, error: "Cần ít nhất 3 người chơi để bắt đầu." };
   }
 
-  const unreadyPlayer = players.find((player) => !player.is_host && !player.is_ready);
+  const unreadyPlayer = players.find((player) => !player.is_ready);
 
   if (unreadyPlayer) {
     return { ok: false, error: "Còn người chơi chưa sẵn sàng." };
@@ -4374,8 +4374,7 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
   await supabase
     .from("wolf_room_players")
     .update({ is_ready: false })
-    .eq("room_id", room.id)
-    .eq("is_host", false);
+    .eq("room_id", room.id);
 
   await safeBroadcastWolfRoomUpdate(room.code);
   await safeBroadcastWolfPlayUpdate(room.code);

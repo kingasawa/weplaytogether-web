@@ -135,7 +135,6 @@ export default function AvalonRoomLobby({
     getDefaultAvalonDeck(initialState.players.length, "recommended")
   );
   const [ladyOfLake, setLadyOfLake] = useState(false);
-  const [targeting, setTargeting] = useState(false);
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
   const [isLeaveWarningOpen, setIsLeaveWarningOpen] = useState(false);
@@ -388,7 +387,6 @@ export default function AvalonRoomLobby({
         rolePreset,
         selectedRoles: rolePreset === "custom" ? effectiveSelectedRoles : undefined,
         ladyOfLake,
-        targeting,
       });
 
       if (!result.ok) {
@@ -527,14 +525,6 @@ export default function AvalonRoomLobby({
                 />
                 <span>Lady of the Lake</span>
               </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={targeting}
-                  onChange={(event) => setTargeting(event.target.checked)}
-                />
-                <span>Targeting</span>
-              </label>
             </div>
 
             {errorMessage && <p className={styles.inlineError}>{errorMessage}</p>}
@@ -652,7 +642,7 @@ export default function AvalonRoomLobby({
                 </button>
               )}
 
-              {currentPlayer && !isCurrentPlayerHost && (
+              {currentPlayer && (
                 <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={toggleReady}>
                   {currentPlayer.isReady ? "Hủy sẵn sàng" : "Sẵn sàng"}
                 </button>

@@ -593,7 +593,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                 </button>
               )}
 
-              {currentPlayer && !isCurrentPlayerHost && (
+              {currentPlayer && (
                 <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={toggleReady}>
                   {currentPlayer.isReady ? "Hủy sẵn sàng" : "Sẵn sàng"}
                 </button>

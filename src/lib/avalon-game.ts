@@ -73,7 +73,7 @@ export const AVALON_PHASE_LABELS: Record<AvalonPhase, string> = {
   role_reveal: "Xem vai",
   team_proposal: "Chọn đội",
   team_vote: "Vote đội",
-  quest: "Đi quest",
+  quest: "Nhiệm vụ",
   quest_reveal: "Mở bài quest",
   lady: "Lady of the Lake",
   assassination: "Assassin đoán Merlin",
@@ -150,20 +150,9 @@ export function getAvalonSequentialNextQuestIndex(completedQuestIndexes: number[
   return 4;
 }
 
-export function getAvailableAvalonQuestIndexes(
-  completedQuestIndexes: number[],
-  successfulQuestCount: number,
-  isTargetingEnabled: boolean
-) {
-  if (!isTargetingEnabled) {
-    const nextQuestIndex = getAvalonSequentialNextQuestIndex(completedQuestIndexes);
-    return completedQuestIndexes.includes(nextQuestIndex) ? [] : [nextQuestIndex];
-  }
-
-  return [0, 1, 2, 3, 4].filter(
-    (questIndex) =>
-      !completedQuestIndexes.includes(questIndex) && (questIndex !== 4 || successfulQuestCount >= 2)
-  );
+export function getAvailableAvalonQuestIndexes(completedQuestIndexes: number[]) {
+  const nextQuestIndex = getAvalonSequentialNextQuestIndex(completedQuestIndexes);
+  return completedQuestIndexes.includes(nextQuestIndex) ? [] : [nextQuestIndex];
 }
 
 export function buildBasicAvalonDeck(playerCount: number): AvalonRole[] {

@@ -203,7 +203,6 @@ export type AvalonStartGameInput = {
   rolePreset?: AvalonRolePreset;
   selectedRoles?: AvalonRole[];
   ladyOfLake?: boolean;
-  targeting?: boolean;
 };
 
 export type AvalonStartGameResult =
@@ -655,12 +654,7 @@ function createResultState(
 }
 
 function beginNextProposalState(state: AvalonGameState): AvalonGameState {
-  const questCounts = getQuestCounts(state);
-  const availableQuestIndexes = getAvailableAvalonQuestIndexes(
-    getCompletedQuestIndexes(state),
-    questCounts.success,
-    state.options.targeting
-  );
+  const availableQuestIndexes = getAvailableAvalonQuestIndexes(getCompletedQuestIndexes(state));
   const nextQuestIndex = availableQuestIndexes[0] ?? state.questIndex;
 
   return {
@@ -754,6 +748,7 @@ function parseAvalonState(rawState: unknown, players: PlayerRow[]): AvalonGameSt
   const options = {
     ...fallback.options,
     ...(state.options ?? {}),
+    targeting: false,
   };
   const ladyOfLake = {
     ...fallback.ladyOfLake,
@@ -881,7 +876,7 @@ async function updateAvalonState(
 function buildInitialAvalonState(
   players: PlayerRow[],
   roles: AvalonRole[],
-  input: Required<Pick<AvalonStartGameInput, "rolePreset" | "ladyOfLake" | "targeting">>
+  input: Required<Pick<AvalonStartGameInput, "rolePreset" | "ladyOfLake">>
 ): AvalonGameState {
   const playerOrderIds = players.map((player) => player.id);
   const shuffledRoles = shuffleRoles(roles);
@@ -913,7 +908,7 @@ function buildInitialAvalonState(
     options: {
       rolePreset: input.rolePreset,
       ladyOfLake: input.ladyOfLake,
-      targeting: input.targeting,
+      targeting: false,
     },
     ladyOfLake: {
       enabled: input.ladyOfLake,
@@ -1570,7 +1565,6 @@ export async function startAvalonGame(
   const state = buildInitialAvalonState(players, deckValidation.roles, {
     rolePreset,
     ladyOfLake: Boolean(input.ladyOfLake),
-    targeting: Boolean(input.targeting),
   });
 
   const { error: stateError } = await supabase.from("avalon_game_states").insert({
@@ -1632,13 +1626,12 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
   const myRole = currentPlayer ? state.roleByPlayerId[currentPlayer.id] ?? null : null;
   const myLoyalty = myRole ? getAvalonRoleTeam(myRole) : null;
   const questCounts = getQuestCounts(state);
-  const currentQuestIndex = state.proposedQuestIndex ?? state.questIndex;
+  const availableQuestIndexes = getAvailableAvalonQuestIndexes(getCompletedQuestIndexes(state));
+  const currentQuestIndex =
+    state.phase === "team_proposal"
+      ? availableQuestIndexes[0] ?? state.questIndex
+      : state.proposedQuestIndex ?? state.questIndex;
   const requiredTeamSize = getAvalonQuestTeamSize(state.playerOrderIds.length, currentQuestIndex);
-  const availableQuestIndexes = getAvailableAvalonQuestIndexes(
-    getCompletedQuestIndexes(state),
-    questCounts.success,
-    state.options.targeting
-  );
   const leaderPlayerId = getLeaderPlayerId(state);
   const teamVotes = Object.values(state.teamVotesByPlayerId);
   const isTeamVoteRevealed =
@@ -1657,7 +1650,7 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
       phase: state.phase,
       phaseLabel: AVALON_PHASE_LABELS[state.phase],
       questIndex: state.questIndex,
-      proposedQuestIndex: state.proposedQuestIndex,
+      proposedQuestIndex: state.phase === "team_proposal" ? currentQuestIndex : state.proposedQuestIndex,
       proposalAttempt: state.proposalAttempt,
     },
     players: buildAvalonPlayPlayers(state, players, currentPlayer),
@@ -1777,12 +1770,8 @@ export async function proposeAvalonTeam(
       return { error: "Chỉ Leader hiện tại mới được chọn đội." };
     }
 
-    const questIndex = input.questIndex ?? state.proposedQuestIndex ?? state.questIndex;
-    const availableQuestIndexes = getAvailableAvalonQuestIndexes(
-      getCompletedQuestIndexes(state),
-      getQuestCounts(state).success,
-      state.options.targeting
-    );
+    const availableQuestIndexes = getAvailableAvalonQuestIndexes(getCompletedQuestIndexes(state));
+    const questIndex = availableQuestIndexes[0] ?? state.questIndex;
 
     if (!availableQuestIndexes.includes(questIndex)) {
       return { error: "Quest được chọn không hợp lệ." };
@@ -1843,12 +1832,8 @@ export async function updateAvalonTeamDraft(
       return { error: "Chỉ Leader hiện tại mới được chọn đội." };
     }
 
-    const questIndex = input.questIndex ?? state.proposedQuestIndex ?? state.questIndex;
-    const availableQuestIndexes = getAvailableAvalonQuestIndexes(
-      getCompletedQuestIndexes(state),
-      getQuestCounts(state).success,
-      state.options.targeting
-    );
+    const availableQuestIndexes = getAvailableAvalonQuestIndexes(getCompletedQuestIndexes(state));
+    const questIndex = availableQuestIndexes[0] ?? state.questIndex;
 
     if (!availableQuestIndexes.includes(questIndex)) {
       return { error: "Quest được chọn không hợp lệ." };
@@ -1915,14 +1900,48 @@ export async function submitAvalonTeamVote(
       [currentPlayer.id]: vote,
     };
 
-    if (Object.keys(nextVotes).length < state.playerOrderIds.length) {
-      return {
-        ...state,
-        teamVotesByPlayerId: nextVotes,
-      };
+    return {
+      ...state,
+      teamVotesByPlayerId: nextVotes,
+    };
+  });
+
+  if (result.ok) {
+    await safeBroadcastWolfPlayUpdate(room.code);
+  }
+
+  return result;
+}
+
+export async function continueAvalonTeamVote(roomCode: string): Promise<AvalonMutationResult> {
+  const sessionId = await getPlayerSessionId();
+  const { supabase, room } = await getRoomByCode(roomCode);
+
+  if (!sessionId || !room?.current_game_id) {
+    return { ok: false, error: "Không tìm thấy ván Avalon." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const currentPlayer = getCurrentPlayer(players, sessionId);
+
+  if (!currentPlayer) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const result = await updateAvalonState(supabase, room.current_game_id, players, (state) => {
+    if (state.phase !== "team_vote") {
+      return { error: "Chưa đến bước vote đội." };
     }
 
-    const approveCount = Object.values(nextVotes).filter((selectedVote) => selectedVote === "approve").length;
+    if (getLeaderPlayerId(state) !== currentPlayer.id) {
+      return { error: "Chỉ Leader của đội đang đề cử mới được tiếp tục." };
+    }
+
+    if (Object.keys(state.teamVotesByPlayerId).length < state.playerOrderIds.length) {
+      return { error: "Chưa đủ phiếu vote để tiếp tục." };
+    }
+
+    const approveCount = Object.values(state.teamVotesByPlayerId).filter((selectedVote) => selectedVote === "approve").length;
     const rejectCount = state.playerOrderIds.length - approveCount;
     const isApproved = approveCount > rejectCount;
 
@@ -1930,7 +1949,6 @@ export async function submitAvalonTeamVote(
       return {
         ...state,
         phase: "quest",
-        teamVotesByPlayerId: nextVotes,
         questCardsByPlayerId: {},
       };
     }
@@ -1939,7 +1957,6 @@ export async function submitAvalonTeamVote(
       return createResultState(
         {
           ...state,
-          teamVotesByPlayerId: nextVotes,
         },
         "evil",
         "Evil thắng",
@@ -2257,12 +2274,7 @@ export async function finishAvalonGame(roomCode: string): Promise<AvalonMutation
   await supabase
     .from("wolf_room_players")
     .update({ is_ready: false })
-    .eq("room_id", room.id)
-    .eq("is_host", false);
-
-  if (currentPlayer) {
-    await supabase.from("wolf_room_players").update({ is_ready: true }).eq("id", currentPlayer.id);
-  }
+    .eq("room_id", room.id);
 
   await safeBroadcastWolfRoomUpdate(room.code);
   await safeBroadcastWolfPlayUpdate(room.code);

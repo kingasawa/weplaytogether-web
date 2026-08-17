@@ -4,12 +4,15 @@ import { buildDebugAvalonState } from "./avalon-debug-state";
 
 export type DebugAvalonPhasePageProps = {
   searchParams: Promise<{
+    votes?: string;
     role?: string;
+    playerId?: string;
+    view?: string;
   }>;
 };
 
 export async function renderDebugAvalonPhase(phase: AvalonPhase, searchParams: DebugAvalonPhasePageProps["searchParams"]) {
-  const { role } = await searchParams;
+  const { playerId, role, view, votes } = await searchParams;
 
-  return <AvalonPlayScreen initialState={buildDebugAvalonState({ phase, role })} />;
+  return <AvalonPlayScreen initialState={buildDebugAvalonState({ phase, playerId, role, view, votes })} />;
 }

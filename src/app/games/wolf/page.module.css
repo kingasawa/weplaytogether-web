@@ -215,6 +215,18 @@
     0 5px 0 color-mix(in srgb, var(--success) 24%, var(--bg-primary));
 }
 
+.avalonQuestFailButton,
+.avalonVoteRejectButton {
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--danger) 36%, var(--bg-primary)),
+    color-mix(in srgb, var(--danger) 72%, var(--bg-primary))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent),
+    0 5px 0 color-mix(in srgb, var(--danger) 24%, var(--bg-primary));
+}
+
 .ghostButton {
   border: 0;
   background: linear-gradient(1deg, color-mix(in srgb, var(--bg-card) 55%, transparent), color-mix(in srgb, var(--bg-card) 88%, transparent));
@@ -248,6 +260,33 @@
     0 5px 0 color-mix(in srgb, var(--bg-card) 52%, black);
 }
 
+.resetGameButton {
+  position: absolute;
+  top: clamp(0.75rem, 3vw, 1.25rem);
+  right: clamp(0.75rem, 3vw, 1.25rem);
+  z-index: 5;
+  display: inline-flex;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--danger) 58%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg-card));
+  color: var(--danger);
+  cursor: pointer;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent),
+    0 0.4rem 0 color-mix(in srgb, var(--danger) 20%, var(--bg-primary));
+}
+
+.resetGameButton svg {
+  width: 1.1rem;
+  min-width: 1.1rem;
+}
+
 .primaryButton svg,
 .secondaryButton svg,
 .ghostButton svg,
@@ -260,7 +299,8 @@
 .secondaryButton:disabled,
 .ghostButton:disabled,
 .exitButton:disabled,
-.smallButton:disabled {
+.smallButton:disabled,
+.resetGameButton:disabled {
   cursor: not-allowed;
   opacity: 0.68;
   transform: none;
@@ -275,6 +315,13 @@
 .kickButton:not(:disabled):active {
   transform: translateY(4px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.resetGameButton:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--danger) 22%, transparent),
+    0 0.1rem 0 color-mix(in srgb, var(--danger) 18%, var(--bg-primary));
 }
 
 .inlineError {
@@ -1145,6 +1192,7 @@
 }
 
 .playHeader {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
@@ -3389,6 +3437,10 @@
     var(--bg-primary);
 }
 
+.avalonTheme .playHeader {
+  padding-right: clamp(4.75rem, 16vw, 5.75rem);
+}
+
 .avalonTheme .heroImage img {
   object-position: center;
 }
@@ -3576,7 +3628,43 @@
   margin: 0;
 }
 
+.avalonScoreSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.playHeader .avalonScoreSummary span {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.playHeader .avalonScoreSummary .avalonScoreGood {
+  color: var(--success);
+}
+
+.playHeader .avalonScoreSummary .avalonScoreEvil {
+  color: var(--danger);
+}
+
+.playHeader .avalonScoreSummary .avalonScoreDivider {
+  color: var(--text-secondary);
+}
+
+.playHeader .avalonScoreSummary .avalonScoreLeader {
+  color: var(--text-secondary);
+}
+
 .avalonPrivateInfoButton {
+  position: absolute;
+  top: calc(clamp(0.75rem, 3vw, 1.25rem) + 3.25rem);
+  right: clamp(0.75rem, 3vw, 1.25rem);
+  z-index: 5;
   display: inline-flex;
   flex: 0 0 auto;
   width: 2.75rem;
@@ -3670,6 +3758,10 @@
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.55;
+}
+
+.avalonVoteContinueWaiting {
+  text-align: center;
 }
 
 .avalonSectionTitle {
@@ -3880,9 +3972,9 @@
 
 .avalonRoleRevealToggleButton {
   position: absolute;
-  top: 50%;
-  right: clamp(1rem, 4vw, 2rem);
-  z-index: 4;
+  top: calc(clamp(0.75rem, 3vw, 1.25rem) + 3.25rem);
+  right: clamp(0.75rem, 3vw, 1.25rem);
+  z-index: 5;
   display: inline-flex;
   width: 2.75rem;
   min-width: 2.75rem;
@@ -3892,7 +3984,6 @@
   border: 1px solid transparent;
   border-radius: 999rem;
   cursor: pointer;
-  animation: avalonRoleCoverFloat 1.35s ease-in-out infinite;
 }
 
 .avalonRoleRevealToggleButton svg {
@@ -3953,30 +4044,9 @@
   line-height: 1.4;
 }
 
-.avalonQuestPicker,
 .avalonVoteActions {
   display: grid;
   gap: var(--spacing-sm);
-}
-
-.avalonQuestPicker {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr));
-}
-
-.avalonQuestPicker button,
-.avalonQuestChoiceActive {
-  min-height: 2.75rem;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-  color: var(--text);
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.avalonQuestPicker .avalonQuestChoiceActive {
-  border-color: var(--primary-light);
-  background: color-mix(in srgb, var(--primary) 24%, var(--bg-card));
 }
 
 .avalonPlayerGrid {
@@ -4034,9 +4104,9 @@
 
 .avalonOrderPlayer {
   display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr) 1.25rem;
+  grid-template-columns: minmax(0, 1fr) 1.25rem;
   align-items: center;
-  gap: 0.32rem;
+  gap: 0.5rem;
   width: 100%;
   min-height: 2.75rem;
   padding: 0.45rem 0.6rem;
@@ -4057,27 +4127,54 @@
   opacity: 1;
 }
 
-.avalonOrderPlayer span {
-  grid-column: 2;
+.avalonOrderIdentity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 2rem;
+  text-align: left;
+}
+
+.avalonOrderAvatar {
+  display: block;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
+  object-fit: cover;
+}
+
+.avalonOrderPlayerName {
+  display: flex;
+  height: 2rem;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: left;
+  line-height: 1;
 }
 
 .avalonOrderPlayer svg {
+  display: block;
   width: 0.92rem;
+  height: 0.92rem;
   min-width: 0.92rem;
   justify-self: center;
 }
 
-.avalonOrderPlayer > svg:first-child {
-  grid-column: 1;
+.avalonOrderPlayer > svg:last-child {
+  grid-column: 2;
 }
 
-.avalonOrderPlayer > svg:last-child {
-  grid-column: 3;
+.avalonOrderIdentity svg {
+  align-self: center;
+  flex: 0 0 auto;
+  color: var(--success);
 }
 
 .avalonOrderPlayerLeader {
@@ -4119,20 +4216,31 @@
   background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
 }
 
+.avalonVoteResultBlock {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+}
+
 .avalonVoteColumns {
   display: grid;
+  width: min(100%, 34rem);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-sm);
+  margin-inline: auto;
 }
 
 .avalonVoteColumn {
   display: grid;
   align-content: start;
+  justify-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
   padding: var(--spacing-md);
   border-radius: 0.8rem;
   background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+  text-align: center;
 }
 
 .avalonVoteApproveTitle,
@@ -4150,6 +4258,18 @@
 
 .avalonVoteRejectTitle {
   color: var(--danger);
+}
+
+.avalonVoteColumn .avalonInfoList {
+  width: 100%;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.avalonVoteColumn .avalonInfoList > span {
+  width: min(100%, 10rem);
+  padding-block: 0.45rem;
+  text-align: center;
 }
 
 .avalonQuestRevealCards {
@@ -4214,7 +4334,7 @@
 
 .avalonResultRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(7rem, auto);
+  grid-template-columns: auto minmax(0, 1fr) minmax(5.75rem, auto);
   align-items: center;
   gap: var(--spacing-sm);
   min-height: 3.75rem;
@@ -4228,15 +4348,7 @@
 .avalonResultPlayer {
   display: grid;
   min-width: 0;
-  gap: 0.25rem;
-}
-
-.avalonResultIdentity {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
+  gap: 0.18rem;
 }
 
 .avalonResultAvatar {
@@ -4249,14 +4361,14 @@
   object-fit: cover;
 }
 
-.avalonResultIdentity strong,
+.avalonResultPlayer strong,
 .avalonResultRole {
   min-width: 0;
   overflow-wrap: anywhere;
   line-height: 1.25;
 }
 
-.avalonResultIdentity strong {
+.avalonResultPlayer strong {
   color: var(--text);
   font-size: 0.96rem;
 }
@@ -4325,9 +4437,14 @@
   .ghostButton:not(:disabled):hover,
   .exitButton:not(:disabled):hover,
   .smallButton:not(:disabled):hover,
+  .resetGameButton:not(:disabled):hover,
   .kickButton:not(:disabled):hover,
   .closeButton:not(:disabled):hover {
     transform: translateY(-0.12rem);
+  }
+
+  .resetGameButton:not(:disabled):hover {
+    background: color-mix(in srgb, var(--danger) 24%, var(--bg-card));
   }
 
   .kickButton:not(:disabled):hover {
