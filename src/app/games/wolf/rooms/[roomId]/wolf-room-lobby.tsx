@@ -15,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerAvatarKey,
@@ -28,6 +29,7 @@ import {
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
+import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { WolfRole } from "@/lib/supabase/types";
 import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
@@ -258,7 +260,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
-      const hasSession = Boolean(data.session);
+      const hasSession = isAllowedGmailSession(data.session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
@@ -275,7 +277,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(session));
+      setIsLoggedIn(isAllowedGmailSession(session));
     });
 
     return () => {
@@ -794,7 +796,10 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
             {!isEditingGuestProfile && (
               <div className={styles.identityActions}>
-                <Link className={styles.primaryButton} href="/#login">
+                <Link
+                  className={styles.primaryButton}
+                  href={buildAuthPath("/auth/sign-in", `/games/wolf/rooms/${lobbyState.room.code}`)}
+                >
                   <LogIn aria-hidden="true" />
                   ĐĂNG NHẬP
                 </Link>

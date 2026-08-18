@@ -23,7 +23,9 @@ import {
   saveStoredGuestPlayerAvatarKey,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import { buildAuthPath } from "@/lib/auth-redirect";
 import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
+import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   createWolfRoom,
@@ -97,7 +99,7 @@ export default function WolfGameScreen() {
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
-      const hasSession = Boolean(data.session);
+      const hasSession = isAllowedGmailSession(data.session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
@@ -109,7 +111,7 @@ export default function WolfGameScreen() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
-      const hasSession = Boolean(session);
+      const hasSession = isAllowedGmailSession(session);
 
       setIsLoggedIn(hasSession);
       setGuestName(savedGuestName);
@@ -563,7 +565,7 @@ export default function WolfGameScreen() {
 
             {!isEditingGuestProfile && (
               <div className={styles.identityActions}>
-                <Link className={styles.primaryButton} href="/#login">
+                <Link className={styles.primaryButton} href={buildAuthPath("/auth/sign-in", "/games/wolf")}>
                   <LogIn aria-hidden="true" />
                   ĐĂNG NHẬP
                 </Link>

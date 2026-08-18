@@ -16,6 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerAvatarKey,
@@ -24,6 +25,7 @@ import {
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
 import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
+import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   createClassicWolfRoom,
@@ -101,14 +103,14 @@ export default function ClassicWolfGameScreen() {
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(data.session));
+      setIsLoggedIn(isAllowedGmailSession(data.session));
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
 
-      setIsLoggedIn(Boolean(session));
+      setIsLoggedIn(isAllowedGmailSession(session));
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
@@ -535,7 +537,7 @@ export default function ClassicWolfGameScreen() {
 
             {!isEditingGuestProfile && (
               <div className={styles.identityActions}>
-                <Link className={styles.primaryButton} href="/#login">
+                <Link className={styles.primaryButton} href={buildAuthPath("/auth/sign-in", "/games/wolf-classic")}>
                   <LogIn aria-hidden="true" />
                   ĐĂNG NHẬP
                 </Link>

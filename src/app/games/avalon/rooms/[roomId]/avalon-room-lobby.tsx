@@ -17,6 +17,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   AVALON_MAX_PLAYERS,
   AVALON_MIN_PLAYERS,
@@ -39,6 +40,7 @@ import {
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
+import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   getAvalonLobbyState,
@@ -191,7 +193,7 @@ export default function AvalonRoomLobby({
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(data.session));
+      setIsLoggedIn(isAllowedGmailSession(data.session));
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -202,7 +204,7 @@ export default function AvalonRoomLobby({
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(session));
+      setIsLoggedIn(isAllowedGmailSession(session));
     });
 
     return () => {
@@ -711,7 +713,10 @@ export default function AvalonRoomLobby({
 
             {!isEditingGuestProfile && (
               <div className={styles.identityActions}>
-                <Link className={styles.primaryButton} href="/#login">
+                <Link
+                  className={styles.primaryButton}
+                  href={buildAuthPath("/auth/sign-in", `/games/avalon/rooms/${lobbyState.room.code}`)}
+                >
                   <LogIn aria-hidden="true" />
                   ĐĂNG NHẬP
                 </Link>

@@ -1,19 +1,29 @@
 "use client";
 
-import { CircleUserRound, LogIn, PencilLine, UserPlus } from "lucide-react";
-import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { CircleUserRound, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerName,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import {
+  getAuthDisplayName,
+  getCurrentAuthNextPath,
+  isAllowedGmailSession,
+  signInWithGmail,
+  signOutFromSupabase,
+} from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import styles from "./page.module.css";
 
 export default function MobileAccountNavItem() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthPending, setIsAuthPending] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestNameError, setGuestNameError] = useState("");
@@ -23,30 +33,44 @@ export default function MobileAccountNavItem() {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+
+      async function applySession(nextSession: Session | null) {
+        if (nextSession && !isAllowedGmailSession(nextSession)) {
+          await supabase.auth.signOut();
+          nextSession = null;
+
+          if (isMounted) {
+            setAuthError("Chỉ hỗ trợ tài khoản Gmail có đuôi @gmail.com.");
+          }
+        }
+
         if (!isMounted) {
           return;
         }
 
-        setIsLoggedIn(Boolean(session));
+        setSession(nextSession);
+        setIsAuthReady(true);
 
-        if (session) {
+        if (nextSession) {
           setIsRenameOpen(false);
         }
+      }
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        void applySession(session);
       });
 
       supabase.auth
         .getSession()
         .then(({ data }) => {
-          if (isMounted) {
-            setIsLoggedIn(Boolean(data.session));
-          }
+          void applySession(data.session);
         })
         .catch(() => {
           if (isMounted) {
-            setIsLoggedIn(false);
+            setSession(null);
+            setIsAuthReady(true);
           }
         });
 
@@ -57,7 +81,8 @@ export default function MobileAccountNavItem() {
     } catch {
       queueMicrotask(() => {
         if (isMounted) {
-          setIsLoggedIn(false);
+          setSession(null);
+          setIsAuthReady(true);
         }
       });
     }
@@ -93,6 +118,34 @@ export default function MobileAccountNavItem() {
     setIsRenameOpen(false);
   };
 
+  const startGmailAuth = async () => {
+    setAuthError("");
+    setIsAuthPending(true);
+
+    const { error } = await signInWithGmail(getCurrentAuthNextPath());
+
+    if (error) {
+      setAuthError(error.message);
+      setIsAuthPending(false);
+    }
+  };
+
+  const signOut = async () => {
+    setAuthError("");
+    setIsAuthPending(true);
+
+    const { error } = await signOutFromSupabase();
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setSession(null);
+      setIsOpen(false);
+    }
+
+    setIsAuthPending(false);
+  };
+
   return (
     <div className={styles.mobileAccountWrapper}>
       <button
@@ -108,24 +161,46 @@ export default function MobileAccountNavItem() {
 
       {isOpen && (
         <div className={styles.mobileAccountPanel}>
-          {isLoggedIn === false && (
+          {!isAuthReady && <span className={styles.mobileAccountStatus}>Đang kiểm tra...</span>}
+
+          {isAuthReady && session && (
             <>
-              <Link
+              <span className={styles.mobileAccountUser}>
+                <CircleUserRound aria-hidden="true" />
+                {getAuthDisplayName(session)}
+              </span>
+              <button
                 className={styles.mobileAccountLink}
-                href="#login"
-                onClick={() => setIsOpen(false)}
+                type="button"
+                disabled={isAuthPending}
+                onClick={signOut}
+              >
+                <LogOut aria-hidden="true" />
+                Đăng xuất
+              </button>
+            </>
+          )}
+
+          {isAuthReady && !session && (
+            <>
+              <button
+                className={styles.mobileAccountLink}
+                type="button"
+                disabled={isAuthPending}
+                onClick={startGmailAuth}
               >
                 <LogIn aria-hidden="true" />
                 Đăng nhập
-              </Link>
-              <Link
+              </button>
+              <button
                 className={styles.mobileAccountPrimaryLink}
-                href="#signup"
-                onClick={() => setIsOpen(false)}
+                type="button"
+                disabled={isAuthPending}
+                onClick={startGmailAuth}
               >
                 <UserPlus aria-hidden="true" />
                 Đăng ký
-              </Link>
+              </button>
               <button
                 className={styles.mobileAccountRenameButton}
                 type="button"
@@ -137,7 +212,9 @@ export default function MobileAccountNavItem() {
             </>
           )}
 
-          {isLoggedIn === false && isRenameOpen && (
+          {authError && <span className={styles.mobileAccountRenameError}>{authError}</span>}
+
+          {isAuthReady && !session && isRenameOpen && (
             <form
               className={styles.mobileAccountRenameForm}
               onSubmit={saveGuestName}

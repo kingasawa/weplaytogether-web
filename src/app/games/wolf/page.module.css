@@ -977,8 +977,8 @@
 }
 
 .playerAvatar {
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.4rem;
+  height: 2.4rem;
   flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
   border-radius: 999px;
@@ -1999,6 +1999,7 @@
   min-height: clamp(12rem, 32svh, 18rem);
   overflow: hidden;
   justify-content: end;
+  padding-right: clamp(4.75rem, 16vw, 5.75rem);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 8%, transparent), color-mix(in srgb, var(--bg-primary) 80%, transparent)),
     url("/images/ui/wolf_game_bg.png") center 8% / cover no-repeat,
@@ -2008,6 +2009,11 @@
 .classicWolfTheme .playHeader > * {
   position: relative;
   z-index: 1;
+}
+
+.classicWolfTheme .playHeader > .resetGameButton {
+  position: absolute;
+  z-index: 5;
 }
 
 .classicWolfTheme .playHeader h1 {
@@ -3445,6 +3451,31 @@
   object-position: center;
 }
 
+.avalonTheme .exitButton,
+.avalonTheme .avalonQuestFailButton,
+.avalonTheme .avalonVoteRejectButton {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--danger) 16%, transparent),
+    color-mix(in srgb, var(--danger) 32%, transparent)
+  );
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent),
+    0 5px 0 color-mix(in srgb, var(--bg-primary) 70%, transparent);
+}
+
 .avalonPresetGrid {
   display: grid;
   gap: var(--spacing-sm);
@@ -4076,12 +4107,39 @@
   opacity: 0.68;
 }
 
-.avalonPlayerButton span {
+.avalonPlayerButton .avalonPlayerAvatarFrame {
+  display: block;
+  width: 2.4rem;
+  height: 2.4rem;
+  min-width: 2.4rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 999rem;
+  background: var(--bg-secondary);
+  line-height: 0;
+}
+
+.avalonPlayerAvatarImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.14);
+  transform-origin: center;
+}
+
+.avalonPlayerButton .avalonPlayerName {
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: 0.9rem;
   font-weight: 900;
   line-height: 1.25;
+}
+
+.avalonAssassinationPanel .avalonPlayerButton .avalonPlayerName {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .avalonPlayerButton svg {
@@ -4636,6 +4694,16 @@
 
   .homeExitButton:not(:disabled):hover {
     background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 50%, transparent), color-mix(in srgb, var(--danger) 72%, transparent));
+  }
+
+  .avalonTheme .exitButton:not(:disabled):hover,
+  .avalonTheme .avalonQuestFailButton:not(:disabled):hover,
+  .avalonTheme .avalonVoteRejectButton:not(:disabled):hover {
+    background: linear-gradient(
+      1deg,
+      color-mix(in srgb, var(--danger) 16%, transparent),
+      color-mix(in srgb, var(--danger) 32%, transparent)
+    );
   }
 }
 

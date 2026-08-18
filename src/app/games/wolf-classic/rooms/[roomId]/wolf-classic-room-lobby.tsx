@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerAvatarKey,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/guest-player";
 import { DEFAULT_PLAYER_AVATAR_KEY, getPlayerAvatarPath, type PlayerAvatarKey } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
+import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { CLASSIC_WOLF_ROLE_LABELS, type ClassicWolfRole } from "@/lib/classic-wolf-game";
 import { PlayerAvatarPicker } from "../../../wolf/player-avatar-picker";
@@ -198,7 +200,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(data.session));
+      setIsLoggedIn(isAllowedGmailSession(data.session));
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -209,7 +211,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
-      setIsLoggedIn(Boolean(session));
+      setIsLoggedIn(isAllowedGmailSession(session));
     });
 
     return () => {
@@ -635,7 +637,10 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
 
             {!isEditingGuestProfile && (
               <div className={styles.identityActions}>
-                <Link className={styles.primaryButton} href="/#login">
+                <Link
+                  className={styles.primaryButton}
+                  href={buildAuthPath("/auth/sign-in", `/games/wolf-classic/rooms/${lobbyState.room.code}`)}
+                >
                   <LogIn aria-hidden="true" />
                   ĐĂNG NHẬP
                 </Link>

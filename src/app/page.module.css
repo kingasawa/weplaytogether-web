@@ -85,7 +85,8 @@
 .searchBox,
 .iconButton,
 .loginButton,
-.signupButton {
+.signupButton,
+.accountBadge {
   display: none;
 }
 
@@ -201,6 +202,15 @@
 .loginButton,
 .signupButton {
   display: none;
+  font-family: var(--font-body);
+  cursor: pointer;
+  appearance: none;
+}
+
+.loginButton:disabled,
+.signupButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .primaryButton,
@@ -261,8 +271,21 @@
 }
 
 .primaryButton svg,
-.secondaryButton svg {
+.secondaryButton svg,
+.loginButton svg {
   width: 1.1rem;
+  min-width: 1.1rem;
+}
+
+.accountBadge {
+  max-width: 12rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Online Players ─────────────────────────────────────────── */
@@ -642,8 +665,11 @@
   border-radius: 0.7rem;
   font-size: 0.78rem;
   font-weight: 700;
+  font-family: var(--font-body);
   line-height: 1;
   white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
 }
 
 .mobileNav .mobileAccountLink,
@@ -654,10 +680,46 @@
   color: var(--text);
 }
 
+.mobileNav .mobileAccountLink:disabled,
+.mobileNav .mobileAccountPrimaryLink:disabled,
+.mobileNav .mobileAccountRenameButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
 .mobileAccountRenameButton {
   font-family: var(--font-body);
   appearance: none;
   cursor: pointer;
+}
+
+.mobileAccountStatus,
+.mobileAccountUser {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding-inline: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mobileAccountUser {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileAccountUser svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: var(--primary-light);
 }
 
 .mobileNav .mobileAccountLink svg,
@@ -934,6 +996,10 @@
   .loginButton {
     min-width: 6.7rem;
     text-transform: none;
+  }
+
+  .accountBadge {
+    display: block;
   }
 
   .signupButton {

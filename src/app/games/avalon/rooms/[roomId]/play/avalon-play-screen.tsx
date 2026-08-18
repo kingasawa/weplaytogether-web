@@ -612,15 +612,16 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
         key={player.id}
         onClick={onClick}
       >
-        <Image
-          alt=""
-          aria-hidden="true"
-          className={styles.playerAvatar}
-          width={44}
-          height={44}
-          src={getPlayerAvatarPath(player.avatarKey)}
-        />
-        <span>{player.name}</span>
+        <span className={styles.avalonPlayerAvatarFrame} aria-hidden="true">
+          <Image
+            alt=""
+            className={styles.avalonPlayerAvatarImage}
+            width={40}
+            height={40}
+            src={getPlayerAvatarPath(player.avatarKey)}
+          />
+        </span>
+        <span className={styles.avalonPlayerName}>{player.name}</span>
         {active && <Check aria-hidden="true" />}
       </button>
     );
@@ -1065,7 +1066,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     const isAssassin = playState.myRole === "assassin";
 
     return (
-      <section className={styles.playPanel}>
+      <section className={`${styles.playPanel} ${styles.avalonAssassinationPanel}`}>
         <div className={styles.avalonSectionTitle}>
           <Target aria-hidden="true" />
           <span>Assassin đoán Merlin</span>

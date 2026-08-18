@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import HeaderAuthButtons from "./header-auth-buttons";
 import MobileAccountNavItem from "./mobile-account-nav-item";
 import styles from "./page.module.css";
 
@@ -171,12 +172,7 @@ export default function Home() {
           <button className={styles.iconButton} type="button" aria-label="Đổi ngôn ngữ">
             <Globe2 aria-hidden="true" />
           </button>
-          <Link className={styles.loginButton} href="#login">
-            Đăng nhập
-          </Link>
-          <Link className={styles.signupButton} href="#signup">
-            Đăng ký
-          </Link>
+          <HeaderAuthButtons />
         </div>
       </header>
 
