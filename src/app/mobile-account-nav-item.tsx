@@ -40,7 +40,7 @@ export default function MobileAccountNavItem() {
           nextSession = null;
 
           if (isMounted) {
-            setAuthError("Chỉ hỗ trợ tài khoản Gmail có đuôi @gmail.com.");
+            setAuthError("Chỉ hỗ trợ đăng nhập bằng Google.");
           }
         }
 
@@ -156,7 +156,9 @@ export default function MobileAccountNavItem() {
         onClick={() => setIsOpen((current) => !current)}
       >
         <CircleUserRound aria-hidden="true" />
-        <span>Tài khoản</span>
+        <span className={styles.mobileAccountButtonLabel}>
+          {isAuthReady && session ? getAuthDisplayName(session) : "Tài khoản"}
+        </span>
       </button>
 
       {isOpen && (

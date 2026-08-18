@@ -56,8 +56,19 @@ export default function AuthCallbackScreen({
         }
 
         if (!isAllowedGmailSession(data.session)) {
+          const detectedEmail = data.session?.user.email ?? "(không có email)";
+          const detectedProvider = data.session?.user.app_metadata?.provider ?? "(không rõ)";
+          const detectedProviders = data.session?.user.app_metadata?.providers ?? [];
+          console.warn("[auth] Đăng nhập bị từ chối:", {
+            email: detectedEmail,
+            provider: detectedProvider,
+            providers: detectedProviders,
+            appMetadata: data.session?.user.app_metadata,
+          });
           await signOutFromSupabase();
-          throw new Error("Chỉ hỗ trợ tài khoản Gmail có đuôi @gmail.com.");
+          throw new Error(
+            `Chỉ hỗ trợ đăng nhập bằng Google. Tài khoản của bạn: ${detectedEmail} (provider: ${detectedProvider}).`
+          );
         }
 
         setStatus("success");

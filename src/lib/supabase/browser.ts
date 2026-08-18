@@ -16,7 +16,10 @@ export function createSupabaseBrowserClient() {
     browserClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        // Tắt tự động đổi code trong URL: trang /auth/callback tự gọi exchangeCodeForSession.
+        // Nếu bật, client sẽ đổi code (và tiêu thụ code verifier) trước, khiến lần exchange
+        // thủ công báo lỗi "PKCE code verifier not found in storage".
+        detectSessionInUrl: false,
         flowType: "pkce",
         persistSession: true,
       },

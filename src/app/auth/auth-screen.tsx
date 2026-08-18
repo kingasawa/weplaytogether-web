@@ -47,7 +47,7 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
         await signOutFromSupabase();
 
         if (isMounted) {
-          setErrorMessage("Chỉ hỗ trợ tài khoản Gmail có đuôi @gmail.com.");
+          setErrorMessage("Chỉ hỗ trợ đăng nhập bằng Google.");
         }
       })
       .catch(() => {
@@ -87,14 +87,14 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
         </Link>
 
         <div className={styles.heading}>
-          <span>Gmail</span>
+          <span>Google</span>
           <h1>{isSignUp ? "Đăng ký" : "Đăng nhập"}</h1>
-          <p>Chỉ tài khoản Gmail được dùng để vào Boardverse.</p>
+          <p>Đăng nhập bằng tài khoản Google để vào Boardverse.</p>
         </div>
 
         <button className={styles.gmailButton} type="button" disabled={isPending} onClick={continueWithGmail}>
           {isPending ? <LoaderCircle aria-hidden="true" /> : <Mail aria-hidden="true" />}
-          {isPending ? "Đang chuyển..." : "Tiếp tục bằng Gmail"}
+          {isPending ? "Đang chuyển..." : "Tiếp tục bằng Google"}
         </button>
 
         {errorMessage && (

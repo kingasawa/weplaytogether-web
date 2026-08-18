@@ -9,12 +9,10 @@ export function getCurrentAuthNextPath() {
 }
 
 export function isAllowedGmailSession(session: Session | null) {
-  if (!session?.user.email?.toLowerCase().endsWith("@gmail.com")) {
-    return false;
-  }
-
-  const provider = session.user.app_metadata?.provider;
-  const providers = session.user.app_metadata?.providers;
+  // Cho phép mọi tài khoản đăng nhập qua Google (Gmail cá nhân lẫn Google Workspace),
+  // không giới hạn đuôi @gmail.com.
+  const provider = session?.user.app_metadata?.provider;
+  const providers = session?.user.app_metadata?.providers;
 
   return provider === "google" || (Array.isArray(providers) && providers.includes("google"));
 }

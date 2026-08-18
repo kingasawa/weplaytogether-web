@@ -617,6 +617,13 @@
   width: 1.25rem;
 }
 
+.mobileAccountButtonLabel {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobileNav .activeMobileNav {
   color: var(--primary-light);
 }
