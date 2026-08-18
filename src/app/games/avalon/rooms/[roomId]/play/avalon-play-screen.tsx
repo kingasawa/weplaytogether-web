@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  Clock,
   Crown,
   Eye,
   EyeOff,
@@ -54,6 +55,9 @@ const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
 const PRIVATE_REVEAL_OPEN_DRAG_RATIO = 1 / 3;
 const PRIVATE_REVEAL_CLOSE_DRAG_RATIO = 1 / 4;
 const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;
+// Thời gian tự động qua phase kế tiếp (giây).
+const PHASE_AUTO_ADVANCE_SECONDS = 15;
+const QUEST_REVEAL_AUTO_ADVANCE_SECONDS = 30;
 
 type AvalonPlayScreenProps = {
   initialState: AvalonPlayState;
@@ -111,6 +115,8 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [flippingCardKey, setFlippingCardKey] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const autoAdvanceActionRef = useRef<(() => void) | null>(null);
   const previousRevealRef = useRef<{ questIndex: number | null; revealedCount: number }>({
     questIndex: initialState.questReveal.questIndex,
     revealedCount: initialState.questReveal.revealedCount,
@@ -270,6 +276,53 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     });
   }
 
+  // Xác định timer auto-advance cho phase hiện tại (một số phase không tính giờ).
+  let autoAdvanceKey: string | null = null;
+  let autoAdvanceSeconds = PHASE_AUTO_ADVANCE_SECONDS;
+  let autoAdvanceAction: (() => void) | null = null;
+
+  if (currentPlayer && isRoleRevealPhase && !currentPlayer.hasConfirmedRole) {
+    autoAdvanceKey = `${playState.game.id}:role_reveal`;
+    autoAdvanceAction = confirmRoleReveal;
+  } else if (currentPlayer && isTeamVotePhase && !currentPlayer.hasTeamVoted && !playState.isTeamVoteRevealed) {
+    autoAdvanceKey = `${playState.game.id}:team_vote:${playState.game.proposalAttempt}`;
+    autoAdvanceAction = () => voteTeam("approve");
+  } else if (currentPlayer && isQuestPhase && currentPlayer.isOnQuestTeam && !currentPlayer.hasQuestSubmitted) {
+    autoAdvanceKey = `${playState.game.id}:quest:${currentQuestIndex}`;
+    autoAdvanceAction = () => submitQuest(playState.myLoyalty === "evil" ? "fail" : "success");
+  } else if (isLeader && isQuestRevealPhase && !playState.questReveal.isComplete) {
+    autoAdvanceKey = `${playState.game.id}:quest_reveal:${currentQuestIndex}`;
+    autoAdvanceSeconds = QUEST_REVEAL_AUTO_ADVANCE_SECONDS;
+    autoAdvanceAction = autoRevealAllQuestCards;
+  }
+
+  autoAdvanceActionRef.current = autoAdvanceAction;
+
+  useEffect(() => {
+    if (!autoAdvanceKey) {
+      setSecondsLeft(null);
+      return;
+    }
+
+    const deadline = Date.now() + autoAdvanceSeconds * 1000;
+    let hasFired = false;
+    setSecondsLeft(autoAdvanceSeconds);
+
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+
+      if (remaining <= 0 && !hasFired) {
+        hasFired = true;
+        clearInterval(interval);
+        autoAdvanceActionRef.current?.();
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdvanceKey, autoAdvanceSeconds]);
+
   function syncTeamDraft(teamPlayerIds: string[], questIndex: number) {
     if (!isLeader || !isTeamProposalPhase) {
       return;
@@ -353,6 +406,51 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
       playState.questReveal.isComplete ? "Đang chốt kết quả quest..." : "Đang mở lá quest...",
       () => revealAvalonQuestCard(playState.room.code)
     );
+  }
+
+  function confirmRoleReveal() {
+    // Đóng lá mask lại nếu nó đang được mở khi xác nhận đã xem vai.
+    coverPrivateReveal();
+    runMutation("Đang xác nhận...", () => confirmAvalonRoleReveal(playState.room.code));
+  }
+
+  async function autoRevealAllQuestCards() {
+    if (debugQuestOutcomes) {
+      setPlayState((current) => {
+        const total = current.questReveal.totalCount;
+        return {
+          ...current,
+          questReveal: {
+            ...current.questReveal,
+            revealedCount: total,
+            revealedCards: debugQuestOutcomes.slice(0, total),
+            isComplete: total > 0,
+          },
+        };
+      });
+      return;
+    }
+
+    const remaining = playState.questReveal.totalCount - playState.questReveal.revealedCount;
+
+    if (remaining <= 0) {
+      return;
+    }
+
+    setMessage("");
+    setPendingLabel("Đang mở tất cả lá quest...");
+
+    for (let index = 0; index < remaining; index += 1) {
+      const result = await revealAvalonQuestCard(playState.room.code);
+
+      if (!result.ok) {
+        setMessage(result.error);
+        break;
+      }
+    }
+
+    await refreshPlayState();
+    setPendingLabel("");
   }
 
   function submitLadyTarget() {
@@ -704,13 +802,22 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     );
   }
 
+  function renderPhaseCountdown() {
+    if (secondsLeft === null) {
+      return null;
+    }
+
+    return (
+      <p className={styles.avalonPhaseCountdown} aria-live="polite">
+        <Clock aria-hidden="true" />
+        Tự động sau {secondsLeft}s
+      </p>
+    );
+  }
+
   function renderRoleReveal() {
     const hasConfirmed = Boolean(currentPlayer?.hasConfirmedRole);
     const isEvil = playState.myLoyalty === "evil";
-    const roleRevealDescription =
-      playState.myRole === "percival" && playState.privateInfo.knownPlayers.length > 0
-        ? null
-        : playState.privateInfo.roleDescription ?? "Chờ người chơi trong phòng xác nhận đã xem vai.";
     const roleImagePath = playState.myRole ? getAvalonRoleImagePath(playState.myRole) : null;
 
     return (
@@ -739,11 +846,13 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
                 width={160}
               />
             )}
-            <h2>{playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}</h2>
-            <strong className={isEvil ? styles.avalonLoyaltyEvil : styles.avalonLoyaltyGood}>
-              {getTeamLabel(playState.myLoyalty)}
-            </strong>
-            {roleRevealDescription && <p>{roleRevealDescription}</p>}
+            <h2
+              className={
+                playState.myRole ? (isEvil ? styles.avalonRoleNameEvil : styles.avalonRoleNameGood) : ""
+              }
+            >
+              {playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}
+            </h2>
             {renderRoleRevealKnownInfo()}
           </div>
           {currentPlayer && renderPrivateCover()}
@@ -753,10 +862,10 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
             className={styles.primaryButton}
             type="button"
             disabled={isPending || hasConfirmed || !hasViewedPrivateReveal}
-            onClick={() => runMutation("Đang xác nhận...", () => confirmAvalonRoleReveal(playState.room.code))}
+            onClick={confirmRoleReveal}
           >
             <Check aria-hidden="true" />
-            {hasConfirmed ? "Đã xác nhận" : "Tôi đã xem vai"}
+            {hasConfirmed ? "Đã xác nhận" : "Xác nhận"}
           </button>
         )}
       </section>
@@ -1207,6 +1316,11 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
         <div>
           <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{playState.game.phaseLabel}</h1>
+          {isRoleRevealPhase && (
+            <p className={styles.avalonRoleRevealHeaderHint}>
+              Ghi nhớ vai và thông tin riêng trước khi xác nhận.
+            </p>
+          )}
         </div>
         {playState.isCurrentPlayerHost && (
           <button
@@ -1224,7 +1338,9 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           privateRevealUnlocked ? (
             <button
               aria-label="Che lại vai"
-              className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleCoverButton}`}
+              className={`${styles.avalonRoleRevealToggleButton} ${
+                playState.isCurrentPlayerHost ? styles.avalonRoleRevealToggleStacked : ""
+              } ${styles.avalonRoleCoverButton}`}
               title="Che lại"
               type="button"
               onClick={coverPrivateReveal}
@@ -1234,7 +1350,9 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           ) : (
             <button
               aria-label="Mở vai"
-              className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleOpenButton}`}
+              className={`${styles.avalonRoleRevealToggleButton} ${
+                playState.isCurrentPlayerHost ? styles.avalonRoleRevealToggleStacked : ""
+              } ${styles.avalonRoleOpenButton}`}
               title="Mở vai"
               type="button"
               onClick={openPrivateReveal}
@@ -1372,6 +1490,8 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           </button>
         </section>
       )}
+
+      {renderPhaseCountdown()}
 
       {isPending && (
         <div className={styles.playLoading} aria-live="polite">

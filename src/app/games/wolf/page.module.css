@@ -875,12 +875,14 @@
 .avatarUploadedItem {
   position: relative;
   display: grid;
+  z-index: 1;
 }
 
 .avatarDeleteButton {
   position: absolute;
-  top: -0.35rem;
-  right: -0.35rem;
+  top: 0.15rem;
+  right: 0.15rem;
+  z-index: 3;
   display: grid;
   place-items: center;
   width: 1.35rem;
@@ -3508,9 +3510,25 @@
 
 .avalonTheme {
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 20%, transparent), transparent 24rem),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--success) 16%, transparent), transparent 26rem),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 40%, transparent),
+      color-mix(in srgb, var(--bg-primary) 72%, transparent) 82%,
+      var(--bg-primary)
+    ),
+    url("/images/boards/avalon-bg.png") center / cover fixed no-repeat,
     var(--bg-primary);
+  /* Làm các box (dùng --bg-card / --bg-secondary) bán trong suốt để thấy background bên dưới.
+     Dựa trên --bg-primary (token khác) nên không tạo tham chiếu vòng. */
+  --bg-secondary: color-mix(in srgb, var(--bg-primary) 55%, transparent);
+  --bg-card: color-mix(in srgb, var(--bg-primary) 64%, transparent);
+}
+
+/* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt. */
+.avalonTheme .modal,
+.avalonTheme .roomPanel {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .avalonTheme .playHeader {
@@ -3918,6 +3936,25 @@
   color: var(--danger);
 }
 
+/* Tên vai đổi màu theo phe (specificity cao hơn .avalonPhaseHero h2). */
+.avalonPhaseHero h2.avalonRoleNameGood {
+  color: var(--success);
+}
+
+.avalonPhaseHero h2.avalonRoleNameEvil {
+  color: var(--danger);
+}
+
+/* Câu nhắc cố định dưới tiêu đề "Xem vai" trong header (chỉ phase role_reveal). */
+.avalonRoleRevealHeaderHint {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .avalonKnownSection,
 .avalonRevealNotes {
   display: grid;
@@ -4073,7 +4110,7 @@
 
 .avalonRoleRevealToggleButton {
   position: absolute;
-  top: calc(clamp(0.75rem, 3vw, 1.25rem) + 3.25rem);
+  top: clamp(0.75rem, 3vw, 1.25rem);
   right: clamp(0.75rem, 3vw, 1.25rem);
   z-index: 5;
   display: inline-flex;
@@ -4085,6 +4122,11 @@
   border: 1px solid transparent;
   border-radius: 999rem;
   cursor: pointer;
+}
+
+/* Khi là host, nút reset đã chiếm góc trên phải nên đẩy nút mắt xuống dưới nó. */
+.avalonRoleRevealToggleStacked {
+  top: calc(clamp(0.75rem, 3vw, 1.25rem) + 3.25rem);
 }
 
 .avalonRoleRevealToggleButton svg {
@@ -4115,6 +4157,34 @@
   50% {
     transform: translateY(-42%);
   }
+}
+
+.avalonPhaseCountdown {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  z-index: 30;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-primary) 84%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0.5rem 1.2rem color-mix(in srgb, var(--bg-primary) 60%, transparent);
+}
+
+.avalonPhaseCountdown svg {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
 }
 
 .avalonPhaseSummary {
@@ -4545,9 +4615,10 @@
 .avalonQuestRevealCard strong {
   min-width: 0;
   overflow-wrap: anywhere;
+  white-space: nowrap;
   font-family: var(--font-heading);
-  font-size: 1rem;
-  letter-spacing: 0.06em;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
   line-height: 1.15;
   text-transform: uppercase;
 }
