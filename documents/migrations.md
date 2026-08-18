@@ -257,6 +257,21 @@ Purpose:
 - Cơ chế dùng chung cho toàn app: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players` (phân biệt game bằng `game_key` trên `wolf_rooms`), nên chỉ cần một cột này cho tất cả game.
 - Khi cột chưa tồn tại, code phía server tự fallback về `avatar_key` (xem `isMissingAvatarObjectKeyColumnError`), nên avatar preset vẫn hoạt động; chỉ avatar upload cần cột này.
 
+## 202608180002_user_profiles.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608180002_user_profiles.sql`
+
+Purpose:
+
+- Tạo bảng `public.users` (id = `auth.users.id`) lưu hồ sơ người chơi cho tài khoản đã đăng nhập Google: `email`, `display_name`, `avatar_key`, `avatar_object_key`, timestamps.
+- Bật RLS + policy cho phép mỗi user tự select/insert/update **hàng của mình** (`auth.uid() = id`) — client (đã có JWT) đọc/ghi trực tiếp, không cần server action.
+- Trigger `set_users_updated_at` tự cập nhật `updated_at` khi sửa.
+- Dùng cho trang `/profile` (sửa tên hiển thị + avatar mặc định) và tạo record tự động khi login lần đầu (`ensureMyProfile`).
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:

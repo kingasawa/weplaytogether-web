@@ -56,6 +56,19 @@ Local migration file created in this task and still pending manual remote apply:
 
 ### Tables
 
+#### `public.users`
+
+Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**: thêm bởi `202608180002_user_profiles.sql`.
+
+- `id uuid primary key references auth.users(id) on delete cascade`
+- `email text null`
+- `display_name text null` — tên hiển thị trong game
+- `avatar_key text not null default 'avatar0'`
+- `avatar_object_key text null` — object key avatar upload lên R2 (nếu có)
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()` (trigger `set_users_updated_at`)
+- RLS bật; mỗi user chỉ select/insert/update hàng của mình (`auth.uid() = id`). Client đọc/ghi trực tiếp bằng JWT.
+
 #### `public.wolf_rooms`
 
 - `id uuid primary key default gen_random_uuid()`

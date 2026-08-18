@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isAllowedGmailSession, signOutFromSupabase } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ensureMyProfile } from "@/lib/user-profile";
 import styles from "../auth.module.css";
 
 type AuthCallbackScreenProps = {
@@ -69,6 +70,11 @@ export default function AuthCallbackScreen({
           throw new Error(
             `Chỉ hỗ trợ đăng nhập bằng Google. Tài khoản của bạn: ${detectedEmail} (provider: ${detectedProvider}).`
           );
+        }
+
+        // Tạo record hồ sơ trong bảng users nếu đây là lần đăng nhập đầu tiên.
+        if (data.session) {
+          await ensureMyProfile(data.session);
         }
 
         setStatus("success");

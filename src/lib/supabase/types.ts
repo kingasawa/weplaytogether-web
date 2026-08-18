@@ -140,6 +140,33 @@ export type Database = {
           Pick<WolfRoomRow, "code">;
         Update: Partial<Omit<WolfRoomRow, "id" | "created_at">>;
       };
+      users: {
+        Row: {
+          id: string;
+          email: string | null;
+          display_name: string | null;
+          avatar_key: string;
+          avatar_object_key: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          display_name?: string | null;
+          avatar_key?: string;
+          avatar_object_key?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          email?: string | null;
+          display_name?: string | null;
+          avatar_key?: string;
+          avatar_object_key?: string | null;
+          updated_at?: string;
+        };
+      };
       wolf_room_players: {
         Row: WolfRoomPlayerRow;
         Insert: Partial<

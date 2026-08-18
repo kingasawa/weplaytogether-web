@@ -1,0 +1,163 @@
+.page {
+  display: grid;
+  place-items: start center;
+  min-height: 100svh;
+  padding: clamp(1rem, 5vw, 3rem);
+  background: var(--bg-primary);
+}
+
+.panel {
+  width: min(100%, 34rem);
+  display: grid;
+  gap: var(--spacing-lg);
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 1.25rem;
+  background: var(--bg-secondary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header h1 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.4rem, 6vw, 1.9rem);
+  line-height: 1.1;
+}
+
+.backLink {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 999px;
+  color: var(--text);
+}
+
+.backLink svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.statusText,
+.emailText,
+.hintText {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.statusText svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  animation: profileSpin 0.9s linear infinite;
+}
+
+.emailText {
+  font-weight: 700;
+}
+
+.hintText {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.guestBlock {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.form {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.75rem;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 1px;
+}
+
+.primaryButton {
+  display: flex;
+  width: 100%;
+  min-height: 2.85rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--primary) 40%, var(--bg-primary)),
+    color-mix(in srgb, var(--primary) 72%, var(--bg-primary))
+  );
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.primaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.primaryButton svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.primaryButton:disabled svg {
+  animation: profileSpin 0.9s linear infinite;
+}
+
+.errorText {
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.successText {
+  color: var(--success);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+@keyframes profileSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

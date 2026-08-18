@@ -19,6 +19,7 @@ import { DEFAULT_PLAYER_AVATAR_KEY, getPlayerAvatarSrc, type PlayerAvatarKey } f
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { readStoredAccountProfile } from "@/lib/user-profile";
 import { CLASSIC_WOLF_ROLE_LABELS, type ClassicWolfRole } from "@/lib/classic-wolf-game";
 import { PlayerAvatarPicker } from "../../../wolf/player-avatar-picker";
 import {
@@ -256,7 +257,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.displayName.trim() || undefined;
     }
 
     const normalizedGuestName = guestName.trim();
@@ -277,11 +278,11 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
   }
 
   function getCurrentPlayerAvatarKey() {
-    return isLoggedIn ? undefined : guestAvatarKey;
+    return isLoggedIn ? readStoredAccountProfile()?.avatarKey : guestAvatarKey;
   }
 
   function getCurrentPlayerAvatarObjectKey() {
-    return isLoggedIn ? undefined : guestAvatarObjectKey;
+    return isLoggedIn ? readStoredAccountProfile()?.avatarObjectKey ?? undefined : guestAvatarObjectKey;
   }
 
   function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {

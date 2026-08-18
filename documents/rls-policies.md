@@ -1,6 +1,16 @@
-﻿<!-- Last updated: 2026-08-11 -->
+﻿<!-- Last updated: 2026-08-18 -->
 
 # RLS Policies
+
+## `public.users` (202608180002_user_profiles.sql — pending apply)
+
+RLS bật. Mỗi user chỉ thao tác hàng của chính mình (client dùng JWT gọi trực tiếp):
+
+- `users_select_own`: `for select using (auth.uid() = id)`
+- `users_insert_own`: `for insert with check (auth.uid() = id)`
+- `users_update_own`: `for update using (auth.uid() = id) with check (auth.uid() = id)`
+
+Không có policy delete (không cho xóa hồ sơ từ client).
 
 ## Current Remote State
 

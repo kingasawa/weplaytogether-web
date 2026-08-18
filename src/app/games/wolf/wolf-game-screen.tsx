@@ -29,6 +29,7 @@ import { buildAuthPath } from "@/lib/auth-redirect";
 import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { readStoredAccountProfile } from "@/lib/user-profile";
 import {
   createWolfRoom,
   joinWolfRoom,
@@ -137,7 +138,7 @@ export default function WolfGameScreen() {
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.displayName.trim() || undefined;
     }
 
     const normalizedGuestName = guestName.trim();
@@ -159,7 +160,7 @@ export default function WolfGameScreen() {
 
   function getCurrentPlayerAvatarKey() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.avatarKey;
     }
 
     return guestAvatarKey;
@@ -167,7 +168,7 @@ export default function WolfGameScreen() {
 
   function getCurrentPlayerAvatarObjectKey() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.avatarObjectKey ?? undefined;
     }
 
     return guestAvatarObjectKey;

@@ -2,6 +2,7 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { LogOut } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   getAuthDisplayName,
@@ -80,7 +81,9 @@ export default function HeaderAuthButtons() {
   if (isReady && session) {
     return (
       <>
-        <span className={styles.accountBadge}>{getAuthDisplayName(session)}</span>
+        <Link className={styles.accountBadge} href="/profile" title="Hồ sơ người chơi">
+          {getAuthDisplayName(session)}
+        </Link>
         <button className={styles.loginButton} type="button" disabled={isPending} onClick={signOut}>
           <LogOut aria-hidden="true" />
           Đăng xuất

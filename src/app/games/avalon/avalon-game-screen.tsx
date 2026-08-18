@@ -29,6 +29,7 @@ import {
 import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { readStoredAccountProfile } from "@/lib/user-profile";
 import {
   createAvalonRoom,
   joinAvalonRoom,
@@ -133,7 +134,7 @@ export default function AvalonGameScreen() {
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.displayName.trim() || undefined;
     }
 
     const normalizedGuestName = guestName.trim();
@@ -154,11 +155,11 @@ export default function AvalonGameScreen() {
   }
 
   function getCurrentPlayerAvatarKey() {
-    return isLoggedIn ? undefined : guestAvatarKey;
+    return isLoggedIn ? readStoredAccountProfile()?.avatarKey : guestAvatarKey;
   }
 
   function getCurrentPlayerAvatarObjectKey() {
-    return isLoggedIn ? null : guestAvatarObjectKey;
+    return isLoggedIn ? readStoredAccountProfile()?.avatarObjectKey ?? null : guestAvatarObjectKey;
   }
 
   function runCreateRoom(

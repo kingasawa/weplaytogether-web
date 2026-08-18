@@ -1,7 +1,8 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { CircleUserRound, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
+import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
@@ -171,6 +172,10 @@ export default function MobileAccountNavItem() {
                 <CircleUserRound aria-hidden="true" />
                 {getAuthDisplayName(session)}
               </span>
+              <Link className={styles.mobileAccountLink} href="/profile" onClick={() => setIsOpen(false)}>
+                <IdCard aria-hidden="true" />
+                Hồ sơ người chơi
+              </Link>
               <button
                 className={styles.mobileAccountLink}
                 type="button"

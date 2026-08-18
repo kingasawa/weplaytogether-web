@@ -33,6 +33,7 @@ import {
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { readStoredAccountProfile } from "@/lib/user-profile";
 import type { WolfRole } from "@/lib/supabase/types";
 import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 import {
@@ -297,7 +298,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.displayName.trim() || undefined;
     }
 
     const normalizedGuestName = guestName.trim();
@@ -319,7 +320,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
   function getCurrentPlayerAvatarKey() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.avatarKey;
     }
 
     return guestAvatarKey;
@@ -327,7 +328,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
   function getCurrentPlayerAvatarObjectKey() {
     if (isLoggedIn) {
-      return undefined;
+      return readStoredAccountProfile()?.avatarObjectKey ?? undefined;
     }
 
     return guestAvatarObjectKey;
