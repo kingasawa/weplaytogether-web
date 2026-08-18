@@ -4,7 +4,7 @@ import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut,
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
-import { getPlayerAvatarPath } from "@/lib/player-avatars";
+import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
 import {
@@ -1478,7 +1478,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                       alt=""
                       className={styles.votingOptionAvatar}
                       height={36}
-                      src={getPlayerAvatarPath(player.avatarKey)}
+                      src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                       width={36}
                     />
                     <span>{player.name}</span>

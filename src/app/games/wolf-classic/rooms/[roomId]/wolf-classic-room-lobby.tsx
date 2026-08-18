@@ -8,12 +8,14 @@ import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } f
 import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
+  readStoredGuestPlayerAvatarObjectKey,
   readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
+  saveStoredGuestPlayerAvatarObjectKey,
   saveStoredGuestPlayerAvatarKey,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
-import { DEFAULT_PLAYER_AVATAR_KEY, getPlayerAvatarPath, type PlayerAvatarKey } from "@/lib/player-avatars";
+import { DEFAULT_PLAYER_AVATAR_KEY, getPlayerAvatarSrc, type PlayerAvatarKey } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -149,6 +151,8 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
   const [guestAvatarInput, setGuestAvatarInput] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestAvatarObjectKey, setGuestAvatarObjectKey] = useState<string | null>(null);
+  const [guestAvatarObjectKeyInput, setGuestAvatarObjectKeyInput] = useState<string | null>(null);
   const [guestNameError, setGuestNameError] = useState("");
   const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
@@ -195,22 +199,28 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+      const savedGuestAvatarObjectKey = readStoredGuestPlayerAvatarObjectKey();
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
+      setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
+      setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(isAllowedGmailSession(data.session));
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+      const savedGuestAvatarObjectKey = readStoredGuestPlayerAvatarObjectKey();
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
+      setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
+      setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(isAllowedGmailSession(session));
     });
 
@@ -270,10 +280,14 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     return isLoggedIn ? undefined : guestAvatarKey;
   }
 
-  function runJoinCurrentRoom(playerName?: string, avatarKey?: string) {
+  function getCurrentPlayerAvatarObjectKey() {
+    return isLoggedIn ? undefined : guestAvatarObjectKey;
+  }
+
+  function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await joinClassicWolfRoom(lobbyState.room.code, playerName, avatarKey);
+      const result = await joinClassicWolfRoom(lobbyState.room.code, playerName, avatarKey, avatarObjectKey);
 
       if (!result.ok) {
         setErrorMessage(result.error);
@@ -296,17 +310,20 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
 
     saveStoredGuestPlayerName(normalizedGuestName);
     const savedAvatarKey = saveStoredGuestPlayerAvatarKey(guestAvatarInput);
+    const savedAvatarObjectKey = saveStoredGuestPlayerAvatarObjectKey(guestAvatarObjectKeyInput);
     setGuestName(normalizedGuestName);
     setGuestNameInput(normalizedGuestName);
     setGuestAvatarKey(savedAvatarKey);
     setGuestAvatarInput(savedAvatarKey);
+    setGuestAvatarObjectKey(savedAvatarObjectKey);
+    setGuestAvatarObjectKeyInput(savedAvatarObjectKey);
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
 
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
-      runJoinCurrentRoom(normalizedGuestName, savedAvatarKey);
+      runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -317,13 +334,14 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
       return;
     }
 
-    runJoinCurrentRoom(playerName, getCurrentPlayerAvatarKey());
+    runJoinCurrentRoom(playerName, getCurrentPlayerAvatarKey(), getCurrentPlayerAvatarObjectKey());
   }
 
   function openGuestProfileEditor() {
     setShouldJoinAfterGuestName(false);
     setGuestNameInput(guestName);
     setGuestAvatarInput(guestAvatarKey);
+    setGuestAvatarObjectKeyInput(guestAvatarObjectKey);
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
@@ -543,7 +561,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                       className={styles.playerAvatar}
                       width={48}
                       height={48}
-                      src={getPlayerAvatarPath(player.avatarKey)}
+                      src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                     />
                     <div>
                       <div className={styles.playerNameLine}>
@@ -666,7 +684,12 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                     setGuestNameError("");
                   }}
                 />
-                <PlayerAvatarPicker selectedAvatarKey={guestAvatarInput} onSelectAvatar={setGuestAvatarInput} />
+                <PlayerAvatarPicker
+                  selectedAvatarKey={guestAvatarInput}
+                  selectedAvatarObjectKey={guestAvatarObjectKeyInput}
+                  onSelectAvatar={setGuestAvatarInput}
+                  onSelectAvatarObjectKey={setGuestAvatarObjectKeyInput}
+                />
                 {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
                 <button className={styles.primaryButton} type="submit">
                   LƯU VÀ TIẾP TỤC

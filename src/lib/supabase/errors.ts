@@ -5,7 +5,7 @@ type SupabaseErrorLike = {
   hint?: string;
 } | null | undefined;
 
-export function isMissingAvatarKeyColumnError(error: SupabaseErrorLike) {
+function isMissingColumnError(error: SupabaseErrorLike, columnName: string) {
   if (!error) {
     return false;
   }
@@ -14,14 +14,22 @@ export function isMissingAvatarKeyColumnError(error: SupabaseErrorLike) {
     error.hint ?? ""
   }`.toLowerCase();
 
-  if (!errorText.includes("avatar_key")) {
+  if (!errorText.includes(columnName)) {
     return false;
   }
 
   return (
     error.code === "42703" ||
     error.code === "PGRST204" ||
-    (errorText.includes("column") &&
-      (errorText.includes("does not exist") || errorText.includes("could not find")))
+      (errorText.includes("column") &&
+        (errorText.includes("does not exist") || errorText.includes("could not find")))
   );
+}
+
+export function isMissingAvatarKeyColumnError(error: SupabaseErrorLike) {
+  return isMissingColumnError(error, "avatar_key");
+}
+
+export function isMissingAvatarObjectKeyColumnError(error: SupabaseErrorLike) {
+  return isMissingColumnError(error, "avatar_object_key");
 }

@@ -799,6 +799,95 @@
   text-transform: uppercase;
 }
 
+.avatarUploadPanel {
+  display: grid;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.avatarUploadPreview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.avatarUploadPreview img {
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 26%, transparent);
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.avatarUploadActions {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.avatarFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.avatarUploadButton,
+.avatarUploadRemoveButton {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.avatarUploadButton {
+  border: 0;
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--primary) 36%, var(--bg-primary)),
+    color-mix(in srgb, var(--primary) 68%, var(--bg-primary))
+  );
+}
+
+.avatarUploadRemoveButton {
+  border: 1px solid color-mix(in srgb, var(--danger) 44%, transparent);
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-secondary));
+}
+
+.avatarUploadButton svg,
+.avatarUploadRemoveButton svg {
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.avatarUploadButton:disabled,
+.avatarUploadRemoveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.avatarUploadButton:disabled svg {
+  animation: playSpin 0.9s linear infinite;
+}
+
 .avatarGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
@@ -4791,6 +4880,10 @@
   }
 
   .visibilityToggle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .avatarUploadActions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

@@ -18,14 +18,16 @@ import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } f
 import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
+  readStoredGuestPlayerAvatarObjectKey,
   readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
+  saveStoredGuestPlayerAvatarObjectKey,
   saveStoredGuestPlayerAvatarKey,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
 import {
   DEFAULT_PLAYER_AVATAR_KEY,
-  getPlayerAvatarPath,
+  getPlayerAvatarSrc,
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
@@ -178,6 +180,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
   const [guestAvatarInput, setGuestAvatarInput] =
     useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
+  const [guestAvatarObjectKey, setGuestAvatarObjectKey] = useState<string | null>(null);
+  const [guestAvatarObjectKeyInput, setGuestAvatarObjectKeyInput] = useState<string | null>(null);
   const [guestNameError, setGuestNameError] = useState("");
   const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState("");
@@ -260,23 +264,29 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+      const savedGuestAvatarObjectKey = readStoredGuestPlayerAvatarObjectKey();
       const hasSession = isAllowedGmailSession(data.session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
+      setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
+      setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
+      const savedGuestAvatarObjectKey = readStoredGuestPlayerAvatarObjectKey();
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
       setGuestAvatarInput(savedGuestAvatarKey);
+      setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
+      setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(isAllowedGmailSession(session));
     });
 
@@ -315,10 +325,18 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     return guestAvatarKey;
   }
 
-  function runJoinCurrentRoom(playerName?: string, avatarKey?: string) {
+  function getCurrentPlayerAvatarObjectKey() {
+    if (isLoggedIn) {
+      return undefined;
+    }
+
+    return guestAvatarObjectKey;
+  }
+
+  function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await joinWolfRoom(lobbyState.room.code, playerName, avatarKey);
+      const result = await joinWolfRoom(lobbyState.room.code, playerName, avatarKey, avatarObjectKey);
 
       if (!result.ok) {
         setErrorMessage(result.error);
@@ -330,7 +348,13 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         players: currentState.players.some((player) => player.id === result.playerId)
           ? currentState.players.map((player) =>
               player.id === result.playerId
-                ? { ...player, name: result.playerName, avatarKey: result.playerAvatarKey }
+                ? {
+                    ...player,
+                    name: result.playerName,
+                    avatarKey: result.playerAvatarKey,
+                    avatarObjectKey: result.playerAvatarObjectKey,
+                    avatarUrl: result.playerAvatarUrl,
+                  }
                 : player
             )
           : [
@@ -339,6 +363,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 id: result.playerId,
                 name: result.playerName,
                 avatarKey: result.playerAvatarKey,
+                avatarObjectKey: result.playerAvatarObjectKey,
+                avatarUrl: result.playerAvatarUrl,
                 isHost: false,
                 isReady: false,
                 joinedAt: new Date().toISOString(),
@@ -363,17 +389,20 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
     saveStoredGuestPlayerName(normalizedGuestName);
     const savedAvatarKey = saveStoredGuestPlayerAvatarKey(guestAvatarInput);
+    const savedAvatarObjectKey = saveStoredGuestPlayerAvatarObjectKey(guestAvatarObjectKeyInput);
     setGuestName(normalizedGuestName);
     setGuestNameInput(normalizedGuestName);
     setGuestAvatarKey(savedAvatarKey);
     setGuestAvatarInput(savedAvatarKey);
+    setGuestAvatarObjectKey(savedAvatarObjectKey);
+    setGuestAvatarObjectKeyInput(savedAvatarObjectKey);
     setGuestNameError("");
     setIsGuestFormOpen(false);
     setIsIdentityOpen(false);
 
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
-      runJoinCurrentRoom(normalizedGuestName, savedAvatarKey);
+      runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -384,13 +413,14 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       return;
     }
 
-    runJoinCurrentRoom(playerName, getCurrentPlayerAvatarKey());
+    runJoinCurrentRoom(playerName, getCurrentPlayerAvatarKey(), getCurrentPlayerAvatarObjectKey());
   }
 
   function openGuestProfileEditor() {
     setShouldJoinAfterGuestName(false);
     setGuestNameInput(guestName);
     setGuestAvatarInput(guestAvatarKey);
+    setGuestAvatarObjectKeyInput(guestAvatarObjectKey);
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
@@ -637,7 +667,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                   className={styles.playerAvatar}
                   width={48}
                   height={48}
-                  src={getPlayerAvatarPath(player.avatarKey)}
+                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                 />
                 <div>
                   <div className={styles.playerNameLine}>
@@ -831,7 +861,9 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 />
                 <PlayerAvatarPicker
                   selectedAvatarKey={guestAvatarInput}
+                  selectedAvatarObjectKey={guestAvatarObjectKeyInput}
                   onSelectAvatar={setGuestAvatarInput}
+                  onSelectAvatarObjectKey={setGuestAvatarObjectKeyInput}
                 />
                 {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
                 <button className={styles.primaryButton} type="submit">

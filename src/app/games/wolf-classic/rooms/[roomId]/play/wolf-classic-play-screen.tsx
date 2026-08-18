@@ -20,7 +20,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
-import { getPlayerAvatarPath } from "@/lib/player-avatars";
+import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
   CLASSIC_WOLF_ROLE_DESCRIPTIONS,
   CLASSIC_WOLF_ROLE_LABELS,
@@ -861,7 +861,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                   alt=""
                   className={styles.votingOptionAvatar}
                   height={36}
-                  src={getPlayerAvatarPath(player.avatarKey)}
+                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                   width={36}
                 />
                 <span>{player.name}</span>
@@ -878,7 +878,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                           className={styles.votingOptionVoterAvatar}
                           height={28}
                           key={wolfVoter.id}
-                          src={getPlayerAvatarPath(wolfVoter.avatarKey)}
+                          src={getPlayerAvatarSrc(wolfVoter.avatarKey, wolfVoter.avatarUrl)}
                           width={28}
                         />
                       ))}
@@ -1502,7 +1502,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                           alt=""
                           className={styles.votingOptionAvatar}
                           height={36}
-                          src={getPlayerAvatarPath(player.avatarKey)}
+                          src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                           width={36}
                         />
                         <span>{player.name}</span>
@@ -1519,7 +1519,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                                   className={styles.votingOptionVoterAvatar}
                                   height={28}
                                   key={voter.id}
-                                  src={getPlayerAvatarPath(voter.avatarKey)}
+                                  src={getPlayerAvatarSrc(voter.avatarKey, voter.avatarUrl)}
                                   width={28}
                                 />
                               ))}
@@ -1585,7 +1585,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                       alt=""
                       className={styles.nightlyResultAvatar}
                       height={44}
-                      src={getPlayerAvatarPath(player.avatarKey)}
+                      src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                       width={44}
                     />
                     <div className={styles.nightlyResultPlayerInfo}>

@@ -2,8 +2,16 @@
 
 import { cookies } from "next/headers";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
-import { normalizePlayerAvatarKey } from "@/lib/player-avatars";
-import { isMissingAvatarKeyColumnError } from "@/lib/supabase/errors";
+import {
+  getUploadedPlayerAvatarUrl,
+  normalizePlayerAvatarKey,
+  normalizePlayerAvatarObjectKey,
+  normalizePlayerAvatarObjectKeyForSession,
+} from "@/lib/player-avatars";
+import {
+  isMissingAvatarKeyColumnError,
+  isMissingAvatarObjectKeyColumnError,
+} from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRole, WolfRoomStatus } from "@/lib/supabase/types";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
@@ -90,6 +98,7 @@ type PlayerRow = {
   session_id: string;
   name: string;
   avatar_key?: string | null;
+  avatar_object_key?: string | null;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -188,6 +197,8 @@ export type WolfLobbyPlayer = {
   id: string;
   name: string;
   avatarKey: string;
+  avatarObjectKey: string | null;
+  avatarUrl: string | null;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -221,6 +232,8 @@ export type WolfActionResult =
       playerId: string;
       playerName: string;
       playerAvatarKey: string;
+      playerAvatarObjectKey: string | null;
+      playerAvatarUrl: string | null;
     }
   | {
       ok: false;
@@ -455,6 +468,30 @@ function getRoomVisibilityErrorMessage(error?: DatabaseMutationError | null) {
   return null;
 }
 
+function getAvatarObjectKeyErrorMessage(error?: DatabaseMutationError | null) {
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    return "Database chua co cot avatar upload R2. Can chay migration 202608180001_wolf_player_avatar_objects truoc.";
+  }
+
+  return null;
+}
+
+function getRequestedAvatarObjectKey(avatarObjectKey: string | null | undefined, sessionId: string) {
+  const normalizedAvatarObjectKey = normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
+
+  if (avatarObjectKey && !normalizedAvatarObjectKey) {
+    return {
+      ok: false as const,
+      error: "Avatar upload khong hop le. Hay tai lai anh avatar.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    avatarObjectKey: normalizedAvatarObjectKey,
+  };
+}
+
 function shuffleRoles(roles: WolfRole[]) {
   const shuffled = [...roles];
 
@@ -549,9 +586,36 @@ async function getActivePlayers(
 ) {
   const { data: players, error } = await supabase
     .from("wolf_room_players")
-    .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
+    .select("id, room_id, session_id, name, avatar_key, avatar_object_key, is_host, is_ready, joined_at")
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
+
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    const { data: playersWithoutAvatarObjectKey, error: avatarKeyError } = await supabase
+      .from("wolf_room_players")
+      .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
+      .eq("room_id", room.id)
+      .order("joined_at", { ascending: true });
+
+    if (!isMissingAvatarKeyColumnError(avatarKeyError)) {
+      return ((playersWithoutAvatarObjectKey ?? []) as PlayerRow[]).map((player) => ({
+        ...player,
+        avatar_object_key: undefined,
+      }));
+    }
+
+    const { data: playersWithoutAvatar } = await supabase
+      .from("wolf_room_players")
+      .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
+      .eq("room_id", room.id)
+      .order("joined_at", { ascending: true });
+
+    return ((playersWithoutAvatar ?? []) as PlayerRow[]).map((player) => ({
+      ...player,
+      avatar_key: undefined,
+      avatar_object_key: undefined,
+    }));
+  }
 
   if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
@@ -563,6 +627,7 @@ async function getActivePlayers(
     return ((playersWithoutAvatar ?? []) as PlayerRow[]).map((player) => ({
       ...player,
       avatar_key: undefined,
+      avatar_object_key: undefined,
     }));
   }
 
@@ -576,15 +641,29 @@ async function insertWolfRoomPlayer(
     session_id: string;
     name: string;
     avatar_key: string;
+    avatar_object_key?: string | null;
     is_host?: boolean;
     is_ready?: boolean;
   }
 ) {
+  const insertValues = {
+    room_id: values.room_id,
+    session_id: values.session_id,
+    name: values.name,
+    avatar_key: values.avatar_key,
+    is_host: values.is_host,
+    is_ready: values.is_ready,
+    ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
+  };
   const { data, error } = await supabase
     .from("wolf_room_players")
-    .insert(values)
+    .insert(insertValues)
     .select("id")
     .single();
+
+  if (values.avatar_object_key && isMissingAvatarObjectKeyColumnError(error)) {
+    return { data, error };
+  }
 
   if (!isMissingAvatarKeyColumnError(error)) {
     return { data, error };
@@ -609,12 +688,31 @@ async function updateWolfRoomPlayerIdentity(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   playerId: string,
   name: string,
-  avatarKey: string
+  avatarKey: string,
+  avatarObjectKey: string | null
 ) {
+  const updateValues = {
+    name,
+    avatar_key: avatarKey,
+    avatar_object_key: avatarObjectKey,
+  };
   const { error } = await supabase
     .from("wolf_room_players")
-    .update({ name, avatar_key: avatarKey })
+    .update(updateValues)
     .eq("id", playerId);
+
+  if (avatarObjectKey && isMissingAvatarObjectKeyColumnError(error)) {
+    return error;
+  }
+
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    const { error: fallbackError } = await supabase
+      .from("wolf_room_players")
+      .update({ name, avatar_key: avatarKey })
+      .eq("id", playerId);
+
+    return fallbackError;
+  }
 
   if (!isMissingAvatarKeyColumnError(error)) {
     return error;
@@ -629,10 +727,14 @@ async function updateWolfRoomPlayerIdentity(
 }
 
 function mapLobbyPlayer(player: PlayerRow): WolfLobbyPlayer {
+  const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
+
   return {
     id: player.id,
     name: player.name,
     avatarKey: normalizePlayerAvatarKey(player.avatar_key),
+    avatarObjectKey,
+    avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -2559,12 +2661,21 @@ export async function listPublicWolfRooms(): Promise<WolfPublicRoomsResult> {
 export async function createWolfRoom(
   playerName?: string,
   avatarKey?: string,
-  isPublic = true
+  isPublic = true,
+  avatarObjectKey?: string | null
 ): Promise<WolfActionResult> {
   const supabase = createSupabaseAdminClient();
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const code = generateRoomCode();
@@ -2595,6 +2706,7 @@ export async function createWolfRoom(
         session_id: sessionId,
         name,
         avatar_key: playerAvatarKey,
+        avatar_object_key: playerAvatarObjectKey,
         is_host: true,
         is_ready: true,
       }
@@ -2602,7 +2714,12 @@ export async function createWolfRoom(
 
     if (playerError || !hostPlayer) {
       await supabase.from("wolf_rooms").delete().eq("id", room.id);
-      return { ok: false, error: "Không thể thêm người chơi vào phòng." };
+      return {
+        ok: false,
+        error:
+          getAvatarObjectKeyErrorMessage(playerError) ??
+          "Không thể thêm người chơi vào phòng.",
+      };
     }
 
     await supabase
@@ -2618,6 +2735,8 @@ export async function createWolfRoom(
       playerId: hostPlayer.id,
       playerName: name,
       playerAvatarKey,
+      playerAvatarObjectKey,
+      playerAvatarUrl,
     };
   }
 
@@ -2627,7 +2746,8 @@ export async function createWolfRoom(
 export async function joinWolfRoom(
   roomCode: string,
   playerName?: string,
-  avatarKey?: string
+  avatarKey?: string,
+  avatarObjectKey?: string | null
 ): Promise<WolfActionResult> {
   const code = normalizeRoomCode(roomCode);
 
@@ -2639,6 +2759,14 @@ export async function joinWolfRoom(
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   const { data: room, error: roomError } = await supabase
     .from("wolf_rooms")
@@ -2695,11 +2823,17 @@ export async function joinWolfRoom(
       supabase,
       existingPlayer.id,
       name,
-      playerAvatarKey
+      playerAvatarKey,
+      playerAvatarObjectKey
     );
 
     if (updateError) {
-      return { ok: false, error: "Không thể cập nhật tên hoặc avatar người chơi." };
+      return {
+        ok: false,
+        error:
+          getAvatarObjectKeyErrorMessage(updateError) ??
+          "Không thể cập nhật tên hoặc avatar người chơi.",
+      };
     }
 
     await safeBroadcastWolfRoomUpdate(room.code);
@@ -2710,6 +2844,8 @@ export async function joinWolfRoom(
       playerId: existingPlayer.id,
       playerName: name,
       playerAvatarKey,
+      playerAvatarObjectKey,
+      playerAvatarUrl,
     };
   }
 
@@ -2729,11 +2865,17 @@ export async function joinWolfRoom(
       session_id: sessionId,
       name,
       avatar_key: playerAvatarKey,
+      avatar_object_key: playerAvatarObjectKey,
     }
   );
 
   if (playerError || !player) {
-    return { ok: false, error: "Không thể vào phòng. Vui lòng thử lại." };
+    return {
+      ok: false,
+      error:
+        getAvatarObjectKeyErrorMessage(playerError) ??
+        "Không thể vào phòng. Vui lòng thử lại.",
+    };
   }
 
   await safeBroadcastWolfRoomUpdate(room.code);
@@ -2744,6 +2886,8 @@ export async function joinWolfRoom(
     playerId: player.id,
     playerName: name,
     playerAvatarKey,
+    playerAvatarObjectKey,
+    playerAvatarUrl,
   };
 }
 

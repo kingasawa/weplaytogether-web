@@ -23,9 +23,17 @@ import {
   type AvalonTeam,
   type AvalonTeamVote,
 } from "@/lib/avalon-game";
-import { normalizePlayerAvatarKey } from "@/lib/player-avatars";
+import {
+  getUploadedPlayerAvatarUrl,
+  normalizePlayerAvatarKey,
+  normalizePlayerAvatarObjectKey,
+  normalizePlayerAvatarObjectKeyForSession,
+} from "@/lib/player-avatars";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
-import { isMissingAvatarKeyColumnError } from "@/lib/supabase/errors";
+import {
+  isMissingAvatarKeyColumnError,
+  isMissingAvatarObjectKeyColumnError,
+} from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRoomStatus } from "@/lib/supabase/types";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
@@ -48,6 +56,7 @@ type PlayerRow = {
   session_id: string;
   name: string;
   avatar_key?: string | null;
+  avatar_object_key?: string | null;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -114,6 +123,7 @@ type AvalonGameState = {
   playerOrderIds: string[];
   playerNameByPlayerId: Record<string, string>;
   playerAvatarKeyByPlayerId: Record<string, string>;
+  playerAvatarObjectKeyByPlayerId: Record<string, string | null>;
   roleByPlayerId: Record<string, AvalonRole>;
   leaderIndex: number;
   questIndex: number;
@@ -151,6 +161,8 @@ export type AvalonLobbyPlayer = {
   id: string;
   name: string;
   avatarKey: string;
+  avatarObjectKey: string | null;
+  avatarUrl: string | null;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -193,6 +205,8 @@ export type AvalonActionResult =
       playerId: string;
       playerName: string;
       playerAvatarKey: string;
+      playerAvatarObjectKey: string | null;
+      playerAvatarUrl: string | null;
     }
   | {
       ok: false;
@@ -442,9 +456,36 @@ async function getActivePlayers(
 ) {
   const { data: players, error } = await supabase
     .from("wolf_room_players")
-    .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
+    .select("id, room_id, session_id, name, avatar_key, avatar_object_key, is_host, is_ready, joined_at")
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
+
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    const { data: playersWithoutAvatarObjectKey, error: avatarKeyError } = await supabase
+      .from("wolf_room_players")
+      .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
+      .eq("room_id", room.id)
+      .order("joined_at", { ascending: true });
+
+    if (!isMissingAvatarKeyColumnError(avatarKeyError)) {
+      return ((playersWithoutAvatarObjectKey ?? []) as PlayerRow[]).map((player) => ({
+        ...player,
+        avatar_object_key: undefined,
+      }));
+    }
+
+    const { data: playersWithoutAvatar } = await supabase
+      .from("wolf_room_players")
+      .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
+      .eq("room_id", room.id)
+      .order("joined_at", { ascending: true });
+
+    return ((playersWithoutAvatar ?? []) as PlayerRow[]).map((player) => ({
+      ...player,
+      avatar_key: undefined,
+      avatar_object_key: undefined,
+    }));
+  }
 
   if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
@@ -456,6 +497,7 @@ async function getActivePlayers(
     return ((playersWithoutAvatar ?? []) as PlayerRow[]).map((player) => ({
       ...player,
       avatar_key: undefined,
+      avatar_object_key: undefined,
     }));
   }
 
@@ -469,11 +511,25 @@ async function insertRoomPlayer(
     session_id: string;
     name: string;
     avatar_key: string;
+    avatar_object_key?: string | null;
     is_host?: boolean;
     is_ready?: boolean;
   }
 ) {
-  const { data, error } = await supabase.from("wolf_room_players").insert(values).select("id").single();
+  const insertValues = {
+    room_id: values.room_id,
+    session_id: values.session_id,
+    name: values.name,
+    avatar_key: values.avatar_key,
+    is_host: values.is_host,
+    is_ready: values.is_ready,
+    ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
+  };
+  const { data, error } = await supabase.from("wolf_room_players").insert(insertValues).select("id").single();
+
+  if (values.avatar_object_key && isMissingAvatarObjectKeyColumnError(error)) {
+    return { data, error };
+  }
 
   if (!isMissingAvatarKeyColumnError(error)) {
     return { data, error };
@@ -494,12 +550,31 @@ async function updateRoomPlayerIdentity(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   playerId: string,
   name: string,
-  avatarKey: string
+  avatarKey: string,
+  avatarObjectKey: string | null
 ) {
+  const updateValues = {
+    name,
+    avatar_key: avatarKey,
+    avatar_object_key: avatarObjectKey,
+  };
   const { error } = await supabase
     .from("wolf_room_players")
-    .update({ name, avatar_key: avatarKey })
+    .update(updateValues)
     .eq("id", playerId);
+
+  if (avatarObjectKey && isMissingAvatarObjectKeyColumnError(error)) {
+    return error;
+  }
+
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    const { error: fallbackError } = await supabase
+      .from("wolf_room_players")
+      .update({ name, avatar_key: avatarKey })
+      .eq("id", playerId);
+
+    return fallbackError;
+  }
 
   if (!isMissingAvatarKeyColumnError(error)) {
     return error;
@@ -514,10 +589,14 @@ async function updateRoomPlayerIdentity(
 }
 
 function mapLobbyPlayer(player: PlayerRow): AvalonLobbyPlayer {
+  const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
+
   return {
     id: player.id,
     name: player.name,
     avatarKey: normalizePlayerAvatarKey(player.avatar_key),
+    avatarObjectKey,
+    avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,

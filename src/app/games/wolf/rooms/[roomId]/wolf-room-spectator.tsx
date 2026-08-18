@@ -8,7 +8,7 @@ import {
   readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
 } from "@/lib/guest-player";
-import { getPlayerAvatarPath } from "@/lib/player-avatars";
+import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { WOLF_PHASE_LABELS } from "@/lib/wolf-game";
 import {
@@ -122,7 +122,7 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
                   aria-hidden="true"
                   className={styles.playerAvatar}
                   height={48}
-                  src={getPlayerAvatarPath(player.avatarKey)}
+                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                   width={48}
                 />
                 <div>
