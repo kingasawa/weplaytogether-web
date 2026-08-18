@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-17 -->
+﻿<!-- Last updated: 2026-08-18 -->
 
 # Migrations
 
@@ -242,6 +242,20 @@ Purpose:
 - Repair `wolf_room_players_avatar_key_check` for databases that already applied an older named-avatar constraint without `duy`, `na`, and `oanh`.
 - Keep the database constraint aligned with `PLAYER_AVATAR_KEYS` in `src/lib/player-avatars.ts`.
 - This migration depends on `202606040001_wolf_player_avatars.sql`; apply the avatar column migration first on a fresh database.
+
+## 202608180001_wolf_player_avatar_objects.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608180001_wolf_player_avatar_objects.sql`
+
+Purpose:
+
+- Add `public.wolf_room_players.avatar_object_key text null` để lưu object key của avatar do người chơi upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`).
+- Cơ chế dùng chung cho toàn app: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players` (phân biệt game bằng `game_key` trên `wolf_rooms`), nên chỉ cần một cột này cho tất cả game.
+- Khi cột chưa tồn tại, code phía server tự fallback về `avatar_key` (xem `isMissingAvatarObjectKeyColumnError`), nên avatar preset vẫn hoạt động; chỉ avatar upload cần cột này.
 
 ## Remote Execution Status
 

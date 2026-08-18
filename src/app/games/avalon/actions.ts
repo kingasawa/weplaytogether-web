@@ -588,6 +588,30 @@ async function updateRoomPlayerIdentity(
   return fallbackError;
 }
 
+function getAvatarObjectKeyErrorMessage(error?: Parameters<typeof isMissingAvatarObjectKeyColumnError>[0]) {
+  if (isMissingAvatarObjectKeyColumnError(error)) {
+    return "Database chưa có cột avatar upload R2. Cần chạy migration 202608180001_wolf_player_avatar_objects trước.";
+  }
+
+  return null;
+}
+
+function getRequestedAvatarObjectKey(avatarObjectKey: string | null | undefined, sessionId: string) {
+  const normalizedAvatarObjectKey = normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
+
+  if (avatarObjectKey && !normalizedAvatarObjectKey) {
+    return {
+      ok: false as const,
+      error: "Avatar upload không hợp lệ. Hãy tải lại ảnh avatar.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    avatarObjectKey: normalizedAvatarObjectKey,
+  };
+}
+
 function mapLobbyPlayer(player: PlayerRow): AvalonLobbyPlayer {
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
 
@@ -780,6 +804,9 @@ function parseAvalonState(rawState: unknown, players: PlayerRow[]): AvalonGameSt
     playerAvatarKeyByPlayerId: Object.fromEntries(
       players.map((player) => [player.id, normalizePlayerAvatarKey(player.avatar_key)])
     ),
+    playerAvatarObjectKeyByPlayerId: Object.fromEntries(
+      players.map((player) => [player.id, normalizePlayerAvatarObjectKey(player.avatar_object_key)])
+    ),
     roleByPlayerId: fallbackRoleByPlayerId,
     leaderIndex: 0,
     questIndex: 0,
@@ -971,6 +998,9 @@ function buildInitialAvalonState(
     playerAvatarKeyByPlayerId: Object.fromEntries(
       players.map((player) => [player.id, normalizePlayerAvatarKey(player.avatar_key)])
     ),
+    playerAvatarObjectKeyByPlayerId: Object.fromEntries(
+      players.map((player) => [player.id, normalizePlayerAvatarObjectKey(player.avatar_object_key)])
+    ),
     roleByPlayerId: Object.fromEntries(
       playerOrderIds.map((playerId, index) => [playerId, shuffledRoles[index]])
     ) as Record<string, AvalonRole>,
@@ -1120,11 +1150,16 @@ function buildAvalonPlayPlayers(
     const role = state.roleByPlayerId[playerId] ?? null;
     const teamVote = state.teamVotesByPlayerId[playerId] ?? null;
     const hasQuestSubmitted = Object.prototype.hasOwnProperty.call(state.questCardsByPlayerId, playerId);
+    const avatarObjectKey = normalizePlayerAvatarObjectKey(
+      livePlayer?.avatar_object_key ?? state.playerAvatarObjectKeyByPlayerId[playerId]
+    );
 
     return {
       id: playerId,
       name: livePlayer?.name ?? state.playerNameByPlayerId[playerId] ?? "Người chơi đã rời",
       avatarKey: normalizePlayerAvatarKey(livePlayer?.avatar_key ?? state.playerAvatarKeyByPlayerId[playerId]),
+      avatarObjectKey,
+      avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
       isHost: Boolean(livePlayer?.is_host),
       isReady: Boolean(livePlayer?.is_ready),
       joinedAt: livePlayer?.joined_at ?? "",
@@ -1269,12 +1304,22 @@ export async function listPublicAvalonRooms(): Promise<AvalonPublicRoomsResult> 
 export async function createAvalonRoom(
   playerName?: string,
   avatarKey?: string,
-  isPublic = true
+  isPublic = true,
+  avatarObjectKey?: string | null
 ): Promise<AvalonActionResult> {
   const sessionId = await getOrCreatePlayerSessionId();
   const supabase = createSupabaseAdminClient();
   const normalizedName = normalizePlayerName(playerName);
   const normalizedAvatarKey = normalizePlayerAvatarKey(avatarKey);
+
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const roomCode = generateRoomCode();
@@ -1313,12 +1358,18 @@ export async function createAvalonRoom(
       session_id: sessionId,
       name: normalizedName,
       avatar_key: normalizedAvatarKey,
+      avatar_object_key: playerAvatarObjectKey,
       is_host: true,
       is_ready: true,
     });
 
     if (playerError || !player) {
-      return { ok: false, error: "Không thể tạo người chơi trong phòng Avalon." };
+      return {
+        ok: false,
+        error:
+          getAvatarObjectKeyErrorMessage(playerError) ??
+          "Không thể tạo người chơi trong phòng Avalon.",
+      };
     }
 
     await supabase.from("wolf_rooms").update({ host_player_id: player.id }).eq("id", room.id);
@@ -1330,6 +1381,8 @@ export async function createAvalonRoom(
       playerId: player.id,
       playerName: normalizedName,
       playerAvatarKey: normalizedAvatarKey,
+      playerAvatarObjectKey,
+      playerAvatarUrl,
     };
   }
 
@@ -1339,7 +1392,8 @@ export async function createAvalonRoom(
 export async function joinAvalonRoom(
   roomCode: string,
   playerName?: string,
-  avatarKey?: string
+  avatarKey?: string,
+  avatarObjectKey?: string | null
 ): Promise<AvalonActionResult> {
   const normalizedRoomCode = normalizeRoomCode(roomCode);
 
@@ -1348,6 +1402,14 @@ export async function joinAvalonRoom(
   }
 
   const sessionId = await getOrCreatePlayerSessionId();
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
   const { supabase, room, error } = await getRoomByCode(normalizedRoomCode);
 
   if (error) {
@@ -1377,11 +1439,17 @@ export async function joinAvalonRoom(
       supabase,
       existingPlayer.id,
       normalizedName,
-      normalizedAvatarKey
+      normalizedAvatarKey,
+      playerAvatarObjectKey
     );
 
     if (updateError) {
-      return { ok: false, error: "Không thể cập nhật tên hoặc avatar người chơi." };
+      return {
+        ok: false,
+        error:
+          getAvatarObjectKeyErrorMessage(updateError) ??
+          "Không thể cập nhật tên hoặc avatar người chơi.",
+      };
     }
 
     await safeBroadcastWolfRoomUpdate(room.code);
@@ -1391,6 +1459,8 @@ export async function joinAvalonRoom(
       playerId: existingPlayer.id,
       playerName: normalizedName,
       playerAvatarKey: normalizedAvatarKey,
+      playerAvatarObjectKey,
+      playerAvatarUrl,
     };
   }
 
@@ -1403,12 +1473,16 @@ export async function joinAvalonRoom(
     session_id: sessionId,
     name: normalizedName,
     avatar_key: normalizedAvatarKey,
+    avatar_object_key: playerAvatarObjectKey,
     is_host: false,
     is_ready: false,
   });
 
   if (playerError || !player) {
-    return { ok: false, error: "Không thể tham gia phòng Avalon." };
+    return {
+      ok: false,
+      error: getAvatarObjectKeyErrorMessage(playerError) ?? "Không thể tham gia phòng Avalon.",
+    };
   }
 
   await safeBroadcastWolfRoomUpdate(room.code);
@@ -1418,6 +1492,8 @@ export async function joinAvalonRoom(
     playerId: player.id,
     playerName: normalizedName,
     playerAvatarKey: normalizedAvatarKey,
+    playerAvatarObjectKey,
+    playerAvatarUrl,
   };
 }
 

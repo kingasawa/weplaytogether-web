@@ -1,5 +1,5 @@
 export const DEFAULT_PLAYER_AVATAR_KEY = "avatar0";
-export const PLAYER_AVATAR_OBJECT_PREFIX = "avatars/";
+export const PLAYER_AVATAR_OBJECT_PREFIX = "avatar/";
 
 export const PLAYER_AVATAR_KEYS = [
   "avatar0",
@@ -36,7 +36,7 @@ export type PlayerAvatarKey = (typeof PLAYER_AVATAR_KEYS)[number];
 
 const PLAYER_AVATAR_KEY_SET = new Set<string>(PLAYER_AVATAR_KEYS);
 const PLAYER_AVATAR_OBJECT_KEY_PATTERN =
-  /^avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/i;
+  /^avatar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/i;
 
 export function normalizePlayerAvatarKey(avatarKey?: string | null): PlayerAvatarKey {
   const normalizedAvatarKey = avatarKey?.trim();

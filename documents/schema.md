@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-17 -->
+﻿<!-- Last updated: 2026-08-18 -->
 
 # Database Schema
 
@@ -75,6 +75,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `session_id text not null`
 - `name text not null`, trimmed length 1-32
 - `avatar_key text not null default 'avatar0'`, constrained to available avatar asset keys
+- `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`). Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`

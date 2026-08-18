@@ -30,7 +30,7 @@ import {
   type AvalonQuestCard,
   type AvalonTeamVote,
 } from "@/lib/avalon-game";
-import { getPlayerAvatarPath } from "@/lib/player-avatars";
+import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import {
   confirmAvalonRoleReveal,
@@ -190,6 +190,10 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     return playState.players.find((player) => player.id === playerId)?.avatarKey;
   }
 
+  function getPlayerAvatarUrl(playerId: string) {
+    return playState.players.find((player) => player.id === playerId)?.avatarUrl ?? null;
+  }
+
   function renderKnownPlayerChip(knownPlayer: AvalonKnownPlayer, showNote = false, concealLoyalty = false) {
     return (
       <span
@@ -203,7 +207,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           aria-hidden="true"
           className={styles.avalonKnownPlayerAvatar}
           height={32}
-          src={getPlayerAvatarPath(getPlayerAvatarKey(knownPlayer.playerId))}
+          src={getPlayerAvatarSrc(getPlayerAvatarKey(knownPlayer.playerId), getPlayerAvatarUrl(knownPlayer.playerId))}
           width={32}
         />
         <span className={styles.avalonKnownPlayerText}>
@@ -618,7 +622,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
             className={styles.avalonPlayerAvatarImage}
             width={40}
             height={40}
-            src={getPlayerAvatarPath(player.avatarKey)}
+            src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
           />
         </span>
         <span className={styles.avalonPlayerName}>{player.name}</span>
@@ -782,7 +786,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
                   aria-hidden="true"
                   className={styles.avalonOrderAvatar}
                   height={32}
-                  src={getPlayerAvatarPath(player.avatarKey)}
+                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                   width={32}
                 />
                 <span className={styles.avalonOrderPlayerName}>{player.name}</span>
@@ -1134,7 +1138,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
                   aria-hidden="true"
                   className={styles.avalonResultAvatar}
                   height={36}
-                  src={getPlayerAvatarPath(player.avatarKey)}
+                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
                   width={36}
                 />
                 <div className={styles.avalonResultPlayer}>

@@ -29,8 +29,15 @@
     "NEXT_PUBLIC_PUSHER_CLUSTER": "ap1",
     "NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX": "presence-nicecode-websocket-",
     "PUSHER_APP_ID": "2162565",
-    "PUSHER_SECRET": "744712ee1348c8cf66fd"
-  }
+    "PUSHER_SECRET": "744712ee1348c8cf66fd",
+
+    // Public base URL để đọc avatar đã upload lên R2 bucket "uploads".
+    // R2 custom domain (subdomain, không đụng route Worker apex).
+    "NEXT_PUBLIC_R2_AVATAR_PUBLIC_URL": "https://uploads.weplaytogether.online"
+  },
+
+  // Cloudflare R2 bucket lưu avatar người chơi (folder "avatar/")
+  "r2_buckets": [{ "binding": "AVATAR_BUCKET", "bucket_name": "uploads" }]
 
   // KV namespace for cache (optional — enable when needed)
   // "kv_namespaces": [
