@@ -6,6 +6,8 @@ export const PLAYER_AVATAR_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 // Hạn mức của ảnh gốc user chọn (trước khi client nén). Cho phép ảnh từ điện thoại,
 // client sẽ tự thu nhỏ về WebP nhỏ gọn trước khi upload.
 export const PLAYER_AVATAR_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
+// Số avatar upload tối đa mà mỗi user được giữ trong bộ sưu tập cá nhân.
+export const PLAYER_AVATAR_MAX_UPLOADS = 3;
 
 const PLAYER_AVATAR_UPLOAD_EXTENSIONS = new Map([
   ["image/png", "png"],

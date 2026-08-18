@@ -1,3 +1,4 @@
+import { PLAYER_AVATAR_MAX_UPLOADS } from "@/lib/player-avatar-upload";
 import {
   DEFAULT_PLAYER_AVATAR_KEY,
   normalizePlayerAvatarObjectKey,
@@ -8,6 +9,7 @@ import {
 export const GUEST_PLAYER_NAME_KEY = "boardverse:guest-name";
 export const GUEST_PLAYER_AVATAR_KEY = "boardverse:guest-avatar";
 export const GUEST_PLAYER_AVATAR_OBJECT_KEY = "boardverse:guest-avatar-object-key";
+export const GUEST_PLAYER_AVATAR_UPLOADS_KEY = "boardverse:guest-avatar-uploads";
 export const LEGACY_WOLF_GUEST_PLAYER_NAME_KEY = "boardverse:wolf-guest-name";
 export const MAX_GUEST_PLAYER_NAME_LENGTH = 32;
 
@@ -78,4 +80,63 @@ export function saveStoredGuestPlayerAvatarObjectKey(avatarObjectKey?: string | 
   }
 
   return normalizedAvatarObjectKey;
+}
+
+// Bộ sưu tập avatar mà guest đã upload (object key), mới nhất đứng đầu, tối đa PLAYER_AVATAR_MAX_UPLOADS.
+export function readStoredGuestPlayerAvatarUploads(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  let parsed: unknown = null;
+
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(GUEST_PLAYER_AVATAR_UPLOADS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const normalized = parsed
+    .map((objectKey) => normalizePlayerAvatarObjectKey(typeof objectKey === "string" ? objectKey : null))
+    .filter((objectKey): objectKey is string => Boolean(objectKey));
+
+  return Array.from(new Set(normalized)).slice(0, PLAYER_AVATAR_MAX_UPLOADS);
+}
+
+function saveStoredGuestPlayerAvatarUploads(objectKeys: string[]): string[] {
+  const normalized = Array.from(
+    new Set(
+      objectKeys
+        .map((objectKey) => normalizePlayerAvatarObjectKey(objectKey))
+        .filter((objectKey): objectKey is string => Boolean(objectKey))
+    )
+  ).slice(0, PLAYER_AVATAR_MAX_UPLOADS);
+
+  window.localStorage.setItem(GUEST_PLAYER_AVATAR_UPLOADS_KEY, JSON.stringify(normalized));
+
+  return normalized;
+}
+
+export function addStoredGuestPlayerAvatarUpload(avatarObjectKey?: string | null): string[] {
+  const normalizedAvatarObjectKey = normalizePlayerAvatarObjectKey(avatarObjectKey);
+
+  if (!normalizedAvatarObjectKey) {
+    return readStoredGuestPlayerAvatarUploads();
+  }
+
+  const withoutDuplicate = readStoredGuestPlayerAvatarUploads().filter(
+    (objectKey) => objectKey !== normalizedAvatarObjectKey
+  );
+
+  return saveStoredGuestPlayerAvatarUploads([normalizedAvatarObjectKey, ...withoutDuplicate]);
+}
+
+export function removeStoredGuestPlayerAvatarUpload(avatarObjectKey: string): string[] {
+  return saveStoredGuestPlayerAvatarUploads(
+    readStoredGuestPlayerAvatarUploads().filter((objectKey) => objectKey !== avatarObjectKey)
+  );
 }

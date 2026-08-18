@@ -1,15 +1,20 @@
 "use client";
 
-import { ImageUp, LoaderCircle } from "lucide-react";
+import { ImageUp, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+import {
+  addStoredGuestPlayerAvatarUpload,
+  readStoredGuestPlayerAvatarUploads,
+  removeStoredGuestPlayerAvatarUpload,
+} from "@/lib/guest-player";
 import { optimizePlayerAvatarImage } from "@/lib/player-avatar-image";
 import {
+  PLAYER_AVATAR_MAX_UPLOADS,
   PLAYER_AVATAR_SOURCE_MAX_BYTES,
   PLAYER_AVATAR_UPLOAD_ACCEPT,
   PLAYER_AVATAR_UPLOAD_FIELD_NAME,
   PLAYER_AVATAR_UPLOAD_MAX_BYTES,
-  PREVIOUS_PLAYER_AVATAR_OBJECT_KEY_FIELD_NAME,
 } from "@/lib/player-avatar-upload";
 import {
   getPlayerAvatarPath,
@@ -35,7 +40,32 @@ export function PlayerAvatarPicker({
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const selectedUploadedAvatarUrl = getUploadedPlayerAvatarUrl(selectedAvatarObjectKey);
+  const [uploadedObjectKeys, setUploadedObjectKeys] = useState<string[]>([]);
+  const [deletingObjectKey, setDeletingObjectKey] = useState<string | null>(null);
+  const isUploadEnabled = Boolean(onSelectAvatarObjectKey);
+  const hasReachedUploadLimit = uploadedObjectKeys.length >= PLAYER_AVATAR_MAX_UPLOADS;
+
+  // Đọc bộ sưu tập avatar đã upload từ localStorage khi mở picker.
+  useEffect(() => {
+    if (!isUploadEnabled) {
+      return;
+    }
+
+    setUploadedObjectKeys(readStoredGuestPlayerAvatarUploads());
+  }, [isUploadEnabled]);
+
+  // Đảm bảo avatar đang được chọn (kể cả dữ liệu cũ trước tính năng này) cũng có trong bộ sưu tập.
+  useEffect(() => {
+    if (!isUploadEnabled || !selectedAvatarObjectKey) {
+      return;
+    }
+
+    setUploadedObjectKeys((current) =>
+      current.includes(selectedAvatarObjectKey)
+        ? current
+        : addStoredGuestPlayerAvatarUpload(selectedAvatarObjectKey)
+    );
+  }, [isUploadEnabled, selectedAvatarObjectKey]);
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -46,6 +76,11 @@ export function PlayerAvatarPicker({
     }
 
     setUploadError("");
+
+    if (hasReachedUploadLimit) {
+      setUploadError(`Tối đa ${PLAYER_AVATAR_MAX_UPLOADS} ảnh. Hãy xóa bớt trước khi tải thêm.`);
+      return;
+    }
 
     if (file.size <= 0 || file.size > PLAYER_AVATAR_SOURCE_MAX_BYTES) {
       setUploadError("Ảnh avatar phải nhỏ hơn 15MB.");
@@ -66,10 +101,6 @@ export function PlayerAvatarPicker({
       const formData = new FormData();
       formData.set(PLAYER_AVATAR_UPLOAD_FIELD_NAME, optimizedFile);
 
-      if (selectedAvatarObjectKey) {
-        formData.set(PREVIOUS_PLAYER_AVATAR_OBJECT_KEY_FIELD_NAME, selectedAvatarObjectKey);
-      }
-
       const response = await fetch("/api/player-avatar", {
         body: formData,
         method: "POST",
@@ -80,13 +111,45 @@ export function PlayerAvatarPicker({
       } | null;
 
       if (!response.ok || !payload?.objectKey) {
-        setUploadError(payload?.error ?? "Khong the tai avatar len.");
+        setUploadError(payload?.error ?? "Không thể tải avatar lên.");
         return;
       }
 
+      setUploadedObjectKeys(addStoredGuestPlayerAvatarUpload(payload.objectKey));
       onSelectAvatarObjectKey(payload.objectKey);
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function deleteUploadedAvatar(objectKey: string) {
+    if (!onSelectAvatarObjectKey) {
+      return;
+    }
+
+    setUploadError("");
+    setDeletingObjectKey(objectKey);
+
+    try {
+      const response = await fetch("/api/player-avatar", {
+        body: JSON.stringify({ objectKey }),
+        headers: { "Content-Type": "application/json" },
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setUploadError(payload?.error ?? "Không thể xóa avatar.");
+        return;
+      }
+
+      setUploadedObjectKeys(removeStoredGuestPlayerAvatarUpload(objectKey));
+
+      if (selectedAvatarObjectKey === objectKey) {
+        onSelectAvatarObjectKey(null);
+      }
+    } finally {
+      setDeletingObjectKey(null);
     }
   }
 
@@ -98,7 +161,7 @@ export function PlayerAvatarPicker({
   return (
     <fieldset className={styles.avatarPicker}>
       <legend>Chọn avatar</legend>
-      {onSelectAvatarObjectKey && (
+      {isUploadEnabled && (
         <input
           ref={avatarFileInputRef}
           className={styles.avatarFileInput}
@@ -108,24 +171,60 @@ export function PlayerAvatarPicker({
         />
       )}
       <div className={styles.avatarGrid}>
-        {onSelectAvatarObjectKey && (
+        {isUploadEnabled && (
           <button
-            aria-label={selectedAvatarObjectKey ? "Đổi ảnh đã tải lên" : "Tải ảnh lên"}
-            aria-pressed={Boolean(selectedAvatarObjectKey)}
-            className={selectedAvatarObjectKey ? styles.avatarOptionActive : styles.avatarOption}
+            aria-label={hasReachedUploadLimit ? "Đã đạt tối đa ảnh tải lên" : "Tải ảnh lên"}
+            className={styles.avatarOption}
             type="button"
-            disabled={isUploading}
+            disabled={isUploading || hasReachedUploadLimit}
             onClick={() => avatarFileInputRef.current?.click()}
           >
             {isUploading ? (
               <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
-            ) : selectedUploadedAvatarUrl ? (
-              <Image alt="" aria-hidden="true" width={56} height={56} src={selectedUploadedAvatarUrl} />
             ) : (
               <ImageUp aria-hidden="true" />
             )}
           </button>
         )}
+        {isUploadEnabled &&
+          uploadedObjectKeys.map((objectKey) => {
+            const uploadedAvatarUrl = getUploadedPlayerAvatarUrl(objectKey);
+
+            if (!uploadedAvatarUrl) {
+              return null;
+            }
+
+            const isSelected = selectedAvatarObjectKey === objectKey;
+            const isDeleting = deletingObjectKey === objectKey;
+
+            return (
+              <div className={styles.avatarUploadedItem} key={objectKey}>
+                <button
+                  aria-label="Chọn avatar đã tải lên"
+                  aria-pressed={isSelected}
+                  className={isSelected ? styles.avatarOptionActive : styles.avatarOption}
+                  type="button"
+                  disabled={isUploading || isDeleting}
+                  onClick={() => onSelectAvatarObjectKey?.(objectKey)}
+                >
+                  <Image alt="" aria-hidden="true" width={56} height={56} src={uploadedAvatarUrl} />
+                </button>
+                <button
+                  aria-label="Xóa avatar đã tải lên"
+                  className={styles.avatarDeleteButton}
+                  type="button"
+                  disabled={isUploading || isDeleting}
+                  onClick={() => deleteUploadedAvatar(objectKey)}
+                >
+                  {isDeleting ? (
+                    <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
+                  ) : (
+                    <X aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
         {PLAYER_AVATAR_KEYS.map((avatarKey) => {
           const isSelected = !selectedAvatarObjectKey && avatarKey === selectedAvatarKey;
 
@@ -149,8 +248,13 @@ export function PlayerAvatarPicker({
           );
         })}
       </div>
-      {onSelectAvatarObjectKey && uploadError && (
+      {isUploadEnabled && uploadError && (
         <span className={styles.errorText}>{uploadError}</span>
+      )}
+      {isUploadEnabled && !uploadError && hasReachedUploadLimit && (
+        <span className={styles.avatarUploadHint}>
+          Đã đạt tối đa {PLAYER_AVATAR_MAX_UPLOADS} ảnh tải lên. Xóa bớt để thêm ảnh mới.
+        </span>
       )}
     </fieldset>
   );

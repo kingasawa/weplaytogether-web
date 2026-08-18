@@ -9,7 +9,6 @@ import {
   getPlayerAvatarUploadExtension,
   PLAYER_AVATAR_UPLOAD_FIELD_NAME,
   PLAYER_AVATAR_UPLOAD_MAX_BYTES,
-  PREVIOUS_PLAYER_AVATAR_OBJECT_KEY_FIELD_NAME,
 } from "@/lib/player-avatar-upload";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
 
@@ -71,24 +70,39 @@ export async function POST(request: Request) {
     return Response.json({ error: "Không thể tải avatar lên R2." }, { status: 503 });
   }
 
-  const previousAvatarObjectKey = normalizePlayerAvatarObjectKey(
-    String(formData.get(PREVIOUS_PLAYER_AVATAR_OBJECT_KEY_FIELD_NAME) ?? "")
-  );
-
-  if (
-    previousAvatarObjectKey &&
-    previousAvatarObjectKey !== objectKey &&
-    isAvatarObjectKeyOwnedBySession(previousAvatarObjectKey, sessionId)
-  ) {
-    try {
-      await deleteAvatarObject(previousAvatarObjectKey);
-    } catch {
-      // A stale avatar object should not block the newly uploaded avatar.
-    }
-  }
-
+  // Giữ lại các avatar đã upload trước đó để hiển thị chung trong bộ sưu tập của user.
   return Response.json({
     avatarUrl,
     objectKey,
   });
+}
+
+export async function DELETE(request: Request) {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get(WOLF_PLAYER_SESSION_COOKIE)?.value;
+
+  if (!sessionId) {
+    return Response.json({ error: "Không tìm thấy phiên người chơi." }, { status: 400 });
+  }
+
+  const body = (await request.json().catch(() => null)) as { objectKey?: unknown } | null;
+  const objectKey = normalizePlayerAvatarObjectKey(
+    typeof body?.objectKey === "string" ? body.objectKey : null
+  );
+
+  if (!objectKey) {
+    return Response.json({ error: "Object key không hợp lệ." }, { status: 400 });
+  }
+
+  if (!isAvatarObjectKeyOwnedBySession(objectKey, sessionId)) {
+    return Response.json({ error: "Không có quyền xóa avatar này." }, { status: 403 });
+  }
+
+  try {
+    await deleteAvatarObject(objectKey);
+  } catch {
+    return Response.json({ error: "Không thể xóa avatar." }, { status: 503 });
+  }
+
+  return Response.json({ ok: true });
 }
