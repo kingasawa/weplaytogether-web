@@ -154,34 +154,40 @@ export async function ensureMyProfile(session: Session): Promise<UserProfile | n
 }
 
 // Cập nhật tên hiển thị + avatar mặc định của user.
+// Dùng upsert để tự tạo hàng nếu chưa có (tránh lỗi khi record chưa được tạo lúc login).
 export async function updateMyProfile(input: {
   displayName: string;
   avatarKey: string;
   avatarObjectKey?: string | null;
-}): Promise<UserProfile | null> {
+}): Promise<{ profile: UserProfile | null; error: string | null }> {
   const supabase = createSupabaseBrowserClient() as unknown as SupabaseClient;
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   if (!session) {
-    return null;
+    return { profile: null, error: "Bạn chưa đăng nhập." };
   }
 
   const { data, error } = await supabase
     .from("users")
-    .update({
-      display_name: normalizeDisplayName(input.displayName),
-      avatar_key: normalizePlayerAvatarKey(input.avatarKey),
-      avatar_object_key: normalizePlayerAvatarObjectKey(input.avatarObjectKey ?? null),
-    })
-    .eq("id", session.user.id)
+    .upsert(
+      {
+        id: session.user.id,
+        email: session.user.email ?? null,
+        display_name: normalizeDisplayName(input.displayName),
+        avatar_key: normalizePlayerAvatarKey(input.avatarKey),
+        avatar_object_key: normalizePlayerAvatarObjectKey(input.avatarObjectKey ?? null),
+      },
+      { onConflict: "id" }
+    )
     .select(USERS_COLUMNS)
     .single();
 
   if (error || !data) {
-    return null;
+    console.error("[profile] Lưu hồ sơ thất bại:", error);
+    return { profile: null, error: error?.message ?? "Không thể lưu hồ sơ." };
   }
 
-  return persistProfile(mapProfile(data as UserRow));
+  return { profile: persistProfile(mapProfile(data as UserRow)), error: null };
 }

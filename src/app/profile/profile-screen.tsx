@@ -75,11 +75,15 @@ export default function ProfileScreen() {
     }
 
     setIsSaving(true);
-    const updated = await updateMyProfile({ displayName: normalizedName, avatarKey, avatarObjectKey });
+    const { profile: updated, error: updateError } = await updateMyProfile({
+      displayName: normalizedName,
+      avatarKey,
+      avatarObjectKey,
+    });
     setIsSaving(false);
 
     if (!updated) {
-      setError("Không thể lưu hồ sơ. Hãy thử lại.");
+      setError(updateError ?? "Không thể lưu hồ sơ. Hãy thử lại.");
       return;
     }
 
