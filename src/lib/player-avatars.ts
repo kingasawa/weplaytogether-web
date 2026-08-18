@@ -23,13 +23,6 @@ export const PLAYER_AVATAR_KEYS = [
   "img_17",
   "img_18",
   "img_19",
-  "khanh",
-  "duong",
-  "duy",
-  "lan",
-  "na",
-  "oanh",
-  "tri",
 ] as const;
 
 export type PlayerAvatarKey = (typeof PLAYER_AVATAR_KEYS)[number];
