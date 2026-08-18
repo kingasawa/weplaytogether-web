@@ -296,17 +296,19 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     autoAdvanceAction = autoRevealAllQuestCards;
   }
 
-  autoAdvanceActionRef.current = autoAdvanceAction;
+  useEffect(() => {
+    autoAdvanceActionRef.current = autoAdvanceAction;
+  }, [autoAdvanceAction]);
 
   useEffect(() => {
     if (!autoAdvanceKey) {
-      setSecondsLeft(null);
-      return;
+      const resetTimer = window.setTimeout(() => setSecondsLeft(null), 0);
+      return () => window.clearTimeout(resetTimer);
     }
 
     const deadline = Date.now() + autoAdvanceSeconds * 1000;
     let hasFired = false;
-    setSecondsLeft(autoAdvanceSeconds);
+    const resetTimer = window.setTimeout(() => setSecondsLeft(autoAdvanceSeconds), 0);
 
     const interval = setInterval(() => {
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
@@ -319,8 +321,10 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
       }
     }, 250);
 
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      window.clearTimeout(resetTimer);
+      clearInterval(interval);
+    };
   }, [autoAdvanceKey, autoAdvanceSeconds]);
 
   function syncTeamDraft(teamPlayerIds: string[], questIndex: number) {

@@ -263,6 +263,14 @@ export default function Home() {
         </section>
       </div>
 
+      <footer className={styles.legalFooter}>
+        <p>Boardverse is available at weplaytogether.online.</p>
+        <nav aria-label="Legal links">
+          <Link href="/privacy-policy">Privacy Policy</Link>
+          <Link href="/terms-of-service">Terms of Service</Link>
+        </nav>
+      </footer>
+
       <nav className={styles.mobileNav} aria-label="Điều hướng mobile">
         {mobileNavigation.map((item) => {
           const Icon = item.icon;

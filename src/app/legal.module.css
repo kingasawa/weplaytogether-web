@@ -1,0 +1,227 @@
+.page {
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100svh;
+  overflow-x: hidden;
+  padding: var(--spacing-md) 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 10%, var(--bg-primary)),
+      var(--bg-primary) 18rem
+    );
+  color: var(--text);
+}
+
+.topbar {
+  display: grid;
+  width: min(calc(100% - (var(--spacing-md) * 2)), 58rem);
+  max-width: 58rem;
+  min-height: 3.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin: 0 auto;
+}
+
+.brand,
+.homeLink,
+.footerLinks a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.brand {
+  min-width: 0;
+}
+
+.brandText {
+  min-width: 0;
+}
+
+.brandIcon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 34%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+}
+
+.brandIcon svg,
+.homeLink svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.brandText strong,
+.brandText small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.brandText strong {
+  font-family: var(--font-logo);
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.brandText small {
+  margin-top: 0.18rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.homeLink {
+  flex: 0 0 auto;
+  justify-content: center;
+  padding-inline: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.document {
+  width: min(calc(100% - (var(--spacing-md) * 2)), 58rem);
+  max-width: 58rem;
+  min-width: 0;
+  margin: var(--spacing-lg) auto 0;
+  padding: clamp(1.1rem, 5vw, 2.5rem);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  box-shadow:
+    0 1rem 2rem color-mix(in srgb, var(--bg-primary) 70%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.kicker {
+  color: var(--primary-light);
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.document h1 {
+  margin-top: var(--spacing-sm);
+  font-size: 2.2rem;
+  line-height: 1.05;
+}
+
+.updated {
+  margin-top: var(--spacing-sm);
+  color: var(--primary-light);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.lead {
+  margin-top: var(--spacing-lg);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.notice,
+.document section {
+  margin-top: var(--spacing-lg);
+}
+
+.notice {
+  padding: var(--spacing-md);
+  border-left: 0.25rem solid var(--primary);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg-card));
+}
+
+.document section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.document h2 {
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.document p,
+.document li {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.document strong {
+  color: var(--text);
+}
+
+.document ul {
+  display: grid;
+  gap: 0.6rem;
+  padding-left: 1.2rem;
+}
+
+.document a {
+  color: var(--primary-light);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+}
+
+.footerLinks a {
+  color: var(--primary-light);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .homeLink:hover,
+  .document a:hover,
+  .footerLinks a:hover {
+    color: var(--text);
+  }
+}
+
+@media (min-width: 48rem) {
+  .page {
+    padding: var(--spacing-lg);
+  }
+
+  .topbar,
+  .document {
+    margin-inline: auto;
+  }
+
+  .document h1 {
+    font-size: 3rem;
+  }
+
+  .lead {
+    font-size: 1.05rem;
+  }
+}

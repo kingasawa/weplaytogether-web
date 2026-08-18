@@ -38,11 +38,13 @@ export function PlayerAvatarPicker({
   onSelectAvatarObjectKey,
 }: PlayerAvatarPickerProps) {
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const isUploadEnabled = Boolean(onSelectAvatarObjectKey);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const [uploadedObjectKeys, setUploadedObjectKeys] = useState<string[]>([]);
+  const [uploadedObjectKeys, setUploadedObjectKeys] = useState<string[]>(() =>
+    isUploadEnabled ? readStoredGuestPlayerAvatarUploads() : []
+  );
   const [deletingObjectKey, setDeletingObjectKey] = useState<string | null>(null);
-  const isUploadEnabled = Boolean(onSelectAvatarObjectKey);
   const hasReachedUploadLimit = uploadedObjectKeys.length >= PLAYER_AVATAR_MAX_UPLOADS;
 
   // Đọc bộ sưu tập avatar đã upload từ localStorage khi mở picker.
@@ -51,7 +53,8 @@ export function PlayerAvatarPicker({
       return;
     }
 
-    setUploadedObjectKeys(readStoredGuestPlayerAvatarUploads());
+    const syncTimer = window.setTimeout(() => setUploadedObjectKeys(readStoredGuestPlayerAvatarUploads()), 0);
+    return () => window.clearTimeout(syncTimer);
   }, [isUploadEnabled]);
 
   // Đảm bảo avatar đang được chọn (kể cả dữ liệu cũ trước tính năng này) cũng có trong bộ sưu tập.
@@ -60,11 +63,16 @@ export function PlayerAvatarPicker({
       return;
     }
 
-    setUploadedObjectKeys((current) =>
-      current.includes(selectedAvatarObjectKey)
-        ? current
-        : addStoredGuestPlayerAvatarUpload(selectedAvatarObjectKey)
+    const syncTimer = window.setTimeout(
+      () =>
+        setUploadedObjectKeys((current) =>
+          current.includes(selectedAvatarObjectKey)
+            ? current
+            : addStoredGuestPlayerAvatarUpload(selectedAvatarObjectKey)
+        ),
+      0
     );
+    return () => window.clearTimeout(syncTimer);
   }, [isUploadEnabled, selectedAvatarObjectKey]);
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {

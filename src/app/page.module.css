@@ -569,6 +569,33 @@
   line-height: 1.45;
 }
 
+/* Legal Footer */
+
+.legalFooter {
+  display: grid;
+  max-width: 92rem;
+  gap: var(--spacing-sm);
+  margin: 0 auto;
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.legalFooter nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.legalFooter a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--primary-light);
+  font-weight: 800;
+}
+
 /* ── Mobile Nav ─────────────────────────────────────────────── */
 
 .mobileNav {
@@ -1055,6 +1082,12 @@
   }
 
   .contentShell {
+    padding-inline: clamp(3rem, 7vw, 8rem);
+  }
+
+  .legalFooter {
+    grid-template-columns: 1fr auto;
+    align-items: center;
     padding-inline: clamp(3rem, 7vw, 8rem);
   }
 

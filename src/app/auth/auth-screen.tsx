@@ -109,6 +109,11 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
           <Link href={switchHref}>{isSignUp ? "Đăng nhập" : "Đăng ký"}</Link>
         </p>
 
+        <p className={styles.switchText} lang="en">
+          By continuing, you agree to the <Link href="/terms-of-service">Terms of Service</Link> and acknowledge the{" "}
+          <Link href="/privacy-policy">Privacy Policy</Link>.
+        </p>
+
         <Link className={styles.secondaryLink} href={nextPath}>
           Quay lại
         </Link>
