@@ -906,6 +906,13 @@
   opacity: 0.68;
 }
 
+/* Avatar upload load lỗi (vd R2 chưa phục vụ) → hiện icon để user thấy và xóa được. */
+.avatarUploadedItem .avatarUploadFailedIcon {
+  width: 1.6rem;
+  height: 1.6rem;
+  color: color-mix(in srgb, var(--danger) 65%, var(--text-secondary));
+}
+
 .guestForm .avatarPicker + .primaryButton {
   margin-top: var(--spacing-md);
 }

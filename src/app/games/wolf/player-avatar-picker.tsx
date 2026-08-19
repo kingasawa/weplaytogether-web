@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageUp, LoaderCircle, X } from "lucide-react";
+import { ImageOff, ImageUp, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import {
@@ -45,6 +45,7 @@ export function PlayerAvatarPicker({
     isUploadEnabled ? readStoredGuestPlayerAvatarUploads() : []
   );
   const [deletingObjectKey, setDeletingObjectKey] = useState<string | null>(null);
+  const [failedObjectKeys, setFailedObjectKeys] = useState<string[]>([]);
   const hasReachedUploadLimit = uploadedObjectKeys.length >= PLAYER_AVATAR_MAX_UPLOADS;
 
   // Đọc bộ sưu tập avatar đã upload từ localStorage khi mở picker.
@@ -139,19 +140,16 @@ export function PlayerAvatarPicker({
     setDeletingObjectKey(objectKey);
 
     try {
-      const response = await fetch("/api/player-avatar", {
+      // Xóa object trên R2 là best-effort: bỏ qua nếu không sở hữu / object đã mất.
+      await fetch("/api/player-avatar", {
         body: JSON.stringify({ objectKey }),
         headers: { "Content-Type": "application/json" },
         method: "DELETE",
-      });
+      }).catch(() => null);
 
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        setUploadError(payload?.error ?? "Không thể xóa avatar.");
-        return;
-      }
-
+      // Luôn gỡ khỏi bộ sưu tập cục bộ để giải phóng slot (kể cả khi xóa R2 thất bại).
       setUploadedObjectKeys(removeStoredGuestPlayerAvatarUpload(objectKey));
+      setFailedObjectKeys((current) => current.filter((key) => key !== objectKey));
 
       if (selectedAvatarObjectKey === objectKey) {
         onSelectAvatarObjectKey(null);
@@ -215,7 +213,19 @@ export function PlayerAvatarPicker({
                   disabled={isUploading || isDeleting}
                   onClick={() => onSelectAvatarObjectKey?.(objectKey)}
                 >
-                  <Image alt="" aria-hidden="true" width={56} height={56} src={uploadedAvatarUrl} />
+                  {failedObjectKeys.includes(objectKey) ? (
+                    <ImageOff className={styles.avatarUploadFailedIcon} aria-hidden="true" />
+                  ) : (
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      width={56}
+                      height={56}
+                      src={uploadedAvatarUrl}
+                      unoptimized
+                      onError={() => setFailedObjectKeys((current) => [...current, objectKey])}
+                    />
+                  )}
                 </button>
                 <button
                   aria-label="Xóa avatar đã tải lên"
