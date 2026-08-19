@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { buildGameShareMetadata, WOLF_SHARE_IMAGE } from "@/lib/game-share-metadata";
-import { getWolfPlayState } from "../../../actions";
+import { getWolfLobbyState, getWolfPlayState } from "../../../actions";
 import WolfPlayScreen from "./wolf-play-screen";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
@@ -36,6 +36,14 @@ export default async function WolfPlayPage({ params }: WolfPlayPageProps) {
   const playState = await getWolfPlayState(roomId);
 
   if (!playState) {
+    // Phòng tồn tại nhưng ván chưa sẵn sàng (hoặc chưa bắt đầu/đã kết thúc) -> về lobby,
+    // lobby sẽ tự đưa lại vào ván khi state sẵn sàng. Chỉ 404 khi phòng không tồn tại.
+    const lobbyState = await getWolfLobbyState(roomId);
+
+    if (lobbyState) {
+      redirect(`/games/wolf/rooms/${roomId}`);
+    }
+
     notFound();
   }
 

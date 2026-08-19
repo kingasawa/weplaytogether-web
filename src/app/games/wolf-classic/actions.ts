@@ -2390,6 +2390,15 @@ export async function startClassicWolfGame(
   return { ok: true, roomCode: room.code, gameId: game.id };
 }
 
+// Retry đọc game state để hấp thụ độ trễ read-after-write của replica ngay sau khi
+// ván vừa được tạo/chuyển phase (tránh 404 do state chưa kịp đồng bộ).
+const PLAY_STATE_READ_RETRY_ATTEMPTS = 3;
+const PLAY_STATE_READ_RETRY_DELAY_MS = 200;
+
+function delayMs(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export async function getClassicWolfPlayState(roomCode: string): Promise<ClassicWolfPlayState | null> {
   const code = normalizeRoomCode(roomCode);
 
@@ -2404,21 +2413,36 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
     return null;
   }
 
+  const currentGameId = room.current_game_id;
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const { data: gameData } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, room_id, phase, round_number, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
 
-  if (!gameData) {
-    return null;
+  const readClassicGameSession = () =>
+    supabase
+      .from("wolf_game_sessions")
+      .select("id, room_id, phase, round_number, discussion_ends_at")
+      .eq("id", currentGameId)
+      .maybeSingle();
+
+  let gameData: Awaited<ReturnType<typeof readClassicGameSession>>["data"] = null;
+  let state: Awaited<ReturnType<typeof loadClassicGameState>>["state"] = null;
+
+  for (let attempt = 0; attempt < PLAY_STATE_READ_RETRY_ATTEMPTS; attempt += 1) {
+    const { data } = await readClassicGameSession();
+    if (data) {
+      const loaded = await loadClassicGameState(supabase, data.id, players);
+      if (!loaded.error && loaded.state) {
+        gameData = data;
+        state = loaded.state;
+        break;
+      }
+    }
+    if (attempt < PLAY_STATE_READ_RETRY_ATTEMPTS - 1) {
+      await delayMs(PLAY_STATE_READ_RETRY_DELAY_MS);
+    }
   }
 
-  const { state, error: stateError } = await loadClassicGameState(supabase, gameData.id, players);
-
-  if (stateError || !state) {
+  if (!gameData || !state) {
     return null;
   }
   const alivePlayerIds = new Set(state.alivePlayerIds);

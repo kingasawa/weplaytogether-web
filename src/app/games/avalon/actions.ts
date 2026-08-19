@@ -1751,6 +1751,15 @@ export async function startAvalonGame(
   };
 }
 
+// Retry đọc game state để hấp thụ độ trễ read-after-write của replica ngay sau khi
+// ván vừa được tạo/chuyển phase (tránh 404 do state chưa kịp đồng bộ).
+const PLAY_STATE_READ_RETRY_ATTEMPTS = 3;
+const PLAY_STATE_READ_RETRY_DELAY_MS = 200;
+
+function delayMs(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlayState | null> {
   const sessionId = await getPlayerSessionId();
   const { supabase, room } = await getRoomByCode(roomCode);
@@ -1761,20 +1770,32 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const { data: gameData } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, room_id, phase, round_number, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
 
-  if (!gameData) {
-    return null;
+  let game: GameRow | null = null;
+  let state: Awaited<ReturnType<typeof loadAvalonGameState>>["state"] = null;
+
+  for (let attempt = 0; attempt < PLAY_STATE_READ_RETRY_ATTEMPTS; attempt += 1) {
+    const { data: gameData } = await supabase
+      .from("wolf_game_sessions")
+      .select("id, room_id, phase, round_number, discussion_ends_at")
+      .eq("id", room.current_game_id)
+      .maybeSingle();
+
+    if (gameData) {
+      const loaded = await loadAvalonGameState(supabase, (gameData as GameRow).id, players);
+      if (!loaded.error && loaded.state) {
+        game = gameData as GameRow;
+        state = loaded.state;
+        break;
+      }
+    }
+
+    if (attempt < PLAY_STATE_READ_RETRY_ATTEMPTS - 1) {
+      await delayMs(PLAY_STATE_READ_RETRY_DELAY_MS);
+    }
   }
 
-  const game = gameData as GameRow;
-  const { state, error } = await loadAvalonGameState(supabase, game.id, players);
-
-  if (error || !state) {
+  if (!game || !state) {
     return null;
   }
 

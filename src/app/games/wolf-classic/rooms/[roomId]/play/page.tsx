@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CLASSIC_WOLF_SHARE_IMAGE, buildGameShareMetadata } from "@/lib/game-share-metadata";
-import { getClassicWolfPlayState } from "../../../actions";
+import { getClassicWolfLobbyState, getClassicWolfPlayState } from "../../../actions";
 import ClassicWolfPlayScreen from "./wolf-classic-play-screen";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
@@ -39,6 +39,14 @@ export default async function ClassicWolfPlayPage({ params }: ClassicWolfPlayPag
   const playState = await getClassicWolfPlayState(roomId);
 
   if (!playState) {
+    // Phòng tồn tại nhưng ván chưa sẵn sàng (hoặc chưa bắt đầu/đã kết thúc) -> về lobby,
+    // lobby sẽ tự đưa lại vào ván khi state sẵn sàng. Chỉ 404 khi phòng không tồn tại.
+    const lobbyState = await getClassicWolfLobbyState(roomId);
+
+    if (lobbyState) {
+      redirect(`/games/wolf-classic/rooms/${roomId}`);
+    }
+
     notFound();
   }
 

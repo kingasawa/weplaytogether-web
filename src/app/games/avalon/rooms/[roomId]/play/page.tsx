@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AVALON_SHARE_IMAGE, buildGameShareMetadata } from "@/lib/game-share-metadata";
-import { getAvalonPlayState } from "../../../actions";
+import { getAvalonLobbyState, getAvalonPlayState } from "../../../actions";
 import AvalonPlayScreen from "./avalon-play-screen";
 
 const ROOM_ID_PATTERN = /^[a-z]{4}$/;
@@ -34,6 +34,14 @@ export default async function AvalonPlayPage({ params }: AvalonPlayPageProps) {
   const playState = await getAvalonPlayState(roomId);
 
   if (!playState) {
+    // Phòng tồn tại nhưng ván chưa sẵn sàng (hoặc chưa bắt đầu/đã kết thúc) -> về lobby,
+    // lobby sẽ tự đưa lại vào ván khi state sẵn sàng. Chỉ 404 khi phòng không tồn tại.
+    const lobbyState = await getAvalonLobbyState(roomId);
+
+    if (lobbyState) {
+      redirect(`/games/avalon/rooms/${roomId}`);
+    }
+
     notFound();
   }
 

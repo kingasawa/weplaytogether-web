@@ -3285,6 +3285,15 @@ export async function startWolfGame(
   return { ok: true, roomCode: room.code, gameId: game.id };
 }
 
+// Retry đọc game state để hấp thụ độ trễ read-after-write của replica ngay sau khi
+// ván vừa được tạo/chuyển phase (tránh 404 do state chưa kịp đồng bộ).
+const PLAY_STATE_READ_RETRY_ATTEMPTS = 3;
+const PLAY_STATE_READ_RETRY_DELAY_MS = 200;
+
+function delayMs(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState | null> {
   const code = normalizeRoomCode(roomCode);
 
@@ -3301,7 +3310,18 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const game = await getWolfGameRowById(supabase, room.current_game_id);
+
+  let game: Awaited<ReturnType<typeof getWolfGameRowById>> = null;
+
+  for (let attempt = 0; attempt < PLAY_STATE_READ_RETRY_ATTEMPTS; attempt += 1) {
+    game = await getWolfGameRowById(supabase, room.current_game_id);
+    if (game) {
+      break;
+    }
+    if (attempt < PLAY_STATE_READ_RETRY_ATTEMPTS - 1) {
+      await delayMs(PLAY_STATE_READ_RETRY_DELAY_MS);
+    }
+  }
 
   if (!game) {
     return null;
