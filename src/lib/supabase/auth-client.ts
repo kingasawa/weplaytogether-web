@@ -1,7 +1,13 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { normalizeAuthNextPath } from "@/lib/auth-redirect";
+import {
+  AUTH_NEXT_STORAGE_KEY,
+  buildAuthCallbackUrl,
+  getRuntimeAuthOrigin,
+  normalizeAuthNextPath,
+} from "@/lib/auth-redirect";
+import { normalizeGooglePlayerAvatarUrl } from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function getCurrentAuthNextPath() {
@@ -29,15 +35,33 @@ export function getAuthDisplayName(session: Session | null) {
   return displayName.trim() || session?.user.email || "Tài khoản";
 }
 
-export async function signInWithGmail(nextPath = getCurrentAuthNextPath()) {
-  const redirectUrl = new URL("/auth/callback", window.location.origin);
+export function getGmailAvatarUrl(session: Session | null) {
+  const metadata = session?.user.user_metadata;
+  const avatarUrl =
+    typeof metadata?.avatar_url === "string"
+      ? metadata.avatar_url
+      : typeof metadata?.picture === "string"
+        ? metadata.picture
+        : null;
 
-  redirectUrl.searchParams.set("next", normalizeAuthNextPath(nextPath));
+  return normalizeGooglePlayerAvatarUrl(avatarUrl);
+}
+
+function rememberAuthNextPath(nextPath: string) {
+  try {
+    window.sessionStorage.setItem(AUTH_NEXT_STORAGE_KEY, nextPath);
+  } catch {
+    // Ignore storage failures; callback will fall back to the home page.
+  }
+}
+
+export async function signInWithGmail(nextPath = getCurrentAuthNextPath()) {
+  rememberAuthNextPath(normalizeAuthNextPath(nextPath));
 
   return createSupabaseBrowserClient().auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: redirectUrl.toString(),
+      redirectTo: buildAuthCallbackUrl(getRuntimeAuthOrigin()),
       queryParams: {
         prompt: "select_account",
       },

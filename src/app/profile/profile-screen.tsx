@@ -1,12 +1,32 @@
 "use client";
 
-import { ArrowLeft, Check, LoaderCircle, LogIn } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  IdCard,
+  LoaderCircle,
+  LogIn,
+  Mail,
+  Pencil,
+  UserRound,
+} from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { buildAuthPath } from "@/lib/auth-redirect";
 import { MAX_GUEST_PLAYER_NAME_LENGTH } from "@/lib/guest-player";
-import { DEFAULT_PLAYER_AVATAR_KEY, type PlayerAvatarKey } from "@/lib/player-avatars";
-import { getAuthDisplayName, isAllowedGmailSession } from "@/lib/supabase/auth-client";
+import {
+  DEFAULT_PLAYER_AVATAR_KEY,
+  getPlayerAvatarSrc,
+  getUploadedPlayerAvatarUrl,
+  type PlayerAvatarKey,
+} from "@/lib/player-avatars";
+import {
+  getAuthDisplayName,
+  getGmailAvatarUrl,
+  isAllowedGmailSession,
+} from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ensureMyProfile, getMyProfile, updateMyProfile } from "@/lib/user-profile";
 import { PlayerAvatarPicker } from "../games/wolf/player-avatar-picker";
@@ -17,12 +37,16 @@ type ProfileStatus = "loading" | "guest" | "ready";
 export default function ProfileScreen() {
   const [status, setStatus] = useState<ProfileStatus>("loading");
   const [email, setEmail] = useState<string | null>(null);
+  const [gmailAvatarUrl, setGmailAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarKey, setAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
   const [avatarObjectKey, setAvatarObjectKey] = useState<string | null>(null);
+  const [isAvatarExpanded, setIsAvatarExpanded] = useState(false);
+  const [isNicknameEditing, setIsNicknameEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const nicknameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,11 +58,14 @@ export default function ProfileScreen() {
       }
 
       if (!data.session || !isAllowedGmailSession(data.session)) {
+        setEmail(null);
+        setGmailAvatarUrl(null);
         setStatus("guest");
         return;
       }
 
       setEmail(data.session.user.email ?? null);
+      setGmailAvatarUrl(getGmailAvatarUrl(data.session));
 
       const profile = (await getMyProfile()) ?? (await ensureMyProfile(data.session));
 
@@ -61,6 +88,12 @@ export default function ProfileScreen() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isNicknameEditing) {
+      nicknameInputRef.current?.focus();
+    }
+  }, [isNicknameEditing]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,29 +123,42 @@ export default function ProfileScreen() {
     setDisplayName(updated.displayName);
     setAvatarKey(updated.avatarKey);
     setAvatarObjectKey(updated.avatarObjectKey);
+    setIsNicknameEditing(false);
     setMessage("Đã lưu hồ sơ.");
   }
 
+  const avatarPreviewSrc = getPlayerAvatarSrc(
+    avatarKey,
+    getUploadedPlayerAvatarUrl(avatarObjectKey)
+  );
+
   return (
     <main className={styles.page}>
-      <section className={styles.panel}>
-        <div className={styles.header}>
-          <Link className={styles.backLink} href="/" aria-label="Về trang chủ">
+      <section className={styles.screen} aria-labelledby="profile-title">
+        <header className={styles.topBar}>
+          <Link className={styles.iconButton} href="/" aria-label="Về trang chủ">
             <ArrowLeft aria-hidden="true" />
           </Link>
-          <h1>Hồ sơ người chơi</h1>
-        </div>
+          <div className={styles.navTitle}>
+            <h1 id="profile-title">Hồ sơ</h1>
+          </div>
+        </header>
 
         {status === "loading" && (
-          <p className={styles.statusText}>
-            <LoaderCircle aria-hidden="true" />
-            Đang tải hồ sơ...
-          </p>
+          <div className={styles.stateBlock}>
+            <LoaderCircle className={styles.stateSpinner} aria-hidden="true" />
+            <h2>Đang tải hồ sơ</h2>
+            <p>Đợi một chút để đồng bộ tài khoản người chơi.</p>
+          </div>
         )}
 
         {status === "guest" && (
-          <div className={styles.guestBlock}>
-            <p>Bạn cần đăng nhập bằng Google để chỉnh sửa hồ sơ.</p>
+          <div className={styles.stateBlock}>
+            <span className={styles.stateIcon}>
+              <IdCard aria-hidden="true" />
+            </span>
+            <h2>Bạn chưa đăng nhập</h2>
+            <p>Đăng nhập bằng Google để chỉnh tên và avatar dùng trong game.</p>
             <Link className={styles.primaryButton} href={buildAuthPath("/auth/sign-in", "/profile")}>
               <LogIn aria-hidden="true" />
               Đăng nhập
@@ -122,48 +168,129 @@ export default function ProfileScreen() {
 
         {status === "ready" && (
           <form className={styles.form} onSubmit={saveProfile}>
-            {email && <p className={styles.emailText}>{email}</p>}
+            <section className={styles.identityPanel} aria-label="Người chơi hiện tại">
+              <div className={styles.avatarPreview}>
+                <Image
+                  alt=""
+                  aria-hidden="true"
+                  width={112}
+                  height={112}
+                  src={avatarPreviewSrc}
+                  unoptimized={Boolean(avatarObjectKey)}
+                />
+              </div>
+              <div className={styles.identityCopy}>
+                <div className={styles.identityNameRow}>
+                  <h2>{displayName || "Người chơi"}</h2>
+                  <button
+                    className={styles.identityEditButton}
+                    type="button"
+                    aria-label="Edit nickname"
+                    aria-controls="profile-nickname-input"
+                    aria-expanded={isNicknameEditing}
+                    onClick={() => setIsNicknameEditing(true)}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </button>
+                </div>
+                {email && <p>{email}</p>}
+              </div>
+            </section>
 
-            <label className={styles.field}>
-              <span>Tên hiển thị trong game</span>
-              <input
-                maxLength={MAX_GUEST_PLAYER_NAME_LENGTH}
-                placeholder="Nhập tên hiển thị"
-                type="text"
-                value={displayName}
-                onChange={(event) => {
-                  setDisplayName(event.target.value);
-                  setMessage("");
-                  setError("");
-                }}
-              />
-            </label>
+            <section className={styles.settingsGroup} aria-label="Thông tin hồ sơ">
+              <div className={styles.settingRow}>
+                <span className={styles.rowIcon}>
+                  <UserRound aria-hidden="true" />
+                </span>
+                <span className={styles.rowBody}>
+                  <span className={styles.rowLabel}>Nickname</span>
+                  {isNicknameEditing ? (
+                    <input
+                      id="profile-nickname-input"
+                      ref={nicknameInputRef}
+                      maxLength={MAX_GUEST_PLAYER_NAME_LENGTH}
+                      placeholder="Nhập tên hiển thị"
+                      type="text"
+                      value={displayName}
+                      onChange={(event) => {
+                        setDisplayName(event.target.value);
+                        setMessage("");
+                        setError("");
+                      }}
+                    />
+                  ) : (
+                    <span className={styles.rowValue}>{displayName}</span>
+                  )}
+                </span>
+              </div>
 
-            <PlayerAvatarPicker
-              selectedAvatarKey={avatarKey}
-              selectedAvatarObjectKey={avatarObjectKey}
-              onSelectAvatar={(nextAvatarKey) => {
-                setAvatarKey(nextAvatarKey);
-                setMessage("");
-              }}
-              onSelectAvatarObjectKey={(nextObjectKey) => {
-                setAvatarObjectKey(nextObjectKey);
-                setMessage("");
-              }}
-            />
+              {email && (
+                <div className={styles.settingRow}>
+                  <span className={styles.rowIcon}>
+                    <Mail aria-hidden="true" />
+                  </span>
+                  <span className={styles.rowBody}>
+                    <span className={styles.rowLabel}>Email</span>
+                    <span className={styles.rowValue}>{email}</span>
+                  </span>
+                </div>
+              )}
+            </section>
 
-            {error && <span className={styles.errorText}>{error}</span>}
-            {message && <span className={styles.successText}>{message}</span>}
+            <section className={styles.avatarGroup} aria-label="Avatar">
+              <button
+                className={styles.avatarToggle}
+                type="button"
+                aria-expanded={isAvatarExpanded}
+                aria-controls="profile-avatar-picker"
+                onClick={() => setIsAvatarExpanded((current) => !current)}
+              >
+                <span className={styles.rowIcon}>
+                  <IdCard aria-hidden="true" />
+                </span>
+                <span className={styles.avatarToggleText}>
+                  <h2>Avatar</h2>
+                  <p>Hiển thị trong phòng chơi.</p>
+                </span>
+                <span className={isAvatarExpanded ? styles.avatarToggleIconOpen : styles.avatarToggleIcon}>
+                  <ChevronDown aria-hidden="true" />
+                </span>
+              </button>
 
-            <button className={styles.primaryButton} type="submit" disabled={isSaving}>
-              {isSaving ? <LoaderCircle aria-hidden="true" /> : <Check aria-hidden="true" />}
-              {isSaving ? "Đang lưu..." : "Lưu hồ sơ"}
-            </button>
+              {isAvatarExpanded && (
+                <div id="profile-avatar-picker">
+                  <PlayerAvatarPicker
+                    className={styles.profileAvatarPicker}
+                    legend="Bộ sưu tập"
+                    variant="profile"
+                    selectedAvatarKey={avatarKey}
+                    selectedAvatarObjectKey={avatarObjectKey}
+                    gmailAvatarUrl={gmailAvatarUrl}
+                    onSelectAvatar={(nextAvatarKey) => {
+                      setAvatarKey(nextAvatarKey);
+                      setMessage("");
+                    }}
+                    onSelectAvatarObjectKey={(nextObjectKey) => {
+                      setAvatarObjectKey(nextObjectKey);
+                      setMessage("");
+                    }}
+                  />
+                </div>
+              )}
+            </section>
 
-            <p className={styles.hintText}>
-              Khi tạo hoặc tham gia game, nếu bạn không đổi tên/avatar riêng thì hệ thống sẽ dùng tên và avatar
-              trong hồ sơ này.
-            </p>
+            {(error || message) && (
+              <p className={error ? styles.errorText : styles.successText} role="status">
+                {error || message}
+              </p>
+            )}
+
+            <div className={styles.saveBar}>
+              <button className={styles.primaryButton} type="submit" disabled={isSaving}>
+                {isSaving ? <LoaderCircle aria-hidden="true" /> : <Check aria-hidden="true" />}
+                {isSaving ? "Đang lưu..." : "Lưu hồ sơ"}
+              </button>
+            </div>
           </form>
         )}
       </section>

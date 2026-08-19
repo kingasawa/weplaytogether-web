@@ -4,6 +4,7 @@ import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AUTH_NEXT_STORAGE_KEY, normalizeAuthNextPath } from "@/lib/auth-redirect";
 import { isAllowedGmailSession, signOutFromSupabase } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ensureMyProfile } from "@/lib/user-profile";
@@ -13,8 +14,24 @@ type AuthCallbackScreenProps = {
   code: string | null;
   error: string | null;
   errorDescription: string | null;
-  nextPath: string;
+  nextPath: string | null;
 };
+
+function readStoredAuthNextPath() {
+  try {
+    return window.sessionStorage.getItem(AUTH_NEXT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredAuthNextPath() {
+  try {
+    window.sessionStorage.removeItem(AUTH_NEXT_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; the session is already complete.
+  }
+}
 
 export default function AuthCallbackScreen({
   code,
@@ -36,6 +53,8 @@ export default function AuthCallbackScreen({
 
     async function completeAuth() {
       try {
+        const redirectPath = normalizeAuthNextPath(nextPath ?? readStoredAuthNextPath());
+
         if (error) {
           throw new Error(errorDescription || error);
         }
@@ -79,7 +98,8 @@ export default function AuthCallbackScreen({
 
         setStatus("success");
         setMessage("Đăng nhập thành công.");
-        router.replace(nextPath);
+        clearStoredAuthNextPath();
+        router.replace(redirectPath);
         router.refresh();
       } catch (callbackError) {
         setStatus("error");

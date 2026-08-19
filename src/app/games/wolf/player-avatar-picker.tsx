@@ -19,6 +19,8 @@ import {
 import {
   getPlayerAvatarPath,
   getUploadedPlayerAvatarUrl,
+  isUploadedPlayerAvatarObjectKey,
+  normalizeGooglePlayerAvatarUrl,
   PLAYER_AVATAR_KEYS,
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
@@ -29,6 +31,10 @@ type PlayerAvatarPickerProps = {
   selectedAvatarObjectKey?: string | null;
   onSelectAvatar: (avatarKey: PlayerAvatarKey) => void;
   onSelectAvatarObjectKey?: (avatarObjectKey: string | null) => void;
+  className?: string;
+  gmailAvatarUrl?: string | null;
+  legend?: string;
+  variant?: "game" | "profile";
 };
 
 export function PlayerAvatarPicker({
@@ -36,6 +42,10 @@ export function PlayerAvatarPicker({
   selectedAvatarObjectKey = null,
   onSelectAvatar,
   onSelectAvatarObjectKey,
+  className = "",
+  gmailAvatarUrl = null,
+  legend = "Chọn avatar",
+  variant = "game",
 }: PlayerAvatarPickerProps) {
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const isUploadEnabled = Boolean(onSelectAvatarObjectKey);
@@ -46,6 +56,7 @@ export function PlayerAvatarPicker({
   );
   const [deletingObjectKey, setDeletingObjectKey] = useState<string | null>(null);
   const [failedObjectKeys, setFailedObjectKeys] = useState<string[]>([]);
+  const normalizedGmailAvatarUrl = normalizeGooglePlayerAvatarUrl(gmailAvatarUrl);
   const hasReachedUploadLimit = uploadedObjectKeys.length >= PLAYER_AVATAR_MAX_UPLOADS;
 
   // Đọc bộ sưu tập avatar đã upload từ localStorage khi mở picker.
@@ -60,7 +71,7 @@ export function PlayerAvatarPicker({
 
   // Đảm bảo avatar đang được chọn (kể cả dữ liệu cũ trước tính năng này) cũng có trong bộ sưu tập.
   useEffect(() => {
-    if (!isUploadEnabled || !selectedAvatarObjectKey) {
+    if (!isUploadEnabled || !isUploadedPlayerAvatarObjectKey(selectedAvatarObjectKey)) {
       return;
     }
 
@@ -164,9 +175,139 @@ export function PlayerAvatarPicker({
     onSelectAvatar(avatarKey);
   }
 
+  const avatarPickerClassName = [
+    styles.avatarPicker,
+    variant === "profile" ? styles.avatarPickerProfile : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  function renderPersonalAvatarOptions() {
+    if (!isUploadEnabled) {
+      return null;
+    }
+
+    return (
+      <>
+        <button
+          aria-label={hasReachedUploadLimit ? "Đã đạt tối đa ảnh tải lên" : "Tải ảnh lên"}
+          className={styles.avatarOption}
+          type="button"
+          disabled={isUploading || hasReachedUploadLimit}
+          onClick={() => avatarFileInputRef.current?.click()}
+        >
+          {isUploading ? (
+            <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
+          ) : (
+            <ImageUp aria-hidden="true" />
+          )}
+        </button>
+        {normalizedGmailAvatarUrl && (
+          <button
+            aria-label="Chọn ảnh đại diện Gmail"
+            aria-pressed={selectedAvatarObjectKey === normalizedGmailAvatarUrl}
+            className={
+              selectedAvatarObjectKey === normalizedGmailAvatarUrl
+                ? styles.avatarOptionActive
+                : styles.avatarOption
+            }
+            type="button"
+            disabled={isUploading}
+            onClick={() => onSelectAvatarObjectKey?.(normalizedGmailAvatarUrl)}
+          >
+            <Image
+              alt=""
+              aria-hidden="true"
+              width={56}
+              height={56}
+              src={normalizedGmailAvatarUrl}
+              unoptimized
+            />
+          </button>
+        )}
+        {uploadedObjectKeys.map((objectKey) => {
+          const uploadedAvatarUrl = getUploadedPlayerAvatarUrl(objectKey);
+
+          if (!uploadedAvatarUrl) {
+            return null;
+          }
+
+          const isSelected = selectedAvatarObjectKey === objectKey;
+          const isDeleting = deletingObjectKey === objectKey;
+
+          return (
+            <div className={styles.avatarUploadedItem} key={objectKey}>
+              <button
+                aria-label="Chọn avatar đã tải lên"
+                aria-pressed={isSelected}
+                className={isSelected ? styles.avatarOptionActive : styles.avatarOption}
+                type="button"
+                disabled={isUploading || isDeleting}
+                onClick={() => onSelectAvatarObjectKey?.(objectKey)}
+              >
+                {failedObjectKeys.includes(objectKey) ? (
+                  <ImageOff className={styles.avatarUploadFailedIcon} aria-hidden="true" />
+                ) : (
+                  <Image
+                    alt=""
+                    aria-hidden="true"
+                    width={56}
+                    height={56}
+                    src={uploadedAvatarUrl}
+                    unoptimized
+                    onError={() => setFailedObjectKeys((current) => [...current, objectKey])}
+                  />
+                )}
+              </button>
+              <button
+                aria-label="Xóa avatar đã tải lên"
+                className={styles.avatarDeleteButton}
+                type="button"
+                disabled={isUploading || isDeleting}
+                onClick={() => deleteUploadedAvatar(objectKey)}
+              >
+                {isDeleting ? (
+                  <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
+                ) : (
+                  <X aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  function renderPresetAvatarOptions() {
+    return PLAYER_AVATAR_KEYS.map((avatarKey) => {
+      const isSelected = !selectedAvatarObjectKey && avatarKey === selectedAvatarKey;
+
+      return (
+        <button
+          aria-label={`Chọn avatar ${avatarKey}`}
+          aria-pressed={isSelected}
+          className={isSelected ? styles.avatarOptionActive : styles.avatarOption}
+          key={avatarKey}
+          type="button"
+          onClick={() => choosePresetAvatar(avatarKey)}
+        >
+          <Image
+            alt=""
+            aria-hidden="true"
+            width={56}
+            height={56}
+            src={getPlayerAvatarPath(avatarKey)}
+          />
+        </button>
+      );
+    });
+  }
+
   return (
-    <fieldset className={styles.avatarPicker}>
-      <legend>Chọn avatar</legend>
+    <fieldset className={avatarPickerClassName}>
+      <legend>{legend}</legend>
       {isUploadEnabled && (
         <input
           ref={avatarFileInputRef}
@@ -176,96 +317,17 @@ export function PlayerAvatarPicker({
           onChange={uploadAvatar}
         />
       )}
-      <div className={styles.avatarGrid}>
-        {isUploadEnabled && (
-          <button
-            aria-label={hasReachedUploadLimit ? "Đã đạt tối đa ảnh tải lên" : "Tải ảnh lên"}
-            className={styles.avatarOption}
-            type="button"
-            disabled={isUploading || hasReachedUploadLimit}
-            onClick={() => avatarFileInputRef.current?.click()}
-          >
-            {isUploading ? (
-              <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
-            ) : (
-              <ImageUp aria-hidden="true" />
-            )}
-          </button>
-        )}
-        {isUploadEnabled &&
-          uploadedObjectKeys.map((objectKey) => {
-            const uploadedAvatarUrl = getUploadedPlayerAvatarUrl(objectKey);
-
-            if (!uploadedAvatarUrl) {
-              return null;
-            }
-
-            const isSelected = selectedAvatarObjectKey === objectKey;
-            const isDeleting = deletingObjectKey === objectKey;
-
-            return (
-              <div className={styles.avatarUploadedItem} key={objectKey}>
-                <button
-                  aria-label="Chọn avatar đã tải lên"
-                  aria-pressed={isSelected}
-                  className={isSelected ? styles.avatarOptionActive : styles.avatarOption}
-                  type="button"
-                  disabled={isUploading || isDeleting}
-                  onClick={() => onSelectAvatarObjectKey?.(objectKey)}
-                >
-                  {failedObjectKeys.includes(objectKey) ? (
-                    <ImageOff className={styles.avatarUploadFailedIcon} aria-hidden="true" />
-                  ) : (
-                    <Image
-                      alt=""
-                      aria-hidden="true"
-                      width={56}
-                      height={56}
-                      src={uploadedAvatarUrl}
-                      unoptimized
-                      onError={() => setFailedObjectKeys((current) => [...current, objectKey])}
-                    />
-                  )}
-                </button>
-                <button
-                  aria-label="Xóa avatar đã tải lên"
-                  className={styles.avatarDeleteButton}
-                  type="button"
-                  disabled={isUploading || isDeleting}
-                  onClick={() => deleteUploadedAvatar(objectKey)}
-                >
-                  {isDeleting ? (
-                    <LoaderCircle className={styles.avatarUploadSpinner} aria-hidden="true" />
-                  ) : (
-                    <X aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-            );
-          })}
-        {PLAYER_AVATAR_KEYS.map((avatarKey) => {
-          const isSelected = !selectedAvatarObjectKey && avatarKey === selectedAvatarKey;
-
-          return (
-            <button
-              aria-label={`Chọn avatar ${avatarKey}`}
-              aria-pressed={isSelected}
-              className={isSelected ? styles.avatarOptionActive : styles.avatarOption}
-              key={avatarKey}
-              type="button"
-              onClick={() => choosePresetAvatar(avatarKey)}
-            >
-              <Image
-                alt=""
-                aria-hidden="true"
-                width={56}
-                height={56}
-                src={getPlayerAvatarPath(avatarKey)}
-              />
-            </button>
-          );
-        })}
-      </div>
+      {variant === "profile" ? (
+        <div className={styles.avatarRows}>
+          <div className={styles.avatarPersonalRow}>{renderPersonalAvatarOptions()}</div>
+          <div className={styles.avatarPresetRow}>{renderPresetAvatarOptions()}</div>
+        </div>
+      ) : (
+        <div className={styles.avatarGrid}>
+          {renderPersonalAvatarOptions()}
+          {renderPresetAvatarOptions()}
+        </div>
+      )}
       {isUploadEnabled && uploadError && (
         <span className={styles.errorText}>{uploadError}</span>
       )}

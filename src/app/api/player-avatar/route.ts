@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { deleteAvatarObject, putAvatarObject } from "@/lib/cloudflare-r2";
 import {
   getUploadedPlayerAvatarUrl,
-  normalizePlayerAvatarObjectKey,
+  normalizeUploadedPlayerAvatarObjectKey,
   PLAYER_AVATAR_OBJECT_PREFIX,
 } from "@/lib/player-avatars";
 import {
@@ -86,7 +86,7 @@ export async function DELETE(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as { objectKey?: unknown } | null;
-  const objectKey = normalizePlayerAvatarObjectKey(
+  const objectKey = normalizeUploadedPlayerAvatarObjectKey(
     typeof body?.objectKey === "string" ? body.objectKey : null
   );
 

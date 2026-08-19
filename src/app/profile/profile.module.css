@@ -1,159 +1,518 @@
 .page {
   display: grid;
-  place-items: start center;
   min-height: 100svh;
-  padding: clamp(1rem, 5vw, 3rem);
+  place-items: start center;
+  overflow-x: hidden;
   background: var(--bg-primary);
+  color: var(--text);
 }
 
-.panel {
-  width: min(100%, 34rem);
-  display: grid;
-  gap: var(--spacing-lg);
-  padding: clamp(1.25rem, 5vw, 2.5rem);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
-  border-radius: 1.25rem;
-  background: var(--bg-secondary);
-}
-
-.header {
+.screen {
   display: flex;
+  width: min(100%, 30rem);
+  min-width: 0;
+  min-height: 100svh;
+  flex-direction: column;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 0.75rem 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-secondary) 52%, var(--bg-primary)),
+      var(--bg-primary) 38%
+    );
+}
+
+.topBar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-piece);
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
   align-items: center;
   gap: var(--spacing-sm);
+  min-height: 3rem;
+  padding-block: 0.25rem;
 }
 
-.header h1 {
-  margin: 0;
+.topBar::after {
+  content: "";
+}
+
+.iconButton {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+  color: var(--text);
+}
+
+.iconButton svg {
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.navTitle {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 0.1rem;
+  text-align: center;
+}
+
+.rowLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.navTitle h1 {
+  min-width: 0;
   color: var(--text);
   font-family: var(--font-heading);
-  font-size: clamp(1.4rem, 6vw, 1.9rem);
-  line-height: 1.1;
-}
-
-.backLink {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  min-width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
-  border-radius: 999px;
-  color: var(--text);
-}
-
-.backLink svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
-.statusText,
-.emailText,
-.hintText {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.55;
-}
-
-.statusText svg {
-  width: 1.1rem;
-  height: 1.1rem;
-  animation: profileSpin 0.9s linear infinite;
-}
-
-.emailText {
-  font-weight: 700;
-}
-
-.hintText {
-  display: block;
-  font-size: 0.82rem;
-}
-
-.guestBlock {
-  display: grid;
-  gap: var(--spacing-md);
+  font-size: 1.08rem;
+  line-height: 1.15;
 }
 
 .form {
-  display: grid;
-  gap: var(--spacing-lg);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
 }
 
-.field {
+.identityPanel {
   display: grid;
-  gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 700;
+  justify-items: center;
+  gap: 0.85rem;
+  padding: 1rem 0.5rem 0.75rem;
+  text-align: center;
 }
 
-.field input {
+.avatarPreview {
+  position: relative;
+  display: grid;
+  width: 7rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 999rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary-light) 18%, var(--bg-card)),
+      color-mix(in srgb, var(--bg-card) 88%, var(--bg-primary))
+    );
+  box-shadow:
+    0 1px 2px 2px var(--shadow-card),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.avatarPreview img {
+  width: calc(100% - 0.7rem);
+  height: calc(100% - 0.7rem);
+  border-radius: 999rem;
+  object-fit: cover;
+}
+
+.identityCopy {
+  position: relative;
+  display: grid;
+  width: min(100%, 23rem);
+  justify-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.identityNameRow {
+  position: relative;
+  display: block;
   width: 100%;
+  min-width: 0;
+  padding-inline: 3rem;
+}
+
+.identityEditButton {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: grid;
+  width: 2.75rem;
   min-height: 2.75rem;
-  padding: 0 var(--spacing-md);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
-  border-radius: 0.75rem;
-  background: var(--bg-card);
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+  color: var(--primary-light);
+  cursor: pointer;
+  box-shadow: 0 1px 2px 1px var(--shadow-card);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background var(--transition-base);
+  transform: translateY(-50%);
+}
+
+.identityEditButton[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--primary-light) 42%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.identityEditButton svg {
+  width: 0.9rem;
+  min-width: 0.9rem;
+}
+
+.identityCopy h2 {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.65rem, 9vw, 2.2rem);
+  line-height: 1.05;
+  text-align: center;
+  word-break: normal;
+}
+
+.identityCopy p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.settingsGroup,
+.avatarGroup {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  box-shadow: 0 1px 2px 1px var(--shadow-card);
+}
+
+.settingRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 4.25rem;
+  padding: 0.75rem;
+  color: var(--text);
+}
+
+.settingRow + .settingRow {
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 12%, transparent);
+}
+
+.rowIcon {
+  display: grid;
+  width: 2rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg-secondary));
+  color: var(--primary-light);
+}
+
+.rowIcon svg {
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.rowBody {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.rowLabel {
+  color: var(--text-secondary);
+}
+
+.rowBody input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--text);
   font-family: var(--font-body);
   font-size: 1rem;
+  font-weight: 700;
+  text-align: right;
 }
 
-.field input:focus-visible {
+.rowBody input::placeholder {
+  color: var(--text-secondary);
+}
+
+.rowBody input:focus-visible {
   outline: 2px solid var(--primary-light);
-  outline-offset: 1px;
+  outline-offset: 0.25rem;
+}
+
+.rowValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.avatarGroup {
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.avatarToggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+}
+
+.avatarToggleText {
+  display: grid;
+  min-width: 0;
+}
+
+.avatarToggleText h2 {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.avatarToggleText p {
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.avatarToggleIcon,
+.avatarToggleIconOpen {
+  display: grid;
+  width: 2.35rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-primary) 28%, var(--bg-card));
+  color: var(--primary-light);
+  transition: transform var(--transition-base);
+}
+
+.avatarToggleIconOpen {
+  transform: rotate(180deg);
+}
+
+.avatarToggleIcon svg,
+.avatarToggleIconOpen svg {
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.profileAvatarPicker {
+  padding-top: 0.1rem;
+}
+
+.errorText,
+.successText {
+  min-height: 2.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.errorText {
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
+  color: var(--text);
+}
+
+.successText {
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card));
+  color: var(--text);
+}
+
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-piece);
+  margin-top: auto;
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--bg-primary) 92%, transparent) 22%,
+      var(--bg-primary)
+    );
 }
 
 .primaryButton {
-  display: flex;
+  display: inline-flex;
   width: 100%;
-  min-height: 2.85rem;
+  min-height: 3rem;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
   border: 0;
-  border-radius: 999px;
-  background: linear-gradient(
-    1deg,
-    color-mix(in srgb, var(--primary) 40%, var(--bg-primary)),
-    color-mix(in srgb, var(--primary) 72%, var(--bg-primary))
-  );
+  border-radius: 999rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary-light) 84%, var(--text)),
+      var(--primary) 48%,
+      color-mix(in srgb, var(--primary) 78%, var(--bg-primary))
+    );
   color: var(--text);
   cursor: pointer;
   font-family: var(--font-body);
   font-size: 0.95rem;
   font-weight: 800;
-  text-transform: uppercase;
+  line-height: 1;
+  text-shadow: 0 0.08rem 0 color-mix(in srgb, var(--bg-primary) 34%, transparent);
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    opacity var(--transition-base);
 }
 
 .primaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.68;
+  transform: none;
 }
 
 .primaryButton svg {
   width: 1.1rem;
-  height: 1.1rem;
+  min-width: 1.1rem;
 }
 
-.primaryButton:disabled svg {
+.primaryButton:disabled svg,
+.stateSpinner {
   animation: profileSpin 0.9s linear infinite;
 }
 
-.errorText {
-  color: var(--danger);
-  font-size: 0.85rem;
-  font-weight: 700;
+.stateBlock {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(100svh - 5rem);
+  align-content: center;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: var(--spacing-lg) 1rem calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+  text-align: center;
 }
 
-.successText {
-  color: var(--success);
-  font-size: 0.85rem;
-  font-weight: 700;
+.stateBlock h2 {
+  width: min(100%, 20rem);
+  min-width: 0;
+  max-width: calc(100vw - 2rem);
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.35rem, 7vw, 1.85rem);
+  line-height: 1.1;
+}
+
+.stateBlock p {
+  width: min(100%, 22rem);
+  min-width: 0;
+  max-width: min(22rem, calc(100vw - 2rem));
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.stateBlock .primaryButton {
+  width: min(100%, 22rem);
+  max-width: calc(100vw - 2rem);
+}
+
+.stateIcon,
+.stateSpinner {
+  display: grid;
+  width: 3.25rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  color: var(--primary-light);
+}
+
+.stateIcon svg,
+.stateSpinner {
+  width: 1.55rem;
+  min-width: 1.55rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iconButton:hover,
+  .primaryButton:not(:disabled):hover {
+    transform: translateY(-0.1rem);
+  }
+
+  .identityEditButton:hover {
+    transform: translateY(calc(-50% - 0.1rem));
+  }
+}
+
+@media (min-width: 48rem) {
+  .page {
+    place-items: center;
+    padding: var(--spacing-lg);
+    background:
+      linear-gradient(
+        180deg,
+        var(--bg-primary),
+        color-mix(in srgb, var(--bg-secondary) 68%, var(--bg-primary))
+      );
+  }
+
+  .screen {
+    min-height: min(100svh, 54rem);
+    padding-inline: var(--spacing-md);
+    border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+    border-radius: 0.5rem;
+    box-shadow:
+      0 1px 2px 2px var(--shadow-card),
+      inset 0 0 0 1px color-mix(in srgb, var(--text) 5%, transparent);
+  }
+
+  .form {
+    gap: var(--spacing-md);
+  }
 }
 
 @keyframes profileSpin {

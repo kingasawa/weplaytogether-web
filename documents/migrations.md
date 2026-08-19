@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-18 -->
+﻿<!-- Last updated: 2026-08-19 -->
 
 # Migrations
 
@@ -253,7 +253,7 @@ Path:
 
 Purpose:
 
-- Add `public.wolf_room_players.avatar_object_key text null` để lưu object key của avatar do người chơi upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`).
+- Add `public.wolf_room_players.avatar_object_key text null` để lưu object key của avatar do người chơi upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`) hoặc URL ảnh đại diện Google đã validate.
 - Cơ chế dùng chung cho toàn app: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players` (phân biệt game bằng `game_key` trên `wolf_rooms`), nên chỉ cần một cột này cho tất cả game.
 - Khi cột chưa tồn tại, code phía server tự fallback về `avatar_key` (xem `isMissingAvatarObjectKeyColumnError`), nên avatar preset vẫn hoạt động; chỉ avatar upload cần cột này.
 
@@ -267,7 +267,7 @@ Path:
 
 Purpose:
 
-- Tạo bảng `public.users` (id = `auth.users.id`) lưu hồ sơ người chơi cho tài khoản đã đăng nhập Google: `email`, `display_name`, `avatar_key`, `avatar_object_key`, timestamps.
+- Tạo bảng `public.users` (id = `auth.users.id`) lưu hồ sơ người chơi cho tài khoản đã đăng nhập Google: `email`, `display_name`, `avatar_key`, `avatar_object_key` (object key R2 hoặc URL ảnh đại diện Google đã validate), timestamps.
 - Bật RLS + policy cho phép mỗi user tự select/insert/update **hàng của mình** (`auth.uid() = id`) — client (đã có JWT) đọc/ghi trực tiếp, không cần server action.
 - Trigger `set_users_updated_at` tự cập nhật `updated_at` khi sửa.
 - Dùng cho trang `/profile` (sửa tên hiển thị + avatar mặc định) và tạo record tự động khi login lần đầu (`ensureMyProfile`).

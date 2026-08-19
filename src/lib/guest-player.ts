@@ -3,6 +3,7 @@ import {
   DEFAULT_PLAYER_AVATAR_KEY,
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarKey,
+  normalizeUploadedPlayerAvatarObjectKey,
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 
@@ -101,7 +102,7 @@ export function readStoredGuestPlayerAvatarUploads(): string[] {
   }
 
   const normalized = parsed
-    .map((objectKey) => normalizePlayerAvatarObjectKey(typeof objectKey === "string" ? objectKey : null))
+    .map((objectKey) => normalizeUploadedPlayerAvatarObjectKey(typeof objectKey === "string" ? objectKey : null))
     .filter((objectKey): objectKey is string => Boolean(objectKey));
 
   return Array.from(new Set(normalized)).slice(0, PLAYER_AVATAR_MAX_UPLOADS);
@@ -111,7 +112,7 @@ function saveStoredGuestPlayerAvatarUploads(objectKeys: string[]): string[] {
   const normalized = Array.from(
     new Set(
       objectKeys
-        .map((objectKey) => normalizePlayerAvatarObjectKey(objectKey))
+        .map((objectKey) => normalizeUploadedPlayerAvatarObjectKey(objectKey))
         .filter((objectKey): objectKey is string => Boolean(objectKey))
     )
   ).slice(0, PLAYER_AVATAR_MAX_UPLOADS);
@@ -122,7 +123,7 @@ function saveStoredGuestPlayerAvatarUploads(objectKeys: string[]): string[] {
 }
 
 export function addStoredGuestPlayerAvatarUpload(avatarObjectKey?: string | null): string[] {
-  const normalizedAvatarObjectKey = normalizePlayerAvatarObjectKey(avatarObjectKey);
+  const normalizedAvatarObjectKey = normalizeUploadedPlayerAvatarObjectKey(avatarObjectKey);
 
   if (!normalizedAvatarObjectKey) {
     return readStoredGuestPlayerAvatarUploads();

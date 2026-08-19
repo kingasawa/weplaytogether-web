@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-18 -->
+﻿<!-- Last updated: 2026-08-19 -->
 
 # Database Schema
 
@@ -64,7 +64,7 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `email text null`
 - `display_name text null` — tên hiển thị trong game
 - `avatar_key text not null default 'avatar0'`
-- `avatar_object_key text null` — object key avatar upload lên R2 (nếu có)
+- `avatar_object_key text null` — object key avatar upload lên R2 hoặc URL ảnh đại diện Google đã validate (nếu có)
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()` (trigger `set_users_updated_at`)
 - RLS bật; mỗi user chỉ select/insert/update hàng của mình (`auth.uid() = id`). Client đọc/ghi trực tiếp bằng JWT.
@@ -88,7 +88,7 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `session_id text not null`
 - `name text not null`, trimmed length 1-32
 - `avatar_key text not null default 'avatar0'`, constrained to available avatar asset keys
-- `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`). Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
+- `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`) hoặc URL ảnh đại diện Google đã validate. Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { normalizeAuthNextPath } from "@/lib/auth-redirect";
 import AuthCallbackScreen from "./auth-callback-screen";
 
 type AuthCallbackPageProps = {
@@ -27,7 +26,7 @@ export default async function AuthCallbackPage({ searchParams }: AuthCallbackPag
       code={getFirstParam(params.code)}
       error={getFirstParam(params.error)}
       errorDescription={getFirstParam(params.error_description)}
-      nextPath={normalizeAuthNextPath(params.next)}
+      nextPath={getFirstParam(params.next)}
     />
   );
 }

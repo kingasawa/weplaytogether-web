@@ -644,6 +644,15 @@
   width: 1.25rem;
 }
 
+.mobileAccountAvatar {
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 999rem;
+  object-fit: cover;
+  box-shadow: 0 1px 2px 1px var(--shadow-card);
+}
+
 .mobileAccountButtonLabel {
   max-width: 100%;
   overflow: hidden;

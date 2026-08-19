@@ -2,6 +2,7 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 import {
@@ -12,11 +13,14 @@ import {
 import {
   getAuthDisplayName,
   getCurrentAuthNextPath,
+  getGmailAvatarUrl,
   isAllowedGmailSession,
   signInWithGmail,
   signOutFromSupabase,
 } from "@/lib/supabase/auth-client";
+import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { readStoredAccountProfile, type StoredAccountProfile } from "@/lib/user-profile";
 import styles from "./page.module.css";
 
 export default function MobileAccountNavItem() {
@@ -28,6 +32,7 @@ export default function MobileAccountNavItem() {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestNameError, setGuestNameError] = useState("");
+  const [accountProfile, setAccountProfile] = useState<StoredAccountProfile | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,6 +55,7 @@ export default function MobileAccountNavItem() {
         }
 
         setSession(nextSession);
+        setAccountProfile(nextSession ? readStoredAccountProfile() : null);
         setIsAuthReady(true);
 
         if (nextSession) {
@@ -141,11 +147,17 @@ export default function MobileAccountNavItem() {
       setAuthError(error.message);
     } else {
       setSession(null);
+      setAccountProfile(null);
       setIsOpen(false);
     }
 
     setIsAuthPending(false);
   };
+
+  const accountAvatarObjectUrl = getUploadedPlayerAvatarUrl(accountProfile?.avatarObjectKey);
+  const accountAvatarSrc = session
+    ? getPlayerAvatarSrc(accountProfile?.avatarKey, accountAvatarObjectUrl ?? getGmailAvatarUrl(session))
+    : null;
 
   return (
     <div className={styles.mobileAccountWrapper}>
@@ -154,9 +166,27 @@ export default function MobileAccountNavItem() {
         type="button"
         aria-expanded={isOpen}
         aria-label="Tài khoản"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => {
+          if (session) {
+            setAccountProfile(readStoredAccountProfile());
+          }
+
+          setIsOpen((current) => !current);
+        }}
       >
-        <CircleUserRound aria-hidden="true" />
+        {accountAvatarSrc ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className={styles.mobileAccountAvatar}
+            width={28}
+            height={28}
+            src={accountAvatarSrc}
+            unoptimized={Boolean(accountProfile?.avatarObjectKey)}
+          />
+        ) : (
+          <CircleUserRound aria-hidden="true" />
+        )}
         <span className={styles.mobileAccountButtonLabel}>
           {isAuthReady && session ? getAuthDisplayName(session) : "Tài khoản"}
         </span>

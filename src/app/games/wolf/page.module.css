@@ -817,6 +817,29 @@
   padding-right: 0.15rem;
 }
 
+.avatarRows {
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.avatarPersonalRow,
+.avatarPresetRow {
+  display: grid;
+  min-width: 0;
+  gap: 0.55rem;
+}
+
+.avatarPersonalRow {
+  grid-template-columns: repeat(auto-fit, minmax(3rem, 3rem));
+}
+
+.avatarPresetRow {
+  grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--primary-light) 12%, transparent);
+}
+
 .avatarOption,
 .avatarOptionActive {
   display: grid;
@@ -869,6 +892,64 @@
   color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+.avatarPickerProfile {
+  gap: 0.75rem;
+}
+
+.avatarPickerProfile legend {
+  margin-bottom: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.avatarPickerProfile .avatarGrid {
+  grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+  gap: 0.55rem;
+  max-height: min(38svh, 20rem);
+  padding: 0.15rem;
+  padding-right: 0.2rem;
+}
+
+.avatarPickerProfile .avatarRows {
+  max-height: min(38svh, 20rem);
+}
+
+.avatarPickerProfile .avatarPersonalRow,
+.avatarPickerProfile .avatarPresetRow {
+  padding-inline: 0.15rem;
+}
+
+.avatarPickerProfile .avatarPresetRow {
+  max-height: min(26svh, 13rem);
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.avatarPickerProfile .avatarOption,
+.avatarPickerProfile .avatarOptionActive {
+  min-height: 3rem;
+  border-color: color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-primary) 32%, var(--bg-card));
+}
+
+.avatarPickerProfile .avatarOptionActive {
+  border-color: var(--primary-light);
+  background: color-mix(in srgb, var(--primary) 22%, var(--bg-card));
+  box-shadow:
+    0 0 0 0.15rem color-mix(in srgb, var(--primary) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.avatarPickerProfile .avatarOption img,
+.avatarPickerProfile .avatarOptionActive img {
+  width: 2.55rem;
+  height: 2.55rem;
 }
 
 /* Ô avatar đã upload: nút chọn + nút xóa nhỏ đè góc trên phải */
