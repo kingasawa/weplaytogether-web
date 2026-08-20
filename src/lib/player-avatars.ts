@@ -141,3 +141,12 @@ export function getUploadedPlayerAvatarUrl(avatarObjectKey?: string | null) {
 export function getPlayerAvatarSrc(avatarKey?: string | null, uploadedAvatarUrl?: string | null) {
   return uploadedAvatarUrl?.trim() || getPlayerAvatarPath(avatarKey);
 }
+
+/**
+ * Avatar remote (Google / R2) phải render `unoptimized` để browser tải trực tiếp.
+ * Nếu để next/image tối ưu phía server, Google thường chặn/giới hạn request của
+ * optimizer khiến ảnh bị broken. Avatar cục bộ (/images/...) vẫn tối ưu bình thường.
+ */
+export function isRemotePlayerAvatarSrc(avatarSrc?: string | null) {
+  return /^https?:\/\//i.test(avatarSrc?.trim() ?? "");
+}

@@ -23,6 +23,11 @@
   --success: #2ECC71;
   --danger:  #E74C3C;
 
+  /* --- Medal / Ranking --- */
+  --medal-gold:   #F1C40F;
+  --medal-silver: #C4CCDA;
+  --medal-bronze: #CD7F32;
+
   /* --- Shadows --- */
   --shadow-card: #151c31;
 

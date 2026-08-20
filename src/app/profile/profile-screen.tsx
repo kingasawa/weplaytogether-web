@@ -20,6 +20,7 @@ import {
   DEFAULT_PLAYER_AVATAR_KEY,
   getPlayerAvatarSrc,
   getUploadedPlayerAvatarUrl,
+  isRemotePlayerAvatarSrc,
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 import {
@@ -176,7 +177,7 @@ export default function ProfileScreen() {
                   width={112}
                   height={112}
                   src={avatarPreviewSrc}
-                  unoptimized={Boolean(avatarObjectKey)}
+                  unoptimized={isRemotePlayerAvatarSrc(avatarPreviewSrc)}
                 />
               </div>
               <div className={styles.identityCopy}>

@@ -4,7 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerName,
@@ -18,7 +18,11 @@ import {
   signInWithGmail,
   signOutFromSupabase,
 } from "@/lib/supabase/auth-client";
-import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
+import {
+  getPlayerAvatarSrc,
+  getUploadedPlayerAvatarUrl,
+  isRemotePlayerAvatarSrc,
+} from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile, type StoredAccountProfile } from "@/lib/user-profile";
 import styles from "./page.module.css";
@@ -33,6 +37,34 @@ export default function MobileAccountNavItem() {
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestNameError, setGuestNameError] = useState("");
   const [accountProfile, setAccountProfile] = useState<StoredAccountProfile | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Đóng profile menu khi bấm ra ngoài hoặc nhấn Escape.
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -160,7 +192,7 @@ export default function MobileAccountNavItem() {
     : null;
 
   return (
-    <div className={styles.mobileAccountWrapper}>
+    <div className={styles.mobileAccountWrapper} ref={wrapperRef}>
       <button
         className={styles.mobileAccountButton}
         type="button"
@@ -179,17 +211,14 @@ export default function MobileAccountNavItem() {
             alt=""
             aria-hidden="true"
             className={styles.mobileAccountAvatar}
-            width={28}
-            height={28}
+            width={44}
+            height={44}
             src={accountAvatarSrc}
-            unoptimized={Boolean(accountProfile?.avatarObjectKey)}
+            unoptimized={isRemotePlayerAvatarSrc(accountAvatarSrc)}
           />
         ) : (
           <CircleUserRound aria-hidden="true" />
         )}
-        <span className={styles.mobileAccountButtonLabel}>
-          {isAuthReady && session ? getAuthDisplayName(session) : "Tài khoản"}
-        </span>
       </button>
 
       {isOpen && (
@@ -207,7 +236,7 @@ export default function MobileAccountNavItem() {
                 Hồ sơ người chơi
               </Link>
               <button
-                className={styles.mobileAccountLink}
+                className={`${styles.mobileAccountLink} ${styles.mobileAccountLinkDanger}`}
                 type="button"
                 disabled={isAuthPending}
                 onClick={signOut}
