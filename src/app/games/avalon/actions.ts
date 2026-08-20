@@ -1497,6 +1497,81 @@ export async function joinAvalonRoom(
   };
 }
 
+// Đổi tên/avatar khi đang ở phòng chờ (chưa bắt đầu).
+export async function updateAvalonPlayerProfile(
+  roomCode: string,
+  playerName?: string,
+  avatarKey?: string,
+  avatarObjectKey?: string | null
+): Promise<AvalonActionResult> {
+  const normalizedRoomCode = normalizeRoomCode(roomCode);
+
+  if (!ROOM_CODE_PATTERN.test(normalizedRoomCode)) {
+    return { ok: false, error: "Mã phòng không hợp lệ." };
+  }
+
+  const sessionId = await getPlayerSessionId();
+
+  if (!sessionId) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
+  const { supabase, room } = await getRoomByCode(normalizedRoomCode);
+
+  if (!room) {
+    return { ok: false, error: "Không tìm thấy phòng Avalon." };
+  }
+
+  if (room.status !== "waiting") {
+    return { ok: false, error: "Chỉ đổi được tên/avatar khi đang ở phòng chờ." };
+  }
+
+  const players = await getActivePlayers(supabase, room);
+  const normalizedName = normalizePlayerName(playerName);
+  const normalizedAvatarKey = normalizePlayerAvatarKey(avatarKey);
+  const player = players.find((entry) => entry.session_id === sessionId);
+
+  if (!player) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const updateError = await updateRoomPlayerIdentity(
+    supabase,
+    player.id,
+    normalizedName,
+    normalizedAvatarKey,
+    playerAvatarObjectKey
+  );
+
+  if (updateError) {
+    return {
+      ok: false,
+      error:
+        getAvatarObjectKeyErrorMessage(updateError) ??
+        "Không thể cập nhật tên hoặc avatar người chơi.",
+    };
+  }
+
+  await safeBroadcastWolfRoomUpdate(room.code);
+  return {
+    ok: true,
+    roomCode: room.code,
+    playerId: player.id,
+    playerName: normalizedName,
+    playerAvatarKey: normalizedAvatarKey,
+    playerAvatarObjectKey,
+    playerAvatarUrl,
+  };
+}
+
 export async function getAvalonLobbyState(roomCode: string): Promise<AvalonLobbyState | null> {
   const sessionId = await getPlayerSessionId();
   const { supabase, room } = await getRoomByCode(roomCode);
@@ -1577,6 +1652,11 @@ export async function toggleAvalonReady(roomCode: string): Promise<AvalonMutatio
     return { ok: false, error: "Bạn chưa ở trong phòng này." };
   }
 
+  // Host luôn mặc định sẵn sàng — không cho phép bật/tắt.
+  if (isHost(currentPlayer, room)) {
+    return { ok: true };
+  }
+
   const { error } = await supabase
     .from("wolf_room_players")
     .update({ is_ready: !currentPlayer.is_ready })
@@ -1650,7 +1730,10 @@ export async function leaveAvalonRoom(roomCode: string): Promise<AvalonMutationR
   await supabase.from("wolf_room_players").delete().eq("id", currentPlayer.id);
 
   if (nextHost) {
-    await supabase.from("wolf_room_players").update({ is_host: true }).eq("id", nextHost.id);
+    await supabase
+      .from("wolf_room_players")
+      .update({ is_host: true, is_ready: true })
+      .eq("id", nextHost.id);
     await supabase.from("wolf_rooms").update({ host_player_id: nextHost.id }).eq("id", room.id);
   }
 
@@ -2451,7 +2534,8 @@ export async function finishAvalonGame(roomCode: string): Promise<AvalonMutation
   await supabase
     .from("wolf_room_players")
     .update({ is_ready: false })
-    .eq("room_id", room.id);
+    .eq("room_id", room.id)
+    .eq("is_host", false);
 
   await safeBroadcastWolfRoomUpdate(room.code);
   await safeBroadcastWolfPlayUpdate(room.code);

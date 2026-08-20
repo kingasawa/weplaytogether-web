@@ -2143,6 +2143,89 @@ export async function joinClassicWolfRoom(
   };
 }
 
+// Đổi tên/avatar khi đang ở phòng chờ (chưa bắt đầu).
+export async function updateClassicWolfPlayerProfile(
+  roomCode: string,
+  playerName?: string,
+  avatarKey?: string,
+  avatarObjectKey?: string | null
+): Promise<ClassicWolfActionResult> {
+  const code = normalizeRoomCode(roomCode);
+
+  if (!ROOM_CODE_PATTERN.test(code)) {
+    return { ok: false, error: "Mã phòng không hợp lệ." };
+  }
+
+  const sessionId = await getPlayerSessionId();
+
+  if (!sessionId) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const name = normalizePlayerName(playerName);
+  const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
+
+  const { data: room } = await supabase
+    .from("wolf_rooms")
+    .select("id, code, game_key, status, host_player_id, current_game_id")
+    .eq("code", code)
+    .eq("game_key", CLASSIC_WOLF_GAME_KEY)
+    .maybeSingle();
+
+  if (!room) {
+    return { ok: false, error: "Không tìm thấy phòng." };
+  }
+
+  if (room.status !== "waiting") {
+    return { ok: false, error: "Chỉ đổi được tên/avatar khi đang ở phòng chờ." };
+  }
+
+  const players = await getActivePlayers(supabase, room as RoomRow);
+  const player = players.find((entry) => entry.session_id === sessionId);
+
+  if (!player) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const updateError = await updateWolfRoomPlayerIdentity(
+    supabase,
+    player.id,
+    name,
+    playerAvatarKey,
+    playerAvatarObjectKey
+  );
+
+  if (updateError) {
+    return {
+      ok: false,
+      error:
+        getAvatarObjectKeyErrorMessage(updateError) ??
+        "Không thể cập nhật tên hoặc avatar người chơi.",
+    };
+  }
+
+  await safeBroadcastWolfRoomUpdate(code);
+
+  return {
+    ok: true,
+    roomCode: code,
+    playerId: player.id,
+    playerName: name,
+    playerAvatarKey,
+    playerAvatarObjectKey,
+    playerAvatarUrl,
+  };
+}
+
 export async function getClassicWolfLobbyState(roomCode: string): Promise<ClassicWolfLobbyState | null> {
   const code = normalizeRoomCode(roomCode);
   const sessionId = await getPlayerSessionId();
@@ -2185,6 +2268,11 @@ export async function toggleClassicWolfReady(roomCode: string): Promise<ClassicW
 
   if (!player) {
     return { ok: false, error: "Không thể cập nhật trạng thái sẵn sàng." };
+  }
+
+  // Host luôn mặc định sẵn sàng — không cho phép bật/tắt.
+  if (isHost(player, room)) {
+    return { ok: true };
   }
 
   await supabase.from("wolf_room_players").update({ is_ready: !player.is_ready }).eq("id", player.id);
@@ -3109,7 +3197,8 @@ export async function finishClassicWolfGame(roomCode: string): Promise<ClassicWo
   await supabase
     .from("wolf_room_players")
     .update({ is_ready: false })
-    .eq("room_id", room.id);
+    .eq("room_id", room.id)
+    .eq("is_host", false);
   await safeBroadcastWolfRoomUpdate(room.code);
   await safeBroadcastWolfPlayUpdate(room.code);
 

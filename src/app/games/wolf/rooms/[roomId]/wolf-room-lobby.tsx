@@ -7,6 +7,7 @@ import {
   LogIn,
   LogOut,
   Minus,
+  Pencil,
   Play,
   UserPlus,
   UserRound,
@@ -43,6 +44,7 @@ import {
   leaveWolfRoom,
   startWolfGame,
   toggleWolfReady,
+  updateWolfPlayerProfile,
   type WolfLobbyState,
   type WolfSpectatorState,
 } from "../../actions";
@@ -241,6 +243,10 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       return null;
     }
 
+    if (playerId === currentPlayer.id) {
+      return null;
+    }
+
     if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
       return <span className={styles.connectionBadge}>{connectionStatus}</span>;
     }
@@ -251,14 +257,19 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
     if (onlinePlayerIds.includes(playerId)) {
       return (
-        <span className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`}>
+        <span aria-label="Online" className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`} title="Online">
           <span aria-hidden="true" className={styles.connectionDot} />
           Online
         </span>
       );
     }
 
-    return <span className={styles.connectionBadge}>Đã thoát game</span>;
+    return (
+      <span aria-label="Đã thoát game" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Đã thoát game">
+        <span aria-hidden="true" className={styles.connectionDot} />
+        Offline
+      </span>
+    );
   }
 
   useEffect(() => {
@@ -404,6 +415,9 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
       runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
+    } else if (lobbyState.currentPlayerId) {
+      // Đã ở trong phòng chờ → đồng bộ tên/avatar vào phòng cho mọi người thấy.
+      runUpdateRoomProfile(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -425,6 +439,57 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
+  }
+
+  // Mở trình chỉnh sửa tên/avatar khi đã ở trong phòng, prefill theo hồ sơ hiện tại.
+  function openRoomProfileEditor() {
+    const current = lobbyState.players.find(
+      (player) => player.id === lobbyState.currentPlayerId
+    );
+
+    setShouldJoinAfterGuestName(false);
+    setGuestNameInput(current?.name ?? guestName);
+    setGuestAvatarInput((current?.avatarKey as PlayerAvatarKey | undefined) ?? guestAvatarKey);
+    setGuestAvatarObjectKeyInput(current?.avatarObjectKey ?? guestAvatarObjectKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
+  }
+
+  function runUpdateRoomProfile(
+    name: string,
+    avatarKey: string,
+    avatarObjectKey: string | null
+  ) {
+    setErrorMessage("");
+    startTransition(async () => {
+      const result = await updateWolfPlayerProfile(
+        lobbyState.room.code,
+        name,
+        avatarKey,
+        avatarObjectKey
+      );
+
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      setLobbyState((currentState) => ({
+        ...currentState,
+        players: currentState.players.map((player) =>
+          player.id === result.playerId
+            ? {
+                ...player,
+                name: result.playerName,
+                avatarKey: result.playerAvatarKey,
+                avatarObjectKey: result.playerAvatarObjectKey,
+                avatarUrl: result.playerAvatarUrl,
+              }
+            : player
+        ),
+      }));
+    });
   }
 
   function toggleReady() {
@@ -565,10 +630,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   }
 
   return (
-    <main className={`${styles.page} ${styles.roomPage} ${styles.classicWolfTheme}`}>
+    <main className={`${styles.page} ${styles.roomPage} ${styles.avalonTheme} ${styles.wolfThemeBg}`}>
       <section className={styles.roomPanel}>
-        <p className={styles.eyebrow}>Phòng chờ</p>
-
         {shouldShowRoleSetup ? (
           <div className={styles.roleSetup}>
             <div className={styles.roleSetupHeader}>
@@ -627,7 +690,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         ) : (
           <>
         <div className={styles.roomCodeCard} aria-label="Mã phòng">
-          <span>Mã phòng</span>
           <strong>{lobbyState.room.code}</strong>
         </div>
 
@@ -647,17 +709,10 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
           </p>
         )}
 
-        <p className={styles.description}>
-          Gửi mã phòng này cho bạn bè.
-        </p>
-
-        <div className={styles.lobbyHeader}>
-          <div>
-            <span>{connectionStatus}</span>
-            <strong>{lobbyState.players.length}/10 người chơi</strong>
-          </div>
+        <div className={styles.playerListHeader}>
+          <span>Danh sách</span>
+          <span>{lobbyState.players.length}/10</span>
         </div>
-
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {lobbyState.players.map((player) => (
             <article className={styles.playerRow} key={player.id}>
@@ -672,28 +727,44 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 />
                 <div>
                   <div className={styles.playerNameLine}>
-                    <strong>{player.name}</strong>
-                    {renderPlayerConnectionStatus(player.id)}
+                    <span className={styles.playerNameActions}>
+                      <strong>{player.name}</strong>
+                      {player.id === currentPlayer?.id && lobbyState.room.status === "waiting" && (
+                        <button
+                          aria-label="Đổi tên và avatar"
+                          className={styles.playerEditButton}
+                          type="button"
+                          disabled={isPending}
+                          title="Đổi tên và avatar"
+                          onClick={openRoomProfileEditor}
+                        >
+                          <Pencil aria-hidden="true" />
+                        </button>
+                      )}
+                      {renderPlayerConnectionStatus(player.id)}
+                    </span>
                   </div>
                   <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
                 </div>
-              </div>
-              {player.isHost && (
-                <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
-                  <Crown aria-hidden="true" />
+                <span className={styles.playerLineActions}>
+                  {player.isHost && (
+                    <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
+                      <Crown aria-hidden="true" />
+                    </span>
+                  )}
+                  {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
+                    <button
+                      aria-label={`Kick ${player.name}`}
+                      className={styles.kickButton}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => kickPlayer(player.id)}
+                    >
+                      <Minus aria-hidden="true" />
+                    </button>
+                  )}
                 </span>
-              )}
-              {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
-                <button
-                  aria-label={`Kick ${player.name}`}
-                  className={styles.kickButton}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => kickPlayer(player.id)}
-                >
-                  <Minus aria-hidden="true" />
-                </button>
-              )}
+              </div>
             </article>
           ))}
         </div>
@@ -725,7 +796,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
             </button>
           )}
 
-          {currentPlayer && (
+          {currentPlayer && !isCurrentPlayerHost && (
             <button
               className={styles.secondaryButton}
               type="button"

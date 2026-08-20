@@ -18,13 +18,11 @@
   position: relative;
   display: grid;
   flex: 1;
-  width: min(100%, calc(100vw - (var(--spacing-md) * 2)), 478px);
+  /* Tràn ra sát mép khung (bù lại padding của .page) — không còn box bao ngoài */
+  width: calc(100% + (var(--spacing-md) * 2));
+  margin: calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) 0;
   min-height: calc(100svh - (var(--spacing-md) * 2) - var(--spacing-md) - 2.75rem);
-  margin-inline: auto;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
-  border-radius: 1.25rem;
-  background: var(--bg-secondary);
   isolation: isolate;
 }
 
@@ -1023,18 +1021,22 @@
 }
 
 .roomPage {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
 }
 
 .roomPanel {
-  width: min(100%, calc(100vw - (var(--spacing-md) * 2)), 478px);
-  padding: clamp(1rem, 5vw, 3rem);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
-  border-radius: 1.25rem;
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--success) 16%, transparent), transparent 20rem),
-    var(--bg-secondary);
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 0;
+}
+
+/* Đẩy cụm nút xuống đáy khung */
+.roomPanel > .actions {
+  margin-top: auto;
 }
 
 .roomPanel .description {
@@ -1044,17 +1046,15 @@
 .roomCodeCard {
   display: grid;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
   justify-items: center;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 26%, transparent);
   border-radius: 1rem;
   background: var(--bg-card);
 }
 
 .roomCodeCard strong {
   font-family: var(--font-heading);
-  font-size: clamp(2.5rem, 16vw, 5rem);
+  font-size: clamp(2.1rem, 13vw, 4.1rem);
   letter-spacing: 0.24em;
   margin-right: -0.24em;
   text-align: center;
@@ -1065,7 +1065,8 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
+  /* Bù lại gap 16px của roomPanel để 2 nút sát box mã phòng hơn (còn ~6px) */
+  margin-top: calc(0.4rem - var(--spacing-md));
 }
 
 .roomShareActions .smallButton {
@@ -1113,7 +1114,22 @@
 .playerList {
   display: grid;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-lg);
+  /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
+  margin-top: calc(0.4rem - var(--spacing-md));
+  padding: var(--spacing-sm);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 1rem;
+}
+
+/* Dòng "Danh sách … x/10" — nằm NGOÀI box list, ngay phía trên */
+.playerListHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .playerRow {
@@ -1155,15 +1171,69 @@
 
 .playerNameLine {
   display: flex;
+  width: 100%;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
 }
 
-.playerNameLine strong {
+.playerNameActions {
+  display: inline-flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
   min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text);
+}
+
+.playerNameActions strong {
+  min-width: 0;
+  color: var(--text);
   overflow-wrap: anywhere;
+}
+
+.playerNameActions .connectionBadge {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.playerLineActions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.playerEditButton {
+  display: inline-flex;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin: -0.75rem -0.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary-light);
+  cursor: pointer;
+}
+
+.playerEditButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.playerEditButton svg {
+  width: 0.82rem;
+  min-width: 0.82rem;
+  height: 0.82rem;
 }
 
 .playerRow .connectionBadge {
@@ -1191,12 +1261,26 @@
     0 2px 0 rgba(0, 0, 0, 0.2);
 }
 
+.playerRow .connectionBadgeOffline {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 rgba(0, 0, 0, 0.2);
+}
+
 .playerRow .connectionDot {
-  width: 0.34rem;
-  height: 0.34rem;
+  width: 0.5rem;
+  height: 0.5rem;
   flex: 0 0 auto;
   border-radius: 999px;
   background: var(--success);
+  box-shadow: 0 0 0 0.18rem color-mix(in srgb, var(--success) 16%, transparent);
+}
+
+.connectionBadgeOffline .connectionDot {
+  background: var(--danger);
+  box-shadow: 0 0 0 0.18rem color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
 .kickButton {
@@ -1228,22 +1312,23 @@
 
 .hostBadge {
   display: inline-flex;
-  width: 2.75rem;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  width: 1.45rem;
+  min-width: 1.45rem;
+  min-height: 1.45rem;
   align-items: center;
   justify-content: center;
   padding: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--primary) 18%, transparent);
-  color: var(--primary-light);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 2px 0 rgba(0, 0, 0, 0.2);
+  background: transparent;
+  color: var(--host-badge);
+  box-shadow: none;
 }
 
 .hostBadge svg {
   width: 1.1rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  color: var(--host-badge);
 }
 
 .roleSetup {
@@ -3612,6 +3697,19 @@
   --bg-card: color-mix(in srgb, var(--bg-primary) 64%, transparent);
 }
 
+/* Lobby Ma Sói dùng look glass của avalonTheme nhưng GIỮ nền wolf_game_bg */
+.avalonTheme.wolfThemeBg {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 40%, transparent),
+      color-mix(in srgb, var(--bg-primary) 72%, transparent) 82%,
+      var(--bg-primary)
+    ),
+    url("/images/ui/wolf_game_bg.png") center / cover fixed no-repeat,
+    var(--bg-primary);
+}
+
 /* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt. */
 .avalonTheme .modal,
 .avalonTheme .roomPanel {
@@ -5221,7 +5319,14 @@
 .focusedWaitingStatus,
 .playLoading {
   border: 0;
-  box-shadow: 0px 1px 2px 2px var(--shadow-card);
+  box-shadow: none;
+}
+
+/* Border + bỏ shadow cho box mã phòng và 2 nút copy trong phòng chờ */
+.roomCodeCard,
+.roomShareActions .smallButton {
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  box-shadow: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -5291,201 +5396,5 @@
       color-mix(in srgb, var(--danger) 16%, transparent),
       color-mix(in srgb, var(--danger) 32%, transparent)
     );
-  }
-}
-
-@media (min-width: 48rem) {
-  .page {
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg);
-  }
-
-  .heroTitle {
-    font-size: 5rem;
-  }
-
-  .hero {
-    min-height: calc(100svh - (var(--spacing-lg) * 2) - var(--spacing-lg) - 2.75rem);
-  }
-
-  .lobbyHeader,
-  .roomStatusGrid {
-    flex-direction: row;
-  }
-
-  .roomStatusGrid article {
-    flex: 1;
-  }
-
-  .spectatorStatusGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .playHeader {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .focusedPlayPage {
-    --card-reveal-page-pad: var(--spacing-lg);
-    --card-reveal-header-height: clamp(7.2rem, 17svh, 10rem);
-    gap: 0.75rem;
-    padding: var(--card-reveal-page-pad);
-    padding-bottom: var(--card-reveal-bottom-space);
-  }
-
-  .focusedPlayPage .playHeader {
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
-  }
-
-  .playBoard {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  }
-
-  .playPicker {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .wolfPackMember {
-    grid-template-columns: minmax(0, 1fr) minmax(9rem, auto);
-    align-items: center;
-  }
-
-  .wolfPackTarget,
-  .wolfPackTargetLocked {
-    justify-self: end;
-  }
-
-  .nightHistoryEvents {
-    gap: 0.28rem;
-  }
-
-  .roleSetupHeader {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .modalBackdrop {
-    place-items: center;
-  }
-
-  .joinRoomModal {
-    width: min(100%, 46rem);
-  }
-
-  .visibilityToggle {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .avatarUploadActions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .publicRoomTable {
-    display: table;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--bg-card) 68%, transparent);
-  }
-
-  .publicRoomTable thead {
-    position: static;
-    display: table-header-group;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
-
-  .publicRoomTable tbody {
-    display: table-row-group;
-  }
-
-  .publicRoomTable tr {
-    display: table-row;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .publicRoomTable th,
-  .publicRoomTable td {
-    display: table-cell;
-    padding: 0.75rem;
-    border-top: 1px solid color-mix(in srgb, var(--primary-light) 12%, transparent);
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  .publicRoomTable th {
-    border-top: 0;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 800;
-  }
-
-  .publicRoomTable td::before {
-    content: none;
-  }
-
-  .publicRoomTable .smallButton {
-    width: auto;
-    min-width: 4.5rem;
-    padding-inline: var(--spacing-md);
-  }
-
-  .avalonPresetGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .avalonBoardLayout {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .avalonVoteActions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 64rem) {
-  .hero {
-    align-items: end;
-    min-height: 35rem;
-  }
-
-  .heroImage::after {
-    background:
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--bg-primary) 74%, transparent),
-        color-mix(in srgb, var(--bg-primary) 50%, transparent) 45%,
-        color-mix(in srgb, var(--bg-primary) 12%, transparent)
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-primary) 4%, transparent),
-        color-mix(in srgb, var(--bg-primary) 76%, transparent) 96%
-      );
-  }
-
-  .playPage {
-    padding-inline: clamp(2rem, 6vw, 5rem);
-  }
-
-  .focusedPlayPage {
-    padding: var(--card-reveal-page-pad);
-    padding-bottom: var(--card-reveal-bottom-space);
-  }
-
-  .playPicker {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

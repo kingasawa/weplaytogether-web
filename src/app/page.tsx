@@ -1,6 +1,7 @@
-import { Gamepad2, UsersRound } from "lucide-react";
+import { FileText, Gamepad2, ShieldCheck, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import CardShine from "./card-shine";
 import HeaderMenu from "./header-menu";
 import MobileAccountNavItem from "./mobile-account-nav-item";
 import styles from "./page.module.css";
@@ -12,6 +13,7 @@ type FeaturedGame = {
   image: string;
   href: string;
   featured?: boolean;
+  dotDanger?: boolean;
 };
 
 const featuredGames: FeaturedGame[] = [
@@ -34,16 +36,17 @@ const featuredGames: FeaturedGame[] = [
   {
     name: "Avalon",
     players: "5 - 10 người",
-    category: "Suy luận",
+    category: "Nhập vai",
     image: "/images/boards/avalon.png",
     href: "/games/avalon",
   },
   {
     name: "Ai Là Gián Điệp",
     players: "4 - 12 người",
-    category: "Nhập vai",
+    category: "Suy luận",
     image: "/images/boards/spy.png",
     href: "#game-detail",
+    dotDanger: true,
   },
 ];
 
@@ -69,7 +72,7 @@ function Logo() {
 
 function GameCard({ game }: { game: FeaturedGame }) {
   return (
-    <Link className={styles.gameCard} href={game.href}>
+    <Link className={styles.gameCard} href={game.href} data-game-card>
       <div className={styles.gameCover}>
         <Image
           alt={`Ảnh bìa game ${game.name}`}
@@ -83,7 +86,10 @@ function GameCard({ game }: { game: FeaturedGame }) {
         <p>
           <UsersRound aria-hidden="true" />
           {game.players}
-          <i aria-label="Đang có phòng chờ" />
+          <i
+            aria-label="Đang có phòng chờ"
+            className={game.dotDanger ? styles.dotDanger : undefined}
+          />
         </p>
         <span>
           <Gamepad2 aria-hidden="true" />
@@ -114,14 +120,24 @@ export default function Home() {
               ))}
             </div>
           </section>
-
         </div>
+
+        <CardShine />
 
         <footer className={styles.legalFooter}>
           <p>Boardverse is available at weplaytogether.online.</p>
           <nav aria-label="Legal links">
-            <Link href="/privacy-policy">Privacy Policy</Link>
-            <Link href="/terms-of-service">Terms of Service</Link>
+            <Link href="/privacy-policy">
+              <ShieldCheck aria-hidden="true" />
+              Privacy Policy
+            </Link>
+            <span className={styles.footerDivider} aria-hidden="true">
+              |
+            </span>
+            <Link href="/terms-of-service">
+              <FileText aria-hidden="true" />
+              Terms of Service
+            </Link>
           </nav>
         </footer>
       </main>

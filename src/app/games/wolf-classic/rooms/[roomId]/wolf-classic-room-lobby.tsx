@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Crown, Link as LinkIcon, LogIn, LogOut, Minus, Play, UserPlus, UserRound } from "lucide-react";
+import { Copy, Crown, Link as LinkIcon, LogIn, LogOut, Minus, Pencil, Play, UserPlus, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ import {
   leaveClassicWolfRoom,
   startClassicWolfGame,
   toggleClassicWolfReady,
+  updateClassicWolfPlayerProfile,
   type ClassicWolfLobbyState,
 } from "../../actions";
 import styles from "../../../wolf/page.module.css";
@@ -235,6 +236,10 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
       return null;
     }
 
+    if (playerId === currentPlayer.id) {
+      return null;
+    }
+
     if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
       return <span className={styles.connectionBadge}>{connectionStatus}</span>;
     }
@@ -245,14 +250,19 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
 
     if (onlinePlayerIds.includes(playerId)) {
       return (
-        <span className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`}>
+        <span aria-label="Online" className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`} title="Online">
           <span aria-hidden="true" className={styles.connectionDot} />
           Online
         </span>
       );
     }
 
-    return <span className={styles.connectionBadge}>Đã thoát game</span>;
+    return (
+      <span aria-label="Đã thoát game" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Đã thoát game">
+        <span aria-hidden="true" className={styles.connectionDot} />
+        Offline
+      </span>
+    );
   }
 
   function getCurrentPlayerName() {
@@ -325,6 +335,8 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
       runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
+    } else if (lobbyState.currentPlayerId) {
+      runUpdateRoomProfile(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -346,6 +358,44 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
+  }
+
+  // Mở chỉnh sửa tên/avatar khi đã ở trong phòng, prefill theo hồ sơ hiện tại.
+  function openRoomProfileEditor() {
+    const current = lobbyState.players.find(
+      (player) => player.id === lobbyState.currentPlayerId
+    );
+
+    setShouldJoinAfterGuestName(false);
+    setGuestNameInput(current?.name ?? guestName);
+    setGuestAvatarInput((current?.avatarKey as PlayerAvatarKey | undefined) ?? guestAvatarKey);
+    setGuestAvatarObjectKeyInput(current?.avatarObjectKey ?? guestAvatarObjectKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
+  }
+
+  function runUpdateRoomProfile(
+    name: string,
+    avatarKey: string,
+    avatarObjectKey: string | null
+  ) {
+    setErrorMessage("");
+    startTransition(async () => {
+      const result = await updateClassicWolfPlayerProfile(
+        lobbyState.room.code,
+        name,
+        avatarKey,
+        avatarObjectKey
+      );
+
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      await refreshLobby();
+    });
   }
 
   function closeIdentityModal() {
@@ -466,10 +516,8 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
   }
 
   return (
-    <main className={`${styles.page} ${styles.roomPage} ${styles.classicWolfTheme}`}>
+    <main className={`${styles.page} ${styles.roomPage} ${styles.avalonTheme} ${styles.wolfThemeBg}`}>
       <section className={styles.roomPanel}>
-        <p className={styles.eyebrow}>Phòng chờ</p>
-
         {shouldShowRoleSetup ? (
           <div className={styles.roleSetup}>
             <div className={styles.roleSetupHeader}>
@@ -523,7 +571,6 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
         ) : (
           <>
             <div className={styles.roomCodeCard} aria-label="Mã phòng">
-              <span>Mã phòng</span>
               <strong>{lobbyState.room.code}</strong>
             </div>
 
@@ -543,15 +590,10 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
               </p>
             )}
 
-            <p className={styles.description}>Gửi mã phòng này cho bạn bè.</p>
-
-            <div className={styles.lobbyHeader}>
-              <div>
-                <span>{connectionStatus}</span>
-                <strong>{lobbyState.players.length}/10 người chơi</strong>
-              </div>
+            <div className={styles.playerListHeader}>
+              <span>Danh sách</span>
+              <span>{lobbyState.players.length}/10</span>
             </div>
-
             <div className={styles.playerList} aria-label="Danh sách người chơi">
               {lobbyState.players.map((player) => (
                 <article className={styles.playerRow} key={player.id}>
@@ -566,28 +608,44 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                     />
                     <div>
                       <div className={styles.playerNameLine}>
-                        <strong>{player.name}</strong>
-                        {renderPlayerConnectionStatus(player.id)}
+                        <span className={styles.playerNameActions}>
+                          <strong>{player.name}</strong>
+                          {player.id === currentPlayer?.id && lobbyState.room.status === "waiting" && (
+                            <button
+                              aria-label="Đổi tên và avatar"
+                              className={styles.playerEditButton}
+                              type="button"
+                              disabled={isPending}
+                              title="Đổi tên và avatar"
+                              onClick={openRoomProfileEditor}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </button>
+                          )}
+                          {renderPlayerConnectionStatus(player.id)}
+                        </span>
                       </div>
                       <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
                     </div>
-                  </div>
-                  {player.isHost && (
-                    <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
-                      <Crown aria-hidden="true" />
+                    <span className={styles.playerLineActions}>
+                      {player.isHost && (
+                        <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
+                          <Crown aria-hidden="true" />
+                        </span>
+                      )}
+                      {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
+                        <button
+                          aria-label={`Kick ${player.name}`}
+                          className={styles.kickButton}
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => kickPlayer(player.id)}
+                        >
+                          <Minus aria-hidden="true" />
+                        </button>
+                      )}
                     </span>
-                  )}
-                  {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
-                    <button
-                      aria-label={`Kick ${player.name}`}
-                      className={styles.kickButton}
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => kickPlayer(player.id)}
-                    >
-                      <Minus aria-hidden="true" />
-                    </button>
-                  )}
+                  </div>
                 </article>
               ))}
             </div>
@@ -614,7 +672,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                 </button>
               )}
 
-              {currentPlayer && (
+              {currentPlayer && !isCurrentPlayerHost && (
                 <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={toggleReady}>
                   {currentPlayer.isReady ? "Hủy sẵn sàng" : "Sẵn sàng"}
                 </button>

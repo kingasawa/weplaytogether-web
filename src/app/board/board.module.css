@@ -225,13 +225,4 @@
   color: var(--medal-gold);
 }
 
-/* ── Device edge (chỉ trang trí khi viewport rộng hơn khung) ─── */
-
-@media (min-width: 30rem) {
-  .screen {
-    border-inline: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
-    box-shadow:
-      0 1.5rem 4rem rgba(0, 0, 0, 0.55),
-      0 0 7rem color-mix(in srgb, var(--primary) 8%, transparent);
-  }
-}
+/* Viền device do body (globals.css) đảm nhiệm. */

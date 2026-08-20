@@ -2882,6 +2882,93 @@ export async function joinWolfRoom(
   };
 }
 
+// Cho phép người chơi đổi tên/avatar khi đang ở phòng chờ (chưa bắt đầu).
+export async function updateWolfPlayerProfile(
+  roomCode: string,
+  playerName?: string,
+  avatarKey?: string,
+  avatarObjectKey?: string | null
+): Promise<WolfActionResult> {
+  const code = normalizeRoomCode(roomCode);
+
+  if (!ROOM_CODE_PATTERN.test(code)) {
+    return { ok: false, error: "Mã phòng không hợp lệ." };
+  }
+
+  const sessionId = await getPlayerSessionId();
+
+  if (!sessionId) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const name = normalizePlayerName(playerName);
+  const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
+  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
+
+  if (!requestedAvatarObjectKey.ok) {
+    return { ok: false, error: requestedAvatarObjectKey.error };
+  }
+
+  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
+
+  const { data: room } = await supabase
+    .from("wolf_rooms")
+    .select("id, code, game_key, status")
+    .eq("code", code)
+    .eq("game_key", WOLF_GAME_KEY)
+    .maybeSingle();
+
+  if (!room) {
+    return { ok: false, error: "Không tìm thấy phòng." };
+  }
+
+  if (room.status !== "waiting") {
+    return { ok: false, error: "Chỉ đổi được tên/avatar khi đang ở phòng chờ." };
+  }
+
+  const { data: player } = await supabase
+    .from("wolf_room_players")
+    .select("id")
+    .eq("room_id", room.id)
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (!player) {
+    return { ok: false, error: "Bạn chưa ở trong phòng này." };
+  }
+
+  const updateError = await updateWolfRoomPlayerIdentity(
+    supabase,
+    player.id,
+    name,
+    playerAvatarKey,
+    playerAvatarObjectKey
+  );
+
+  if (updateError) {
+    return {
+      ok: false,
+      error:
+        getAvatarObjectKeyErrorMessage(updateError) ??
+        "Không thể cập nhật tên hoặc avatar người chơi.",
+    };
+  }
+
+  await safeBroadcastWolfRoomUpdate(room.code);
+
+  return {
+    ok: true,
+    roomCode: room.code,
+    playerId: player.id,
+    playerName: name,
+    playerAvatarKey,
+    playerAvatarObjectKey,
+    playerAvatarUrl,
+  };
+}
+
 export async function leaveWolfRoom(roomCode: string): Promise<void> {
   const code = normalizeRoomCode(roomCode);
   const sessionId = await getPlayerSessionId();
@@ -3055,6 +3142,11 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
     .maybeSingle();
 
   if (!player) {
+    return;
+  }
+
+  // Host luôn mặc định sẵn sàng — không cho phép bật/tắt trạng thái này.
+  if (player.is_host) {
     return;
   }
 
@@ -4490,7 +4582,8 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
   await supabase
     .from("wolf_room_players")
     .update({ is_ready: false })
-    .eq("room_id", room.id);
+    .eq("room_id", room.id)
+    .eq("is_host", false);
 
   await safeBroadcastWolfRoomUpdate(room.code);
   await safeBroadcastWolfPlayUpdate(room.code);

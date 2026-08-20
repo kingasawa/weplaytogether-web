@@ -15,6 +15,16 @@
   --primary:       #5D7CFF;
   --primary-light: #8EA8FF;
 
+  /* --- Borders --- */
+  --card-border:   #082951;
+
+  /* --- Labels --- */
+  --label-purple:  #C4B5FD;
+  --label-navy:    #0C3B6E;
+
+  /* --- Host badge (vương miện chủ phòng) --- */
+  --host-badge:    #FAB219;
+
   /* --- Text --- */
   --text:           #FFFFFF;
   --text-secondary: #B7C0D8;

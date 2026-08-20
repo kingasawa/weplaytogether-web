@@ -15,8 +15,8 @@
 
 .topbar {
   display: grid;
-  width: min(calc(100% - (var(--spacing-md) * 2)), 58rem);
-  max-width: 58rem;
+  width: min(calc(100% - (var(--spacing-md) * 2)), 30rem);
+  max-width: 30rem;
   min-height: 3.25rem;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -95,8 +95,8 @@
 }
 
 .document {
-  width: min(calc(100% - (var(--spacing-md) * 2)), 58rem);
-  max-width: 58rem;
+  width: min(calc(100% - (var(--spacing-md) * 2)), 30rem);
+  max-width: 30rem;
   min-width: 0;
   margin: var(--spacing-lg) auto 0;
   padding: clamp(1.1rem, 5vw, 2.5rem);
@@ -207,21 +207,3 @@
   }
 }
 
-@media (min-width: 48rem) {
-  .page {
-    padding: var(--spacing-lg);
-  }
-
-  .topbar,
-  .document {
-    margin-inline: auto;
-  }
-
-  .document h1 {
-    font-size: 3rem;
-  }
-
-  .lead {
-    font-size: 1.05rem;
-  }
-}

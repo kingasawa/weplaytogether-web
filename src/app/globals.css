@@ -3,16 +3,29 @@
 html {
   height: 100%;
   color-scheme: dark;
+  /* Nền tối 2 bên (ngoài khung mobile) trên màn hình rộng */
+  background:
+    radial-gradient(circle at 20% 12%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 40%),
+    radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--primary-light) 8%, transparent), transparent 44%),
+    color-mix(in srgb, var(--bg-primary) 52%, var(--bg-mask));
+  background-attachment: fixed;
 }
 
 html,
 body {
-  max-width: 100vw;
   overflow-x: hidden;
 }
 
+/* Khóa toàn bộ app vào 1 khung mobile căn giữa — chỉ hiển thị UI mobile */
 body {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
   min-height: 100%;
+  margin: 0 auto;
+  /* Biến body thành containing-block để các phần tử position:fixed
+     (thanh dưới, modal...) bám theo khung mobile thay vì cả viewport. */
+  transform: translateZ(0);
   display: flex;
   flex-direction: column;
   color: var(--text);
@@ -20,6 +33,13 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tách khung khỏi nền tối bằng bóng đổ nhẹ (không dùng border) */
+@media (min-width: 30rem) {
+  body {
+    box-shadow: 0 0 5rem rgba(0, 0, 0, 0.55);
+  }
 }
 
 h1, h2, h3 {

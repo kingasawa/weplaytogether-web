@@ -7,6 +7,7 @@ import {
   LogIn,
   LogOut,
   Minus,
+  Pencil,
   Play,
   Plus,
   Settings2,
@@ -52,6 +53,7 @@ import {
   leaveAvalonRoom,
   startAvalonGame,
   toggleAvalonReady,
+  updateAvalonPlayerProfile,
   type AvalonLobbyState,
   type AvalonSpectatorState,
 } from "../../actions";
@@ -228,6 +230,10 @@ export default function AvalonRoomLobby({
       return null;
     }
 
+    if (playerId === currentPlayer.id) {
+      return null;
+    }
+
     if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
       return <span className={styles.connectionBadge}>{connectionStatus}</span>;
     }
@@ -238,14 +244,19 @@ export default function AvalonRoomLobby({
 
     if (onlinePlayerIds.includes(playerId)) {
       return (
-        <span className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`}>
+        <span aria-label="Online" className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`} title="Online">
           <span aria-hidden="true" className={styles.connectionDot} />
           Online
         </span>
       );
     }
 
-    return <span className={styles.connectionBadge}>Đã thoát game</span>;
+    return (
+      <span aria-label="Đã thoát game" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Đã thoát game">
+        <span aria-hidden="true" className={styles.connectionDot} />
+        Offline
+      </span>
+    );
   }
 
   function getCurrentPlayerName() {
@@ -317,6 +328,8 @@ export default function AvalonRoomLobby({
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
       runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
+    } else if (lobbyState.currentPlayerId) {
+      runUpdateRoomProfile(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -336,6 +349,44 @@ export default function AvalonRoomLobby({
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
+  }
+
+  // Mở chỉnh sửa tên/avatar khi đã ở trong phòng, prefill theo hồ sơ hiện tại.
+  function openRoomProfileEditor() {
+    const current = lobbyState.players.find(
+      (player) => player.id === lobbyState.currentPlayerId
+    );
+
+    setShouldJoinAfterGuestName(false);
+    setGuestNameInput(current?.name ?? guestName);
+    setGuestAvatarInput((current?.avatarKey as PlayerAvatarKey | undefined) ?? guestAvatarKey);
+    setGuestAvatarObjectKeyInput(current?.avatarObjectKey ?? guestAvatarObjectKey);
+    setGuestNameError("");
+    setIsIdentityOpen(true);
+    setIsGuestFormOpen(true);
+  }
+
+  function runUpdateRoomProfile(
+    name: string,
+    avatarKey: string,
+    avatarObjectKey: string | null
+  ) {
+    setErrorMessage("");
+    startTransition(async () => {
+      const result = await updateAvalonPlayerProfile(
+        lobbyState.room.code,
+        name,
+        avatarKey,
+        avatarObjectKey
+      );
+
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      await refreshLobby();
+    });
   }
 
   function toggleReady() {
@@ -470,8 +521,6 @@ export default function AvalonRoomLobby({
   return (
     <main className={`${styles.page} ${styles.roomPage} ${styles.avalonTheme}`}>
       <section className={styles.roomPanel}>
-        <p className={styles.eyebrow}>Phòng chờ Avalon</p>
-
         {shouldShowSetup ? (
           <div className={styles.roleSetup}>
             <div className={styles.roleSetupHeader}>
@@ -568,7 +617,6 @@ export default function AvalonRoomLobby({
         ) : (
           <>
             <div className={styles.roomCodeCard} aria-label="Mã phòng">
-              <span>Mã phòng</span>
               <strong>{lobbyState.room.code}</strong>
             </div>
 
@@ -592,15 +640,10 @@ export default function AvalonRoomLobby({
             </div>
             {copyFeedback && <p className={styles.copyFeedback}>{copyFeedback}</p>}
 
-            <p className={styles.description}>Avalon cần 5-10 người chơi.</p>
-
-            <div className={styles.lobbyHeader}>
-              <div>
-                <span>{connectionStatus}</span>
-                <strong>{playerCount}/10 người chơi</strong>
-              </div>
+            <div className={styles.playerListHeader}>
+              <span>Danh sách</span>
+              <span>{playerCount}/10</span>
             </div>
-
             <div className={styles.playerList} aria-label="Danh sách người chơi">
               {lobbyState.players.map((player) => (
                 <article className={styles.playerRow} key={player.id}>
@@ -615,28 +658,44 @@ export default function AvalonRoomLobby({
                     />
                     <div>
                       <div className={styles.playerNameLine}>
-                        <strong>{player.name}</strong>
-                        {renderPlayerConnectionStatus(player.id)}
+                        <span className={styles.playerNameActions}>
+                          <strong>{player.name}</strong>
+                          {player.id === currentPlayer?.id && lobbyState.room.status === "waiting" && (
+                            <button
+                              aria-label="Đổi tên và avatar"
+                              className={styles.playerEditButton}
+                              type="button"
+                              disabled={isPending}
+                              title="Đổi tên và avatar"
+                              onClick={openRoomProfileEditor}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </button>
+                          )}
+                          {renderPlayerConnectionStatus(player.id)}
+                        </span>
                       </div>
                       <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
                     </div>
-                  </div>
-                  {player.isHost && (
-                    <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
-                      <Crown aria-hidden="true" />
+                    <span className={styles.playerLineActions}>
+                      {player.isHost && (
+                        <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
+                          <Crown aria-hidden="true" />
+                        </span>
+                      )}
+                      {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
+                        <button
+                          aria-label={`Kick ${player.name}`}
+                          className={styles.kickButton}
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => kickPlayer(player.id)}
+                        >
+                          <Minus aria-hidden="true" />
+                        </button>
+                      )}
                     </span>
-                  )}
-                  {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
-                    <button
-                      aria-label={`Kick ${player.name}`}
-                      className={styles.kickButton}
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => kickPlayer(player.id)}
-                    >
-                      <Minus aria-hidden="true" />
-                    </button>
-                  )}
+                  </div>
                 </article>
               ))}
             </div>
@@ -663,7 +722,7 @@ export default function AvalonRoomLobby({
                 </button>
               )}
 
-              {currentPlayer && (
+              {currentPlayer && !isCurrentPlayerHost && (
                 <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={toggleReady}>
                   {currentPlayer.isReady ? "Hủy sẵn sàng" : "Sẵn sàng"}
                 </button>

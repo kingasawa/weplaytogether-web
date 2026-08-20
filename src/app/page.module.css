@@ -487,7 +487,7 @@
   min-height: 6.75rem;
   padding: 0.55rem 0.9rem 0.55rem 0.55rem;
   overflow: hidden;
-  border: 1px solid var(--primary);
+  border: 1px solid var(--card-border);
   border-radius: 1rem;
   /* Glass: nền xanh trong suốt (giống background, sáng hơn 1 chút) */
   background: color-mix(in srgb, var(--primary-light) 10%, transparent);
@@ -495,7 +495,13 @@
   backdrop-filter: blur(3px) saturate(140%);
 }
 
-/* Shine sweep: dải sáng quét chạy qua viền card */
+/* Shine xoay vòng quanh viền card — chạy 1 vòng khi được kích hoạt (data-shine) */
+@property --shine-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
 .gameCard::before {
   content: "";
   position: absolute;
@@ -503,36 +509,48 @@
   z-index: 2;
   padding: 1.5px;
   border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    transparent 25%,
-    color-mix(in srgb, var(--primary-light) 65%, var(--text)) 45%,
-    var(--text) 50%,
-    color-mix(in srgb, var(--primary-light) 65%, var(--text)) 55%,
-    transparent 75%
+  background: conic-gradient(
+    from var(--shine-angle),
+    transparent 0deg,
+    transparent 72deg,
+    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 92deg,
+    var(--text) 100deg,
+    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 108deg,
+    transparent 128deg,
+    transparent 360deg
   );
-  background-size: 250% 100%;
-  background-repeat: no-repeat;
   -webkit-mask:
     linear-gradient(var(--text) 0 0) content-box,
     linear-gradient(var(--text) 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
-  animation: cardShine 2.8s linear infinite;
+  opacity: 0;
+}
+
+.gameCard[data-shine="on"]::before {
+  animation: cardShine 1.4s linear;
 }
 
 @keyframes cardShine {
-  from {
-    background-position: 175% 0;
+  0% {
+    --shine-angle: 0deg;
+    opacity: 0;
   }
-  to {
-    background-position: -75% 0;
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    --shine-angle: 360deg;
+    opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gameCard::before {
+  .gameCard[data-shine="on"]::before {
     animation: none;
   }
 }
@@ -576,7 +594,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   justify-content: center;
-  gap: 0.1rem;
+  gap: 0.3rem;
   padding: 0;
 }
 
@@ -591,17 +609,40 @@
 
 .gameDetails p,
 .gameDetails span {
-  display: flex;
+  display: inline-flex;
+  align-self: flex-start;
   align-items: center;
-  gap: 0.25rem;
-  color: var(--text-secondary);
-  font-size: 0.64rem;
-  line-height: 1.7;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.16rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 999rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
-.gameDetails svg {
-  width: 0.78rem;
-  height: 0.78rem;
+/* Label người chơi — tím nhạt, trong suốt (icon + chữ tím) */
+.gameDetails p {
+  border-color: color-mix(in srgb, var(--label-purple) 45%, transparent);
+  background: color-mix(in srgb, var(--label-purple) 20%, transparent);
+  color: var(--label-purple);
+}
+
+/* Label thể loại — navy trong suốt, icon + chữ trắng cho dễ đọc */
+.gameDetails span {
+  border-color: color-mix(in srgb, var(--label-navy) 55%, transparent);
+  background: color-mix(in srgb, var(--label-navy) 24%, transparent);
+  color: var(--text);
+}
+
+.gameDetails p svg,
+.gameDetails span svg {
+  flex: 0 0 auto;
+  width: 0.72rem;
+  height: 0.72rem;
 }
 
 .gameDetails i {
@@ -613,6 +654,11 @@
   border-radius: 50%;
   background: var(--success);
   box-shadow: 0 0 6px color-mix(in srgb, var(--success) 70%, transparent);
+}
+
+.gameDetails i.dotDanger {
+  background: var(--danger);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--danger) 70%, transparent);
 }
 
 /* ── Community Banner ───────────────────────────────────────── */
@@ -674,6 +720,7 @@
   display: grid;
   width: 100%;
   max-width: 92rem;
+  justify-items: center;
   gap: var(--spacing-sm);
   /* margin-top: auto → đẩy footer xuống đáy màn hình (frame là flex column) */
   margin: auto auto 0;
@@ -681,20 +728,34 @@
   color: var(--text-secondary);
   font-size: 0.875rem;
   line-height: 1.6;
+  text-align: center;
 }
 
 .legalFooter nav {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-md);
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
 }
 
 .legalFooter a {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   align-items: center;
+  gap: 0.35rem;
   color: var(--primary-light);
   font-weight: 800;
+}
+
+.legalFooter a svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.footerDivider {
+  color: color-mix(in srgb, var(--text-secondary) 55%, transparent);
+  font-weight: 400;
 }
 
 /* ── Header Account ─────────────────────────────────────────── */
@@ -949,13 +1010,4 @@
   }
 }
 
-/* ── Device edge (chỉ trang trí khi viewport rộng hơn khung) ─── */
-
-@media (min-width: 30rem) {
-  .frame {
-    border-inline: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
-    box-shadow:
-      0 1.5rem 4rem rgba(0, 0, 0, 0.55),
-      0 0 7rem color-mix(in srgb, var(--primary) 8%, transparent);
-  }
-}
+/* Viền device do body (globals.css) đảm nhiệm — không lặp lại ở frame. */
