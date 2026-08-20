@@ -2,11 +2,11 @@
 
 ## Typography
 
-| Role    | Font family | Usage                          |
-| ------- | ----------- | ------------------------------ |
-| Logo    | **Anton**   | Brand logo, game title         |
-| Heading | **Sora**    | Page headings, section titles  |
-| Content | **Inter**   | Body text, UI labels, captions |
+| Role    | Font family        | Usage                          |
+| ------- | ------------------ | ------------------------------ |
+| Logo    | **Be Vietnam Pro** | Brand logo, game title         |
+| Heading | **Be Vietnam Pro** | Page headings, section titles  |
+| Content | **Be Vietnam Pro** | Body text, UI labels, captions |
 
 ## Color Tokens
 
@@ -61,7 +61,7 @@ import { Sword, Trophy, Users } from "lucide-react"
 ## Rules
 
 - **Never** use arbitrary color values — always reference a token.
-- **Never** use fonts outside Anton / Sora / Inter.
-- Apply Anton only to the logo/game title. Use Sora for all other headings (`h1`–`h3`). Use Inter everywhere else.
+- **Never** use fonts outside Be Vietnam Pro. The whole app uses a single family (Be Vietnam Pro) for logo, headings, and body.
+- Keep referencing the `--font-logo` / `--font-heading` / `--font-body` tokens (all resolve to Be Vietnam Pro) so future font changes stay centralized in `tokens.css`.
 - Dark backgrounds only — this is a dark-mode-first product; do not add light theme variants unless explicitly requested.
 - Minimum contrast ratio 4.5:1 between `--text` / `--text-secondary` and their background.

@@ -19,6 +19,7 @@ export async function renderDebugAvalonPhase(phase: AvalonPhase, searchParams: D
   return (
     <AvalonPlayScreen
       initialState={buildDebugAvalonState({ phase, playerId, role, view, votes })}
+      isPreview
       debugQuestOutcomes={phase === "quest_reveal" ? DEBUG_QUEST_REVEAL_OUTCOMES : undefined}
     />
   );

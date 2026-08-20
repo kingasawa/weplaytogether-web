@@ -2067,8 +2067,9 @@ export async function submitAvalonTeamVote(
       return { error: "Chưa đến bước vote đội." };
     }
 
-    if (state.teamVotesByPlayerId[currentPlayer.id]) {
-      return { error: "Bạn đã vote đội này rồi." };
+    // Cho phép đổi phiếu tự do khi chưa đủ phiếu; khi đã đủ phiếu thì chốt, không đổi nữa.
+    if (Object.keys(state.teamVotesByPlayerId).length >= state.playerOrderIds.length) {
+      return { error: "Vote đội đã đủ phiếu." };
     }
 
     const nextVotes = {

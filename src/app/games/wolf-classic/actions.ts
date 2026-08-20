@@ -25,8 +25,6 @@ const CLASSIC_WOLF_GAME_KEY = "classic_wolf";
 const ROOM_CODE_PATTERN = /^[a-z]{4}$/;
 const MAX_PLAYERS = 10;
 const MIN_PLAYERS = 4;
-const DISCUSSION_DURATION_MS = 5 * 60 * 1000;
-const VOTING_DURATION_MS = 5 * 60 * 1000;
 const NIGHT_AUTO_PASS_MIN_MS = 10_000;
 const NIGHT_AUTO_PASS_MAX_MS = 15_000;
 
@@ -919,26 +917,6 @@ function getTopVotedPlayerIds(voteCounts: Array<{ playerId: string; votes: numbe
   return voteCounts
     .filter((voteCount) => voteCount.votes === maxVotes)
     .map((voteCount) => voteCount.playerId);
-}
-
-function completeMissingVotesAsSkip(players: PlayerRow[], state: ClassicWolfState) {
-  const dayKey = String(state.dayNumber);
-  const votes = state.votesByDay[dayKey] ?? {};
-  const nextVotes = { ...votes };
-
-  for (const player of getAlivePlayers(players, state)) {
-    if (!Object.prototype.hasOwnProperty.call(nextVotes, player.id)) {
-      nextVotes[player.id] = null;
-    }
-  }
-
-  return {
-    ...state,
-    votesByDay: {
-      ...state.votesByDay,
-      [dayKey]: nextVotes,
-    },
-  };
 }
 
 function chooseMostVotedTarget(targetPlayerIds: Array<string | null | undefined>, shouldRandomizeTies = false) {
@@ -1904,9 +1882,7 @@ async function maybeAutoAdvancePhase(
       nextState,
       {
         phase: nextState.winnerTeam ? "result" : "discussion",
-        discussion_ends_at: nextState.winnerTeam
-          ? null
-          : new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+        discussion_ends_at: null,
       },
       supabase
     );
@@ -1925,8 +1901,7 @@ async function maybeAutoAdvancePhase(
         {
           phase: next.phase,
           round_number: next.state.nightNumber,
-          discussion_ends_at:
-            next.phase === "discussion" ? new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString() : null,
+          discussion_ends_at: null,
         },
         supabase
       );
@@ -1938,22 +1913,14 @@ async function maybeAutoAdvancePhase(
   if (game.phase === "discussion") {
     const alivePlayers = getAlivePlayers(players, state);
     const readyPlayerIds = getPhaseReadyPlayerIds("discussion", state);
-    const { data: gameData } = await supabase
-      .from("wolf_game_sessions")
-      .select("discussion_ends_at")
-      .eq("id", game.id)
-      .maybeSingle();
-    const discussionExpired = gameData?.discussion_ends_at
-      ? new Date(gameData.discussion_ends_at).getTime() <= Date.now()
-      : false;
 
-    if (discussionExpired || readyPlayerIds.length >= alivePlayers.length) {
+    if (readyPlayerIds.length >= alivePlayers.length) {
       await saveClassicGameState(
         game.id,
         state,
         {
           phase: "voting",
-          discussion_ends_at: new Date(Date.now() + VOTING_DURATION_MS).toISOString(),
+          discussion_ends_at: null,
         },
         supabase
       );
@@ -1965,18 +1932,9 @@ async function maybeAutoAdvancePhase(
   if (game.phase === "voting") {
     const alivePlayers = getAlivePlayers(players, state);
     const votes = state.votesByDay[String(state.dayNumber)] ?? {};
-    const { data: gameData } = await supabase
-      .from("wolf_game_sessions")
-      .select("discussion_ends_at")
-      .eq("id", game.id)
-      .maybeSingle();
-    const votingExpired = gameData?.discussion_ends_at
-      ? new Date(gameData.discussion_ends_at).getTime() <= Date.now()
-      : false;
 
-    if (votingExpired || alivePlayers.every((player) => Object.prototype.hasOwnProperty.call(votes, player.id))) {
-      const voteReadyState = votingExpired ? completeMissingVotesAsSkip(players, state) : state;
-      const nextState = resolveVote(players, voteReadyState);
+    if (alivePlayers.every((player) => Object.prototype.hasOwnProperty.call(votes, player.id))) {
+      const nextState = resolveVote(players, state);
       const shouldSkipReview = Boolean(nextState.winnerTeam && getAlivePlayers(players, nextState).length === 0);
 
       await saveClassicGameState(
@@ -2956,10 +2914,6 @@ export async function selectClassicWolfVoteTarget(
     return { ok: false, error: "Chưa đến giai đoạn bỏ phiếu." };
   }
 
-  if (gameData.discussion_ends_at && new Date(gameData.discussion_ends_at).getTime() <= Date.now()) {
-    return { ok: true };
-  }
-
   const nextTargetPlayerId = targetPlayerId ?? null;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -3065,14 +3019,6 @@ export async function submitClassicWolfVote(
     return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
   }
 
-  if (gameData.discussion_ends_at && new Date(gameData.discussion_ends_at).getTime() <= Date.now()) {
-    const skippedState = completeMissingVotesAsSkip(players, state);
-    await maybeAutoAdvancePhase(supabase, room, players, gameData, skippedState);
-    await safeBroadcastWolfPlayUpdate(room.code);
-
-    return { ok: true };
-  }
-
   const nextTargetPlayerId = targetPlayerId ?? null;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -3142,88 +3088,6 @@ export async function submitClassicWolfVote(
   }
 
   return { ok: false, error: "Không thể đồng bộ phiếu bầu. Thử lại sau." };
-}
-
-export async function advanceClassicWolfDiscussionIfExpired(roomCode: string): Promise<ClassicWolfMutationResult> {
-  const sessionId = await getPlayerSessionId();
-  const { supabase, room } = await getRoomByCode(roomCode);
-
-  if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "Không tìm thấy ván đang chơi." };
-  }
-
-  const players = await getActivePlayers(supabase, room);
-  const currentPlayer = getCurrentPlayer(players, sessionId);
-
-  if (!currentPlayer) {
-    return { ok: false, error: "Bạn chưa ở trong phòng này." };
-  }
-
-  const { data: gameData } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, phase, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
-
-  if (!gameData || gameData.phase !== "discussion") {
-    return { ok: true };
-  }
-
-  if (!gameData.discussion_ends_at || new Date(gameData.discussion_ends_at).getTime() > Date.now()) {
-    return { ok: true };
-  }
-
-  const { state, error: stateError } = await loadClassicGameState(supabase, gameData.id, players);
-
-  if (stateError || !state) {
-    return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
-  }
-  await maybeAutoAdvancePhase(supabase, room, players, gameData, state);
-  await safeBroadcastWolfPlayUpdate(room.code);
-
-  return { ok: true };
-}
-
-export async function advanceClassicWolfVotingIfExpired(roomCode: string): Promise<ClassicWolfMutationResult> {
-  const sessionId = await getPlayerSessionId();
-  const { supabase, room } = await getRoomByCode(roomCode);
-
-  if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "Không tìm thấy ván đang chơi." };
-  }
-
-  const players = await getActivePlayers(supabase, room);
-  const currentPlayer = getCurrentPlayer(players, sessionId);
-
-  if (!currentPlayer) {
-    return { ok: false, error: "Bạn chưa ở trong phòng này." };
-  }
-
-  const { data: gameData } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, phase, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
-
-  if (!gameData || gameData.phase !== "voting") {
-    return { ok: true };
-  }
-
-  if (!gameData.discussion_ends_at || new Date(gameData.discussion_ends_at).getTime() > Date.now()) {
-    return { ok: true };
-  }
-
-  const { state, error: stateError } = await loadClassicGameState(supabase, gameData.id, players);
-
-  if (stateError || !state) {
-    return { ok: false, error: "Không thể đọc state Ma Sói nhiều đêm." };
-  }
-
-  const skippedState = completeMissingVotesAsSkip(players, state);
-  await maybeAutoAdvancePhase(supabase, room, players, gameData, skippedState);
-  await safeBroadcastWolfPlayUpdate(room.code);
-
-  return { ok: true };
 }
 
 export async function finishClassicWolfGame(roomCode: string): Promise<ClassicWolfMutationResult> {

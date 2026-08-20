@@ -3,7 +3,7 @@
 import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useEffect, useState, useTransition, type PointerEvent } from "react";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
@@ -14,7 +14,6 @@ import {
   WOLF_ROLE_LABELS,
 } from "@/lib/wolf-game";
 import {
-  advanceWolfDiscussionIfExpired,
   confirmWolfNightActionResult,
   finishWolfGame,
   getWolfPlayState,
@@ -150,8 +149,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const [coverDragOffset, setCoverDragOffset] = useState(0);
   const [selectedRoleGuide, setSelectedRoleGuide] = useState<WolfRole | null>(null);
   const [openNightReminderKey, setOpenNightReminderKey] = useState<string | null>(null);
-  const autoAdvancedDiscussionGameIdRef = useRef<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
   const myRole = playState.myCard?.originalRole ?? null;
@@ -392,9 +389,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     ? `${playState.game.id}:${playState.game.phase}`
     : null;
   const privateRevealUnlocked = privateRevealKey === null || unlockedPrivateRevealKey === privateRevealKey;
-  const discussionSecondsLeft = playState.game.discussionEndsAt
-    ? Math.max(0, Math.ceil((new Date(playState.game.discussionEndsAt).getTime() - now) / 1000))
-    : null;
   const isCenterRevealPending = revealingCenterIndexes.length > 0;
   const copiedSeerCenterPathStarted =
     myRole === "copycat" &&
@@ -492,42 +486,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
 
     return `Đang chờ ${waitingPlayers[0].name}`;
   }
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      playState.game.phase !== "discussion" ||
-      discussionSecondsLeft !== 0 ||
-      autoAdvancedDiscussionGameIdRef.current === playState.game.id
-    ) {
-      return;
-    }
-
-    autoAdvancedDiscussionGameIdRef.current = playState.game.id;
-    startTransition(async () => {
-      const result = await advanceWolfDiscussionIfExpired(playState.room.code);
-
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-
-      await refreshPlayState();
-    });
-  }, [
-    discussionSecondsLeft,
-    playState.game.id,
-    playState.game.phase,
-    playState.room.code,
-    refreshPlayState,
-  ]);
 
   async function revealPlayerCard(playerId: string) {
     try {
@@ -1372,14 +1330,7 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
           </p>
         )}
         {isDiscussionPhase && (
-          <>
-            <p>Thảo luận, thuyết phục và tìm Ma Sói. Timer đề xuất là 5 phút.</p>
-            {discussionSecondsLeft !== null && (
-              <strong className={styles.playTimer}>
-                {Math.floor(discussionSecondsLeft / 60)}:{String(discussionSecondsLeft % 60).padStart(2, "0")}
-              </strong>
-            )}
-          </>
+          <p>Thảo luận, thuyết phục và tìm Ma Sói. Khi tất cả đã thảo luận xong, ván sẽ tự chuyển sang bỏ phiếu.</p>
         )}
         {isVotingPhase && <p>Chọn một người để bỏ phiếu treo.</p>}
       </section>

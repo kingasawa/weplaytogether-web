@@ -20,7 +20,6 @@ import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 const ROOM_CODE_PATTERN = /^[a-z]{4}$/;
 const WOLF_GAME_KEY = "wolf";
 const MAX_PLAYERS = 10;
-const DISCUSSION_DURATION_MS = 5 * 60 * 1000;
 
 const ROLE_DECK_ORDER: WolfRole[] = [
   "werewolf",
@@ -1886,7 +1885,7 @@ async function maybeAutoAdvancePhase(
         .from("wolf_game_sessions")
         .update({
           phase: "discussion",
-          discussion_ends_at: new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+          discussion_ends_at: null,
         })
         .eq("id", room.current_game_id);
     }
@@ -1902,7 +1901,7 @@ async function maybeAutoAdvancePhase(
         .from("wolf_game_sessions")
         .update({
           phase: "discussion",
-          discussion_ends_at: new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+          discussion_ends_at: null,
         })
         .eq("id", room.current_game_id);
     }
@@ -1912,16 +1911,8 @@ async function maybeAutoAdvancePhase(
 
   if (phase === "discussion") {
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, phase);
-    const { data: game } = await supabase
-      .from("wolf_game_sessions")
-      .select("discussion_ends_at")
-      .eq("id", room.current_game_id)
-      .maybeSingle();
-    const discussionExpired = game?.discussion_ends_at
-      ? new Date(game.discussion_ends_at).getTime() <= Date.now()
-      : false;
 
-    if (discussionExpired || confirmations.length >= players.length) {
+    if (confirmations.length >= players.length) {
       await supabase
         .from("wolf_game_sessions")
         .update({ phase: "voting" })
@@ -4356,45 +4347,6 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
   return { ok: true };
 }
 
-export async function advanceWolfDiscussionIfExpired(roomCode: string): Promise<WolfMutationResult> {
-  const sessionId = await getPlayerSessionId();
-  const { supabase, room } = await getRoomByCode(roomCode);
-
-  if (!sessionId || !room?.current_game_id) {
-    return { ok: false, error: "Không tìm thấy ván đang chơi." };
-  }
-
-  const players = await getActivePlayers(supabase, room);
-  const currentPlayer = getCurrentPlayer(players, sessionId);
-
-  if (!currentPlayer) {
-    return { ok: false, error: "Bạn chưa ở trong phòng này." };
-  }
-
-  const { data: game } = await supabase
-    .from("wolf_game_sessions")
-    .select("id, phase, discussion_ends_at")
-    .eq("id", room.current_game_id)
-    .maybeSingle();
-
-  if (!game) {
-    return { ok: false, error: "Không tìm thấy ván đang chơi." };
-  }
-
-  if (game.phase !== "discussion") {
-    return { ok: true };
-  }
-
-  if (!game.discussion_ends_at || new Date(game.discussion_ends_at).getTime() > Date.now()) {
-    return { ok: true };
-  }
-
-  await maybeAutoAdvancePhase(supabase, room, players, "discussion");
-  await safeBroadcastWolfPlayUpdate(room.code);
-
-  return { ok: true };
-}
-
 export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationResult> {
   const sessionId = await getPlayerSessionId();
   const { supabase, room } = await getRoomByCode(roomCode);
@@ -4432,7 +4384,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
       .from("wolf_game_sessions")
       .update({
         phase: "discussion",
-        discussion_ends_at: new Date(Date.now() + DISCUSSION_DURATION_MS).toISOString(),
+        discussion_ends_at: null,
       })
       .eq("id", game.id);
     await safeBroadcastWolfPlayUpdate(room.code);

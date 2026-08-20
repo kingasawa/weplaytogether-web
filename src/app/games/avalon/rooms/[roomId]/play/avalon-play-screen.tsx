@@ -5,18 +5,15 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
-  Clock,
   Crown,
   Eye,
   EyeOff,
-  History,
   LoaderCircle,
   LogOut,
   RotateCcw,
   ShieldCheck,
   ShieldX,
   Target,
-  Users,
   Vote,
   X,
 } from "lucide-react";
@@ -55,12 +52,11 @@ const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
 const PRIVATE_REVEAL_OPEN_DRAG_RATIO = 1 / 3;
 const PRIVATE_REVEAL_CLOSE_DRAG_RATIO = 1 / 4;
 const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;
-// Thời gian tự động qua phase kế tiếp (giây).
-const PHASE_AUTO_ADVANCE_SECONDS = 15;
-const QUEST_REVEAL_AUTO_ADVANCE_SECONDS = 30;
 
 type AvalonPlayScreenProps = {
   initialState: AvalonPlayState;
+  // Chế độ xem UI (debug/preview): tắt realtime và không tự refetch/redirect về server.
+  isPreview?: boolean;
   debugQuestOutcomes?: AvalonQuestCard[];
 };
 
@@ -90,7 +86,7 @@ function getPlayerName(players: AvalonPlayPlayer[], playerId: string | null) {
   return players.find((player) => player.id === playerId)?.name ?? "Không rõ";
 }
 
-export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: AvalonPlayScreenProps) {
+export default function AvalonPlayScreen({ initialState, isPreview = false, debugQuestOutcomes }: AvalonPlayScreenProps) {
   const router = useRouter();
   const [playState, setPlayState] = useState(initialState);
   const [selectionState, setSelectionState] = useState<AvalonSelectionState>(() => ({
@@ -113,10 +109,9 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
   const coverHasDraggedRef = useRef(false);
   const [isPrivateInfoOpen, setIsPrivateInfoOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [questHistoryIndex, setQuestHistoryIndex] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [flippingCardKey, setFlippingCardKey] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-  const autoAdvanceActionRef = useRef<(() => void) | null>(null);
   const previousRevealRef = useRef<{ questIndex: number | null; revealedCount: number }>({
     questIndex: initialState.questReveal.questIndex,
     revealedCount: initialState.questReveal.revealedCount,
@@ -157,6 +152,12 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
   }:${playState.selectedTeamPlayerIds.join(",")}:${playState.availableQuestIndexes.join(",")}`;
   const selectedTeamPlayerIds =
     selectionState.key === selectionKey ? selectionState.teamPlayerIds : playState.selectedTeamPlayerIds;
+  // Danh sách đội hiển thị: đưa Leader lên đầu hàng, giữ thứ tự những người còn lại.
+  const orderedSelectedTeamPlayerIds = [...playState.selectedTeamPlayerIds].sort((a, b) => {
+    if (a === playState.leaderPlayerId) return -1;
+    if (b === playState.leaderPlayerId) return 1;
+    return 0;
+  });
   const selectedQuestIndex =
     selectionState.key === selectionKey
       ? selectionState.questIndex
@@ -227,6 +228,11 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
   }
 
   const refreshPlayState = useCallback(async () => {
+    // Chế độ preview: chỉ xem UI, không gọi server / không redirect.
+    if (isPreview) {
+      return;
+    }
+
     const nextState = await getAvalonPlayState(playState.room.code);
 
     if (!nextState) {
@@ -235,10 +241,10 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     }
 
     setPlayState(nextState);
-  }, [playState.room.code, router]);
+  }, [isPreview, playState.room.code, router]);
 
   useWolfRoomPresence({
-    enabled: Boolean(playState.currentPlayerId),
+    enabled: !isPreview && Boolean(playState.currentPlayerId),
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
     onRoomUpdate: refreshPlayState,
@@ -275,57 +281,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
       setPendingLabel("");
     });
   }
-
-  // Xác định timer auto-advance cho phase hiện tại (một số phase không tính giờ).
-  let autoAdvanceKey: string | null = null;
-  let autoAdvanceSeconds = PHASE_AUTO_ADVANCE_SECONDS;
-  let autoAdvanceAction: (() => void) | null = null;
-
-  if (currentPlayer && isRoleRevealPhase && !currentPlayer.hasConfirmedRole) {
-    autoAdvanceKey = `${playState.game.id}:role_reveal`;
-    autoAdvanceAction = confirmRoleReveal;
-  } else if (currentPlayer && isTeamVotePhase && !currentPlayer.hasTeamVoted && !playState.isTeamVoteRevealed) {
-    autoAdvanceKey = `${playState.game.id}:team_vote:${playState.game.proposalAttempt}`;
-    autoAdvanceAction = () => voteTeam("approve");
-  } else if (currentPlayer && isQuestPhase && currentPlayer.isOnQuestTeam && !currentPlayer.hasQuestSubmitted) {
-    autoAdvanceKey = `${playState.game.id}:quest:${currentQuestIndex}`;
-    autoAdvanceAction = () => submitQuest(playState.myLoyalty === "evil" ? "fail" : "success");
-  } else if (isLeader && isQuestRevealPhase && !playState.questReveal.isComplete) {
-    autoAdvanceKey = `${playState.game.id}:quest_reveal:${currentQuestIndex}`;
-    autoAdvanceSeconds = QUEST_REVEAL_AUTO_ADVANCE_SECONDS;
-    autoAdvanceAction = autoRevealAllQuestCards;
-  }
-
-  useEffect(() => {
-    autoAdvanceActionRef.current = autoAdvanceAction;
-  }, [autoAdvanceAction]);
-
-  useEffect(() => {
-    if (!autoAdvanceKey) {
-      const resetTimer = window.setTimeout(() => setSecondsLeft(null), 0);
-      return () => window.clearTimeout(resetTimer);
-    }
-
-    const deadline = Date.now() + autoAdvanceSeconds * 1000;
-    let hasFired = false;
-    const resetTimer = window.setTimeout(() => setSecondsLeft(autoAdvanceSeconds), 0);
-
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-
-      if (remaining <= 0 && !hasFired) {
-        hasFired = true;
-        clearInterval(interval);
-        autoAdvanceActionRef.current?.();
-      }
-    }, 250);
-
-    return () => {
-      window.clearTimeout(resetTimer);
-      clearInterval(interval);
-    };
-  }, [autoAdvanceKey, autoAdvanceSeconds]);
 
   function syncTeamDraft(teamPlayerIds: string[], questIndex: number) {
     if (!isLeader || !isTeamProposalPhase) {
@@ -416,45 +371,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     // Đóng lá mask lại nếu nó đang được mở khi xác nhận đã xem vai.
     coverPrivateReveal();
     runMutation("Đang xác nhận...", () => confirmAvalonRoleReveal(playState.room.code));
-  }
-
-  async function autoRevealAllQuestCards() {
-    if (debugQuestOutcomes) {
-      setPlayState((current) => {
-        const total = current.questReveal.totalCount;
-        return {
-          ...current,
-          questReveal: {
-            ...current.questReveal,
-            revealedCount: total,
-            revealedCards: debugQuestOutcomes.slice(0, total),
-            isComplete: total > 0,
-          },
-        };
-      });
-      return;
-    }
-
-    const remaining = playState.questReveal.totalCount - playState.questReveal.revealedCount;
-
-    if (remaining <= 0) {
-      return;
-    }
-
-    setMessage("");
-    setPendingLabel("Đang mở tất cả lá quest...");
-
-    for (let index = 0; index < remaining; index += 1) {
-      const result = await revealAvalonQuestCard(playState.room.code);
-
-      if (!result.ok) {
-        setMessage(result.error);
-        break;
-      }
-    }
-
-    await refreshPlayState();
-    setPendingLabel("");
   }
 
   function submitLadyTarget() {
@@ -687,24 +603,44 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
   function renderQuestTrack() {
     return (
       <section className={styles.avalonQuestTrack} aria-label="Tiến độ quest">
-        {questTrack.map(({ questIndex, result, teamSize, requiredFails }) => (
-          <article
-            className={`${styles.avalonQuestNode} ${
-              result?.outcome === "success"
-                ? styles.avalonQuestSuccess
-                : result?.outcome === "fail"
-                  ? styles.avalonQuestFail
-                  : currentQuestIndex === questIndex && !isResultPhase
-                    ? styles.avalonQuestCurrent
-                    : ""
-            }`}
-            key={questIndex}
-          >
-            <strong>Q{questIndex + 1}</strong>
-            <span>{teamSize} người</span>
-            {requiredFails > 1 && <small>2 Fail</small>}
-          </article>
-        ))}
+        {questTrack.map(({ questIndex, result, teamSize, requiredFails }) => {
+          const stateClassName =
+            result?.outcome === "success"
+              ? styles.avalonQuestSuccess
+              : result?.outcome === "fail"
+                ? styles.avalonQuestFail
+                : currentQuestIndex === questIndex && !isResultPhase
+                  ? styles.avalonQuestCurrent
+                  : "";
+          const nodeContent = (
+            <>
+              <strong>Q{questIndex + 1}</strong>
+              <span>{teamSize} người</span>
+              {requiredFails > 1 && <small>2 Fail</small>}
+            </>
+          );
+
+          // Quest đã đi qua (có kết quả) thì bấm vào để xem lại chi tiết.
+          if (result) {
+            return (
+              <button
+                className={`${styles.avalonQuestNode} ${styles.avalonQuestNodeClickable} ${stateClassName}`}
+                type="button"
+                key={questIndex}
+                onClick={() => setQuestHistoryIndex(questIndex)}
+                aria-label={`Xem kết quả Quest ${questIndex + 1}`}
+              >
+                {nodeContent}
+              </button>
+            );
+          }
+
+          return (
+            <article className={`${styles.avalonQuestNode} ${stateClassName}`} key={questIndex}>
+              {nodeContent}
+            </article>
+          );
+        })}
       </section>
     );
   }
@@ -806,18 +742,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     );
   }
 
-  function renderPhaseCountdown() {
-    if (secondsLeft === null) {
-      return null;
-    }
-
-    return (
-      <p className={styles.avalonPhaseCountdown} aria-live="polite">
-        <Clock aria-hidden="true" />
-        Tự động sau {secondsLeft}s
-      </p>
-    );
-  }
 
   function renderRoleReveal() {
     const hasConfirmed = Boolean(currentPlayer?.hasConfirmedRole);
@@ -825,45 +749,49 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     const roleImagePath = playState.myRole ? getAvalonRoleImagePath(playState.myRole) : null;
 
     return (
-      <section className={`${styles.playPanel} ${styles.avalonRoleRevealPanel}`}>
-        <div
-          className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}
-          onPointerCancel={() => {
-            if (coverDragMode === "closing") {
-              setCoverPointerStartY(null);
-              setCoverDragOffset(0);
-              setCoverDragMode(null);
-            }
-          }}
-          onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : undefined}
-          onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : undefined}
-          onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : undefined}
-        >
-          <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
-            {roleImagePath && (
-              <Image
-                alt={playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : ""}
-                className={styles.avalonRoleRevealImage}
-                height={290}
-                priority
-                src={roleImagePath}
-                width={160}
-              />
-            )}
-            <h2
-              className={
-                playState.myRole ? (isEvil ? styles.avalonRoleNameEvil : styles.avalonRoleNameGood) : ""
+      <>
+        <section className={`${styles.playPanel} ${styles.avalonRoleRevealPanel}`}>
+          <div
+            className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}
+            onPointerCancel={() => {
+              if (coverDragMode === "closing") {
+                setCoverPointerStartY(null);
+                setCoverDragOffset(0);
+                setCoverDragMode(null);
               }
-            >
-              {playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}
-            </h2>
-            {renderRoleRevealKnownInfo()}
+            }}
+            onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : undefined}
+            onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : undefined}
+            onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : undefined}
+          >
+            <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
+              {roleImagePath && (
+                <Image
+                  alt={playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : ""}
+                  className={styles.avalonRoleRevealImage}
+                  height={290}
+                  priority
+                  src={roleImagePath}
+                  width={160}
+                />
+              )}
+              <div className={styles.avalonRoleRevealBody}>
+                <h2
+                  className={
+                    playState.myRole ? (isEvil ? styles.avalonRoleNameEvil : styles.avalonRoleNameGood) : ""
+                  }
+                >
+                  {playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}
+                </h2>
+                {renderRoleRevealKnownInfo()}
+              </div>
+            </div>
+            {currentPlayer && renderPrivateCover()}
           </div>
-          {currentPlayer && renderPrivateCover()}
-        </div>
+        </section>
         {currentPlayer && (
           <button
-            className={styles.primaryButton}
+            className={`${styles.primaryButton} ${styles.avalonConfirmFixedButton}`}
             type="button"
             disabled={isPending || hasConfirmed || !hasViewedPrivateReveal}
             onClick={confirmRoleReveal}
@@ -872,7 +800,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
             {hasConfirmed ? "Đã xác nhận" : "Xác nhận"}
           </button>
         )}
-      </section>
+      </>
     );
   }
 
@@ -915,31 +843,29 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
 
   function renderTeamProposal() {
     return (
-      <section className={styles.playPanel}>
-        <div className={styles.avalonPhaseSummary}>
-          <strong>Quest {currentQuestNumber}</strong>
-          <span>
-            Chọn {playState.requiredTeamSize} người. Lượt đề cử {playState.game.proposalAttempt}/5.
-          </span>
-        </div>
-        {renderTeamOrderStrip()}
+      <>
+        <section className={`${styles.playPanel} ${styles.avalonProposalPanel}`}>
+          <div className={`${styles.avalonPhaseSummary} ${styles.avalonProposalSummary}`}>
+            <strong>Quest {currentQuestNumber}</strong>
+            <span>Chọn {playState.requiredTeamSize} người</span>
+          </div>
+          {renderTeamOrderStrip()}
 
-        {isLeader ? (
-          <>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={isPending || selectedTeamPlayerIds.length !== playState.requiredTeamSize}
-              onClick={proposeCurrentTeam}
-            >
-              <Users aria-hidden="true" />
-              Đề cử đội
-            </button>
-          </>
-        ) : (
-          <p className={styles.avalonWaitingText}>Đang chờ Leader chọn đội quest.</p>
+          {!isLeader && (
+            <p className={styles.avalonWaitingText}>Đang chờ Leader chọn đội quest.</p>
+          )}
+        </section>
+        {isLeader && (
+          <button
+            className={`${styles.primaryButton} ${styles.avalonConfirmFixedButton}`}
+            type="button"
+            disabled={isPending || selectedTeamPlayerIds.length !== playState.requiredTeamSize}
+            onClick={proposeCurrentTeam}
+          >
+            Xác nhận
+          </button>
         )}
-      </section>
+      </>
     );
   }
 
@@ -951,18 +877,32 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           <span>Vote đội Quest {currentQuestNumber}</span>
         </div>
         <div className={styles.avalonSelectedTeam}>
-          {playState.selectedTeamPlayerIds.map((playerId) => (
-            <span key={playerId}>{getPlayerName(playState.players, playerId)}</span>
+          {orderedSelectedTeamPlayerIds.map((playerId) => (
+            <span key={playerId}>
+              {playerId === playState.leaderPlayerId && (
+                <Crown aria-hidden="true" className={styles.avalonSelectedTeamLeaderIcon} />
+              )}
+              {getPlayerName(playState.players, playerId)}
+            </span>
           ))}
         </div>
-        {currentPlayer && !currentPlayer.hasTeamVoted && (
+        {currentPlayer && !playState.isTeamVoteRevealed && (
           <div className={styles.avalonVoteActions}>
-            <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={() => voteTeam("approve")}>
+            <button
+              className={`${styles.avalonVoteChoiceButton} ${
+                currentPlayer.teamVote === "approve" ? styles.avalonVoteChoiceApprove : ""
+              }`}
+              type="button"
+              disabled={isPending}
+              onClick={() => voteTeam("approve")}
+            >
               <ShieldCheck aria-hidden="true" />
               Approve
             </button>
             <button
-              className={`${styles.secondaryButton} ${styles.avalonVoteRejectButton}`}
+              className={`${styles.avalonVoteChoiceButton} ${
+                currentPlayer.teamVote === "reject" ? styles.avalonVoteChoiceReject : ""
+              }`}
               type="button"
               disabled={isPending}
               onClick={() => voteTeam("reject")}
@@ -971,9 +911,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
               Reject
             </button>
           </div>
-        )}
-        {currentPlayer?.hasTeamVoted && !playState.isTeamVoteRevealed && (
-          <p className={styles.avalonWaitingText}>Đã gửi phiếu. Chờ mọi người vote.</p>
         )}
         {playState.isTeamVoteRevealed && (
           <section className={styles.avalonVoteResultBlock} aria-label="Kết quả vote">
@@ -1021,22 +958,26 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     const canPlayFail = playState.myLoyalty === "evil";
 
     return (
-      <section className={styles.playPanel}>
-        <div className={styles.avalonSectionTitle}>
-          <Target aria-hidden="true" />
-          <span>Quest {currentQuestNumber}</span>
-        </div>
-        <div className={styles.avalonSelectedTeam}>
-          {playState.selectedTeamPlayerIds.map((playerId) => (
-            <span key={playerId}>{getPlayerName(playState.players, playerId)}</span>
-          ))}
-        </div>
-        <div className={styles.avalonPhaseSummary}>
-          <strong>Cần {requiredQuestSuccesses} Success để qua nhiệm vụ</strong>
-          <span>
-            {teamSubmittedQuestCards}/{playState.selectedTeamPlayerIds.length} lá đã được gửi.
+      <section className={`${styles.playPanel} ${styles.avalonQuestPanel}`}>
+        <div className={styles.avalonQuestHeaderRow}>
+          <span className={styles.avalonQuestTitle}>Quest {currentQuestNumber}</span>
+          <span className={styles.avalonQuestSubmitCount}>
+            {teamSubmittedQuestCards}/{playState.selectedTeamPlayerIds.length} lá đã được gửi
           </span>
         </div>
+        <div className={`${styles.avalonSelectedTeam} ${styles.avalonSelectedTeamCentered}`}>
+          {orderedSelectedTeamPlayerIds.map((playerId) => (
+            <span key={playerId}>
+              {playerId === playState.leaderPlayerId && (
+                <Crown aria-hidden="true" className={styles.avalonSelectedTeamLeaderIcon} />
+              )}
+              {getPlayerName(playState.players, playerId)}
+            </span>
+          ))}
+        </div>
+        <strong className={styles.avalonQuestRequirement}>
+          Cần {requiredQuestSuccesses} Success để qua nhiệm vụ
+        </strong>
         {canSubmitQuest ? (
           <div className={styles.avalonVoteActions}>
             <button className={styles.secondaryButton} type="button" disabled={isPending} onClick={() => submitQuest("success")}>
@@ -1068,10 +1009,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
 
     return (
       <section className={styles.playPanel}>
-        <div className={styles.avalonSectionTitle}>
-          <Eye aria-hidden="true" />
-          <span>Mở bài Quest {currentQuestNumber}</span>
-        </div>
         <div className={styles.avalonRevealDivider} aria-hidden="true">
           <span className={styles.avalonRevealDividerGem} />
         </div>
@@ -1079,7 +1016,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           <strong>
             Đã mở {playState.questReveal.revealedCount}/{totalCards} lá
           </strong>
-          <span>Thứ tự lá đã được xáo trộn trước khi mở.</span>
         </div>
         <div className={styles.avalonQuestRevealCards}>
           {Array.from({ length: totalCards }, (_, cardIndex) => {
@@ -1127,8 +1063,7 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
         </div>
         {isLeader ? (
           <button className={styles.primaryButton} type="button" disabled={isPending} onClick={revealQuestCard}>
-            <Eye aria-hidden="true" />
-            {playState.questReveal.isComplete ? "Tiếp tục" : "Mở lá tiếp theo"}
+            {playState.questReveal.isComplete ? "Tiếp tục" : "Mở bài"}
           </button>
         ) : (
           <p className={styles.avalonWaitingText}>Đang chờ Leader {playState.leaderName} mở bài quest.</p>
@@ -1268,6 +1203,39 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           })}
         </div>
 
+        {playState.questResults.length > 0 && (
+          <div className={styles.avalonResultHistory}>
+            <span className={styles.avalonResultHistoryTitle}>Diễn biến</span>
+            <div className={styles.avalonResultHistoryList}>
+              {playState.questResults.map((questResult) => {
+                const isSuccess = questResult.outcome === "success";
+
+                return (
+                  <div
+                    className={styles.avalonResultHistoryRow}
+                    key={`${questResult.questIndex}-${questResult.proposalAttempt}`}
+                  >
+                    <strong>Quest {questResult.questNumber}</strong>
+                    <span
+                      className={
+                        isSuccess
+                          ? styles.avalonQuestHistoryOutcomeSuccess
+                          : styles.avalonQuestHistoryOutcomeFail
+                      }
+                    >
+                      {isSuccess ? "Thành công" : "Thất bại"}
+                    </span>
+                    <span className={styles.avalonResultHistoryMeta}>
+                      {questResult.failCount} Fail · Đội {questResult.teamNames.join(", ")} · Leader{" "}
+                      {questResult.leaderName}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {playState.assassination.targetPlayerId && (
           <div className={styles.avalonVoteReview}>
             <strong>Assassin chọn {getPlayerName(playState.players, playState.assassination.targetPlayerId)}</strong>
@@ -1310,6 +1278,48 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
     return renderResult();
   }
 
+  // Xác định phase hiện tại đang chờ (những) người chơi nào để hiển thị trên header.
+  function getHeaderWaiting(): { label: string; playerIds: string[]; countUnit?: string } | null {
+    if (isRoleRevealPhase) {
+      const playerIds = playState.players
+        .filter((player) => !player.hasConfirmedRole)
+        .map((player) => player.id);
+      return playerIds.length > 0 ? { label: "Đang chờ xác nhận vai", playerIds } : null;
+    }
+    if (isTeamProposalPhase) {
+      return { label: "Đang chờ Leader chọn đội", playerIds: [] };
+    }
+    if (isTeamVotePhase && !playState.isTeamVoteRevealed) {
+      const playerIds = playState.players
+        .filter((player) => !player.hasTeamVoted)
+        .map((player) => player.id);
+      return playerIds.length > 0
+        ? { label: "Đang chờ", playerIds, countUnit: "người bỏ phiếu" }
+        : null;
+    }
+    if (isQuestPhase) {
+      const hasPending = playState.players.some(
+        (player) => player.isOnQuestTeam && !player.hasQuestSubmitted
+      );
+      return hasPending ? { label: "Đang thực hiện nhiệm vụ", playerIds: [] } : null;
+    }
+    if (isQuestRevealPhase && !playState.questReveal.isComplete) {
+      return { label: "Đang chờ leader mở bài", playerIds: [] };
+    }
+    if (isLadyPhase && playState.ladyOfLake.holderPlayerId) {
+      return { label: "Đang chờ Lady of the Lake", playerIds: [playState.ladyOfLake.holderPlayerId] };
+    }
+    if (isAssassinationPhase) {
+      return { label: "Đang chờ Assassin ám sát", playerIds: [] };
+    }
+    if (isResultPhase) {
+      return { label: "Kết quả", playerIds: [] };
+    }
+    return null;
+  }
+
+  const headerWaiting = getHeaderWaiting();
+
   return (
     <main className={`${styles.page} ${styles.playPage} ${styles.avalonTheme}`}>
       <section
@@ -1317,56 +1327,26 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           isRoleRevealPhase ? styles.avalonRoleRevealHeader : ""
         }`}
       >
-        <div>
-          <span>Phòng {playState.room.code.toUpperCase()}</span>
-          <h1>{playState.game.phaseLabel}</h1>
-          {isRoleRevealPhase && (
-            <p className={styles.avalonRoleRevealHeaderHint}>
-              Ghi nhớ vai và thông tin riêng trước khi xác nhận.
-            </p>
+        <div className={styles.avalonHeaderInfo}>
+          {headerWaiting && (
+            <div className={styles.avalonWaitingHeader}>
+              <span className={styles.avalonWaitingLabel}>
+                {headerWaiting.playerIds.length > 4
+                  ? `Đang chờ ${headerWaiting.playerIds.length} ${headerWaiting.countUnit ?? "người"}`
+                  : headerWaiting.label}
+              </span>
+              {headerWaiting.playerIds.length > 0 && headerWaiting.playerIds.length <= 4 && (
+                <div className={styles.avalonWaitingNames}>
+                  {headerWaiting.playerIds.map((playerId) => (
+                    <span className={styles.avalonWaitingName} key={playerId}>
+                      {getPlayerName(playState.players, playerId)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-        </div>
-        {playState.isCurrentPlayerHost && (
-          <button
-            aria-label="Reset game về phòng chờ"
-            className={styles.resetGameButton}
-            title="Reset game"
-            type="button"
-            disabled={isPending}
-            onClick={requestResetGame}
-          >
-            <RotateCcw aria-hidden="true" />
-          </button>
-        )}
-        {currentPlayer && isRoleRevealPhase && (
-          privateRevealUnlocked ? (
-            <button
-              aria-label="Che lại vai"
-              className={`${styles.avalonRoleRevealToggleButton} ${
-                playState.isCurrentPlayerHost ? styles.avalonRoleRevealToggleStacked : ""
-              } ${styles.avalonRoleCoverButton}`}
-              title="Che lại"
-              type="button"
-              onClick={coverPrivateReveal}
-            >
-              <EyeOff aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              aria-label="Mở vai"
-              className={`${styles.avalonRoleRevealToggleButton} ${
-                playState.isCurrentPlayerHost ? styles.avalonRoleRevealToggleStacked : ""
-              } ${styles.avalonRoleOpenButton}`}
-              title="Mở vai"
-              type="button"
-              onClick={openPrivateReveal}
-            >
-              <Eye aria-hidden="true" />
-            </button>
-          )
-        )}
-        {!isRoleRevealPhase && (
-          <div className={styles.avalonHeaderActions}>
+          {!isRoleRevealPhase && !isQuestPhase && !isQuestRevealPhase && !isResultPhase && !isTeamVotePhase && !isTeamProposalPhase && (
             <p className={styles.avalonScoreSummary}>
               <span className={styles.avalonScoreGood}>Success {playState.successCount}/3</span>
               <span aria-hidden="true" className={styles.avalonScoreDivider}>
@@ -1382,7 +1362,45 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
                 </>
               )}
             </p>
-            {currentPlayer && (
+          )}
+        </div>
+        <div className={styles.avalonHeaderButtons}>
+          {playState.isCurrentPlayerHost && (
+            <button
+              aria-label="Reset game về phòng chờ"
+              className={styles.resetGameButton}
+              title="Reset game"
+              type="button"
+              disabled={isPending}
+              onClick={requestResetGame}
+            >
+              <RotateCcw aria-hidden="true" />
+            </button>
+          )}
+          {currentPlayer && isRoleRevealPhase ? (
+            privateRevealUnlocked ? (
+              <button
+                aria-label="Che lại vai"
+                className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleCoverButton}`}
+                title="Che lại"
+                type="button"
+                onClick={coverPrivateReveal}
+              >
+                <EyeOff aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                aria-label="Mở vai"
+                className={`${styles.avalonRoleRevealToggleButton} ${styles.avalonRoleOpenButton}`}
+                title="Mở vai"
+                type="button"
+                onClick={openPrivateReveal}
+              >
+                <Eye aria-hidden="true" />
+              </button>
+            )
+          ) : (
+            currentPlayer && (
               <button
                 aria-label="Xem thông tin riêng"
                 className={styles.avalonPrivateInfoButton}
@@ -1392,9 +1410,9 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
               >
                 <Eye aria-hidden="true" />
               </button>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
       </section>
 
       {!isRoleRevealPhase && renderQuestTrack()}
@@ -1406,23 +1424,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           {renderPhasePanel()}
 
           {message && <p className={styles.inlineError}>{message}</p>}
-
-          {playState.questResults.length > 0 && (
-            <section className={styles.avalonHistoryPanel}>
-              <div className={styles.avalonSectionTitle}>
-                <History aria-hidden="true" />
-                <span>Lịch sử quest</span>
-              </div>
-              <div className={styles.avalonInfoList}>
-                {playState.questResults.map((questResult) => (
-                  <span key={`${questResult.questIndex}-${questResult.proposalAttempt}`}>
-                    Q{questResult.questNumber}: {questResult.outcome === "success" ? "Success" : "Fail"} ·{" "}
-                    {questResult.failCount} Fail · Đội {questResult.teamNames.join(", ")}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
       </section>
@@ -1447,6 +1448,76 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           </section>
         </div>
       )}
+
+      {questHistoryIndex !== null &&
+        (() => {
+          const questResult = playState.questResults.find(
+            (result) => result.questIndex === questHistoryIndex
+          );
+
+          if (!questResult) {
+            return null;
+          }
+
+          const isSuccess = questResult.outcome === "success";
+
+          return (
+            <div
+              className={styles.modalBackdrop}
+              role="presentation"
+              onClick={() => setQuestHistoryIndex(null)}
+            >
+              <section
+                aria-label={`Kết quả Quest ${questResult.questNumber}`}
+                aria-modal="true"
+                className={`${styles.modal} ${styles.avalonQuestHistoryModal}`}
+                role="dialog"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  aria-label="Đóng lịch sử quest"
+                  className={styles.closeButton}
+                  type="button"
+                  onClick={() => setQuestHistoryIndex(null)}
+                >
+                  <X aria-hidden="true" />
+                </button>
+                <div className={styles.avalonQuestHistoryHeader}>
+                  <strong>Quest {questResult.questNumber}</strong>
+                  <span
+                    className={
+                      isSuccess
+                        ? styles.avalonQuestHistoryOutcomeSuccess
+                        : styles.avalonQuestHistoryOutcomeFail
+                    }
+                  >
+                    {isSuccess ? "Thành công" : "Thất bại"}
+                  </span>
+                </div>
+                <dl className={styles.avalonQuestHistoryRows}>
+                  <div>
+                    <dt>Đội</dt>
+                    <dd>{questResult.teamNames.join(", ")}</dd>
+                  </div>
+                  <div>
+                    <dt>Leader</dt>
+                    <dd>{questResult.leaderName}</dd>
+                  </div>
+                  <div>
+                    <dt>Số lá Fail</dt>
+                    <dd>{questResult.failCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Vote đội</dt>
+                    <dd>
+                      Approve {questResult.approveCount} · Reject {questResult.rejectCount}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+          );
+        })()}
 
       {isResetConfirmOpen && (
         <div className={styles.modalBackdrop} role="presentation" onClick={() => setIsResetConfirmOpen(false)}>
@@ -1494,8 +1565,6 @@ export default function AvalonPlayScreen({ initialState, debugQuestOutcomes }: A
           </button>
         </section>
       )}
-
-      {renderPhaseCountdown()}
 
       {isPending && (
         <div className={styles.playLoading} aria-live="polite">

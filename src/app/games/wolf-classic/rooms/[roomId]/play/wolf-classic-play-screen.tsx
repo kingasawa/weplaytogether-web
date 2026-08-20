@@ -29,8 +29,6 @@ import {
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import {
   advanceClassicWolfNightAutoPassIfReady,
-  advanceClassicWolfDiscussionIfExpired,
-  advanceClassicWolfVotingIfExpired,
   finishClassicWolfGame,
   getClassicWolfPlayState,
   leaveClassicWolfRoom,
@@ -249,9 +247,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
   const [selectedVoteTargetPlayerId, setSelectedVoteTargetPlayerId] = useState<string | null>(null);
   const [selectedRoleGuide, setSelectedRoleGuide] = useState<ClassicWolfRole | null>(null);
   const [openNightReminderKey, setOpenNightReminderKey] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  const autoAdvancedDiscussionGameIdRef = useRef<string | null>(null);
-  const autoAdvancedVotingGameIdRef = useRef<string | null>(null);
   const autoPassNightTurnInFlightRef = useRef(false);
   const [isPending, startTransition] = useTransition();
 
@@ -310,12 +305,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     (currentPlayer?.hasVoted && currentPlayer.voteTargetPlayerId === null
       ? VOTE_SKIP_KEY
       : currentPlayer?.voteTargetPlayerId ?? null);
-  const discussionSecondsLeft = playState.game.discussionEndsAt
-    ? Math.max(0, Math.ceil((new Date(playState.game.discussionEndsAt).getTime() - now) / 1000))
-    : null;
-  const votingSecondsLeft = playState.game.votingEndsAt
-    ? Math.max(0, Math.ceil((new Date(playState.game.votingEndsAt).getTime() - now) / 1000))
-    : null;
   const isCardRevealPhase = playState.game.phase === "card_reveal";
   const isPrivateRoleRevealed = isCardRevealPhase && revealedRoleGameId === playState.game.id;
   const isNightPhase = playState.game.phase === "night";
@@ -467,70 +456,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       window.clearInterval(fallbackRefreshInterval);
     };
   }, [isPresenceReady, playState.currentPlayerId, playState.game.phase, refreshPlayState]);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      playState.game.phase !== "discussion" ||
-      discussionSecondsLeft !== 0 ||
-      autoAdvancedDiscussionGameIdRef.current === playState.game.id
-    ) {
-      return;
-    }
-
-    autoAdvancedDiscussionGameIdRef.current = playState.game.id;
-    startTransition(async () => {
-      const result = await advanceClassicWolfDiscussionIfExpired(playState.room.code);
-
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-
-      await refreshPlayState();
-    });
-  }, [
-    discussionSecondsLeft,
-    playState.game.id,
-    playState.game.phase,
-    playState.room.code,
-    refreshPlayState,
-  ]);
-
-  useEffect(() => {
-    if (
-      playState.game.phase !== "voting" ||
-      votingSecondsLeft !== 0 ||
-      autoAdvancedVotingGameIdRef.current === playState.game.id
-    ) {
-      return;
-    }
-
-    autoAdvancedVotingGameIdRef.current = playState.game.id;
-    startTransition(async () => {
-      const result = await advanceClassicWolfVotingIfExpired(playState.room.code);
-
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-
-      await refreshPlayState();
-    });
-  }, [
-    playState.game.id,
-    playState.game.phase,
-    playState.room.code,
-    refreshPlayState,
-    votingSecondsLeft,
-  ]);
 
   useEffect(() => {
     if (!isNightPhase || !playState.currentPlayerId || !playState.activeNightTurn?.isAutoPass) {
@@ -1172,7 +1097,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     isAlive &&
     !currentPlayer?.hasVoted &&
     activeVoteTargetPlayerId !== null &&
-    votingSecondsLeft !== 0 &&
     !isPending;
 
   function unlockPrivateRoleReveal() {
@@ -1353,24 +1277,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
           </p>
         )}
         {isDiscussionPhase && (
-          <>
-            <p>Người sống thảo luận để tìm Ma Sói. Timer đề xuất là 5 phút.</p>
-            {discussionSecondsLeft !== null && (
-              <strong className={styles.playTimer}>
-                {Math.floor(discussionSecondsLeft / 60)}:{String(discussionSecondsLeft % 60).padStart(2, "0")}
-              </strong>
-            )}
-          </>
+          <p>Người sống thảo luận để tìm Ma Sói. Khi tất cả đã thảo luận xong, ván sẽ tự chuyển sang bỏ phiếu.</p>
         )}
         {isVotingPhase && (
-          <>
-            <p>Người sống chọn một người để treo cổ, hoặc bỏ qua.</p>
-            {votingSecondsLeft !== null && (
-              <strong className={styles.playTimer}>
-                {Math.floor(votingSecondsLeft / 60)}:{String(votingSecondsLeft % 60).padStart(2, "0")}
-              </strong>
-            )}
-          </>
+          <p>Người sống chọn một người để treo cổ, hoặc bỏ qua.</p>
         )}
         {isResultPhase && playState.result && (
           <strong className={`${styles.resultBanner} ${isCurrentPlayerWinner === false ? styles.resultBannerDanger : ""}`}>
@@ -1476,7 +1386,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                       activeVoteTargetPlayerId === VOTE_SKIP_KEY ? styles.votingOptionActive : ""
                     }`}
                     type="button"
-                    disabled={isPending || currentPlayer?.hasVoted || votingSecondsLeft === 0}
+                    disabled={isPending || currentPlayer?.hasVoted}
                     onClick={() => selectVoteTarget(null)}
                   >
                     <span className={styles.votingOptionAvatar}>
@@ -1495,7 +1405,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                         }`}
                         key={player.id}
                         type="button"
-                        disabled={isPending || currentPlayer?.hasVoted || player.id === playState.currentPlayerId || votingSecondsLeft === 0}
+                        disabled={isPending || currentPlayer?.hasVoted || player.id === playState.currentPlayerId}
                         onClick={() => selectVoteTarget(player.id)}
                       >
                         <Image

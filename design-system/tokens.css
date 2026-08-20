@@ -27,7 +27,7 @@
   --shadow-card: #151c31;
 
   /* --- Typography --- */
-  --font-logo:    var(--font-anton, "Anton", sans-serif);
-  --font-heading: var(--font-sora,  "Sora",  sans-serif);
-  --font-body:    var(--font-inter, "Inter", sans-serif);
+  --font-logo:    var(--font-be-vietnam-pro, "Be Vietnam Pro", sans-serif);
+  --font-heading: var(--font-be-vietnam-pro, "Be Vietnam Pro", sans-serif);
+  --font-body:    var(--font-be-vietnam-pro, "Be Vietnam Pro", sans-serif);
 }
