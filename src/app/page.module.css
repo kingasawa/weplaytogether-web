@@ -495,56 +495,47 @@
   backdrop-filter: blur(3px) saturate(140%);
 }
 
-/* Shine xoay vòng quanh viền card — chạy 1 vòng khi được kích hoạt (data-shine) */
-@property --shine-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
 .gameCard::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: -45%;
+  bottom: -45%;
+  left: -70%;
   z-index: 2;
-  padding: 1.5px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--shine-angle),
-    transparent 0deg,
-    transparent 72deg,
-    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 92deg,
-    var(--text) 100deg,
-    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 108deg,
-    transparent 128deg,
-    transparent 360deg
+  width: 45%;
+  border-radius: 999rem;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    color-mix(in srgb, var(--text) 14%, transparent) 38%,
+    color-mix(in srgb, var(--primary-light) 56%, transparent) 50%,
+    color-mix(in srgb, var(--text) 18%, transparent) 62%,
+    transparent 100%
   );
-  -webkit-mask:
-    linear-gradient(var(--text) 0 0) content-box,
-    linear-gradient(var(--text) 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  box-shadow: 0 0 1.4rem color-mix(in srgb, var(--primary-light) 32%, transparent);
+  transform: translateX(-140%) skewX(-16deg);
   pointer-events: none;
   opacity: 0;
+  will-change: transform, opacity;
 }
 
 .gameCard[data-shine="on"]::before {
-  animation: cardShine 1.4s linear;
+  animation: cardShine 1.4s ease-out;
 }
 
 @keyframes cardShine {
   0% {
-    --shine-angle: 0deg;
+    transform: translateX(-140%) skewX(-16deg);
     opacity: 0;
   }
-  12% {
-    opacity: 1;
+  16% {
+    opacity: 0.92;
   }
-  88% {
-    opacity: 1;
+  82% {
+    opacity: 0.92;
   }
   100% {
-    --shine-angle: 360deg;
+    transform: translateX(430%) skewX(-16deg);
     opacity: 0;
   }
 }
@@ -558,8 +549,8 @@
 .gameCover {
   position: relative;
   flex: 0 0 auto;
-  align-self: stretch;
-  width: auto;
+  align-self: center;
+  width: clamp(4.75rem, 22vw, 5.65rem);
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 1.05rem;
@@ -567,6 +558,9 @@
 }
 
 .gameCover img {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center;
 }

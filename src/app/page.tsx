@@ -76,8 +76,10 @@ function GameCard({ game }: { game: FeaturedGame }) {
       <div className={styles.gameCover}>
         <Image
           alt={`Ảnh bìa game ${game.name}`}
-          fill
-          sizes="72px"
+          width={96}
+          height={96}
+          loading="eager"
+          sizes="(max-width: 480px) 22vw, 96px"
           src={game.image}
         />
       </div>
