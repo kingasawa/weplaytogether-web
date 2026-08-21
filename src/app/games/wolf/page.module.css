@@ -1,11 +1,16 @@
 .page {
   display: flex;
+  /* svh = fallback đảm bảo vừa khung ngay lần vẽ đầu; dvh = co giãn theo
+     viewport động để bản Safari (có toolbar) không bị khóa ở trạng thái nén */
   min-height: 100svh;
+  min-height: 100dvh;
   flex-direction: column;
   gap: var(--spacing-md);
   overflow-x: hidden;
   scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
   padding: var(--spacing-md);
+  /* Đệm đáy nhất quán: tránh home-indicator (PWA) và tránh dí toolbar (Safari) */
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
 
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--danger) 22%, transparent), transparent 22rem),
@@ -21,7 +26,10 @@
   /* Tràn ra sát mép khung (bù lại padding của .page) — không còn box bao ngoài */
   width: calc(100% + (var(--spacing-md) * 2));
   margin: calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) 0;
-  min-height: calc(100svh - (var(--spacing-md) * 2) - var(--spacing-md) - 2.75rem);
+  /* Trừ: padding trên/dưới (*2) + gap tới exitBar + chiều cao exitBar (2.75rem).
+     Bản dvh trừ thêm safe-area-inset-bottom mà .page vừa cộng vào padding đáy. */
+  min-height: calc(100svh - (var(--spacing-md) * 3) - 2.75rem);
+  min-height: calc(100dvh - (var(--spacing-md) * 3) - 2.75rem - env(safe-area-inset-bottom));
   overflow: hidden;
   isolation: isolate;
 }
@@ -60,7 +68,9 @@
   justify-content: flex-end;
   gap: var(--spacing-md);
   max-width: 44rem;
-  padding: 2.5rem;
+  /* Padding co theo bề rộng: màn hình thấp/nhỏ (Safari có toolbar) bớt padding
+     để nội dung không bị nén hoặc cắt nút thứ 3 */
+  padding: clamp(1.25rem, 5vw, 2.5rem);
 }
 
 .backLink,
@@ -130,7 +140,9 @@
 .actions {
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: var(--spacing-lg);
+  /* Khoảng cách trên co theo chiều cao viewport: viewport thấp thì thu lại
+     để không đẩy các nút xuống gây nén/cắt */
+  margin-top: clamp(var(--spacing-md), 3vh, var(--spacing-lg));
 }
 
 .primaryButton,
