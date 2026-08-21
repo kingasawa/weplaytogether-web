@@ -276,10 +276,8 @@ export default function ClassicWolfGameScreen() {
   }
 
   function openJoinRoom() {
-    if (ensurePlayerIdentity("open_join_room") !== null) {
-      setIsJoinOpen(true);
-      loadPublicRooms();
-    }
+    setActionError("");
+    router.push("/games/wolf-classic/join");
   }
 
   function joinRoom(event: FormEvent<HTMLFormElement>) {

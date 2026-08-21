@@ -293,12 +293,8 @@ export default function WolfGameScreen() {
   }
 
   function openJoinRoom() {
-    if (ensurePlayerIdentity("open_join_room") === null) {
-      return;
-    }
-
-    setIsJoinOpen(true);
-    loadPublicRooms();
+    setActionError("");
+    router.push("/games/wolf/join");
   }
 
   function joinRoom(event: FormEvent<HTMLFormElement>) {

@@ -275,10 +275,8 @@ export default function AvalonGameScreen() {
   }
 
   function openJoinRoom() {
-    if (ensurePlayerIdentity("open_join_room") !== null) {
-      setIsJoinOpen(true);
-      loadPublicRooms();
-    }
+    setActionError("");
+    router.push("/games/avalon/join");
   }
 
   function joinRoom(event: FormEvent<HTMLFormElement>) {

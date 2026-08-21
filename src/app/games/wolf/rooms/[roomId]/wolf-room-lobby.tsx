@@ -4,7 +4,6 @@ import {
   Copy,
   Crown,
   Link as LinkIcon,
-  LogIn,
   LogOut,
   Minus,
   Pencil,
@@ -16,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import RoomJoinScreen from "@/app/games/room-join-screen";
 import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
@@ -48,7 +48,6 @@ import {
   type WolfLobbyState,
   type WolfSpectatorState,
 } from "../../actions";
-import { PlayerAvatarPicker } from "../../player-avatar-picker";
 import styles from "../../page.module.css";
 import WolfRoomSpectator from "./wolf-room-spectator";
 
@@ -629,6 +628,34 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     );
   }
 
+  if (isIdentityOpen) {
+    return (
+      <RoomJoinScreen
+        gameName="Ma Sói Một Đêm"
+        roomCode={lobbyState.room.code}
+        themeClassName={`${styles.avalonTheme} ${styles.wolfThemeBg}`}
+        titleId="room-identity-title"
+        signInHref={buildAuthPath("/auth/sign-in", `/games/wolf/rooms/${lobbyState.room.code}`)}
+        guestNameInputId="wolf-room-guest-name"
+        isEditingGuestProfile={isEditingGuestProfile}
+        isGuestFormOpen={isGuestFormOpen}
+        guestNameInput={guestNameInput}
+        guestAvatarKey={guestAvatarInput}
+        guestAvatarObjectKey={guestAvatarObjectKeyInput}
+        guestNameError={guestNameError}
+        onBack={closeIdentityModal}
+        onShowGuestForm={() => setIsGuestFormOpen(true)}
+        onSubmitGuestName={saveGuestName}
+        onGuestNameInputChange={(value) => {
+          setGuestNameInput(value);
+          setGuestNameError("");
+        }}
+        onSelectAvatar={setGuestAvatarInput}
+        onSelectAvatarObjectKey={setGuestAvatarObjectKeyInput}
+      />
+    );
+  }
+
   return (
     <main className={`${styles.page} ${styles.roomPage} ${styles.avalonTheme} ${styles.wolfThemeBg}`}>
       <section className={styles.roomPanel}>
@@ -874,78 +901,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         </div>
       )}
 
-      {isIdentityOpen && (
-        <div
-          className={styles.modalBackdrop}
-          role="presentation"
-          onClick={closeIdentityModal}
-        >
-          <section
-            aria-labelledby="room-identity-title"
-            aria-modal="true"
-            className={styles.modal}
-            role="dialog"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 id="room-identity-title">
-              {isEditingGuestProfile ? "Tên & avatar" : "Bạn chưa đăng nhập"}
-            </h2>
-            <p>
-              {isEditingGuestProfile
-                ? "Thiết lập tên và avatar trước khi tham gia phòng."
-                : "Bạn có muốn đăng nhập không, hoặc chơi nhanh với vai trò khách?"}
-            </p>
-
-            {!isEditingGuestProfile && (
-              <div className={styles.identityActions}>
-                <Link
-                  className={styles.primaryButton}
-                  href={buildAuthPath("/auth/sign-in", `/games/wolf/rooms/${lobbyState.room.code}`)}
-                >
-                  <LogIn aria-hidden="true" />
-                  ĐĂNG NHẬP
-                </Link>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={() => setIsGuestFormOpen(true)}
-                >
-                  <UserRound aria-hidden="true" />
-                  CHƠI VỚI VAI TRÒ KHÁCH
-                </button>
-              </div>
-            )}
-
-            {isGuestFormOpen && (
-              <form className={styles.guestForm} onSubmit={saveGuestName}>
-                <label htmlFor="wolf-room-guest-name">Tên hiển thị</label>
-                <input
-                  autoFocus
-                  id="wolf-room-guest-name"
-                  maxLength={MAX_GUEST_PLAYER_NAME_LENGTH}
-                  placeholder="Nhập tên của bạn"
-                  type="text"
-                  value={guestNameInput}
-                  onChange={(event) => {
-                    setGuestNameInput(event.target.value);
-                    setGuestNameError("");
-                  }}
-                />
-                <PlayerAvatarPicker
-                  selectedAvatarKey={guestAvatarInput}
-                  selectedAvatarObjectKey={guestAvatarObjectKeyInput}
-                  onSelectAvatar={setGuestAvatarInput}
-                  onSelectAvatarObjectKey={setGuestAvatarObjectKeyInput}
-                />
-                {guestNameError && <span className={styles.errorText}>{guestNameError}</span>}
-                <button className={styles.primaryButton} type="submit">
-                  LƯU VÀ TIẾP TỤC
-                </button>
-              </form>
-            )}
-          </section>
-        </div>
-      )}
     </main>
   );
 }

@@ -741,6 +741,128 @@
   margin-top: var(--spacing-lg);
 }
 
+.joinIdentityPage,
+.joinRoomScreenPage {
+  --join-page-padding: clamp(0.85rem, 4vw, 1.5rem);
+  justify-content: center;
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  padding: var(--join-page-padding);
+  padding-bottom: calc(var(--join-page-padding) + env(safe-area-inset-bottom));
+}
+
+.joinIdentityPanel,
+.joinRoomScreenPanel {
+  display: flex;
+  width: min(100%, 36rem);
+  max-height: calc(100svh - (var(--join-page-padding) * 2) - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - (var(--join-page-padding) * 2) - env(safe-area-inset-bottom));
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(var(--spacing-md), 5vw, var(--spacing-lg));
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-secondary) 82%, transparent),
+      color-mix(in srgb, var(--bg-primary) 90%, transparent)
+    );
+  backdrop-filter: blur(0.65rem);
+  -webkit-backdrop-filter: blur(0.65rem);
+}
+
+.joinIdentityBackButton {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--spacing-sm);
+  border: 0;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 64%, transparent);
+  color: var(--primary-light);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding-inline: var(--spacing-md);
+}
+
+.joinIdentityBackButton svg,
+.joinIdentityEyebrow svg {
+  width: 1.05rem;
+  min-width: 1.05rem;
+}
+
+.joinIdentityHeader {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.joinIdentityEyebrow {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--primary-light);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.joinIdentityHeader h1 {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(2.4rem, 13vw, 4rem);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.joinIdentityHeader p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.joinIdentityActions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.joinRoomPublicPanel {
+  max-height: min(40svh, 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.joinRoomPublicPanel .publicRoomsHeader h2 {
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.joinRoomScreenForm {
+  margin-top: 0;
+}
+
+.joinIdentityForm {
+  margin-top: 0;
+  padding-top: var(--spacing-md);
+}
+
+.joinIdentityForm .avatarGrid {
+  max-height: min(30svh, 14rem);
+}
+
 .guestForm {
   display: flex;
   flex-direction: column;
@@ -2236,6 +2358,8 @@
 
 .classicWolfTheme .hero,
 .classicWolfTheme .roomPanel,
+.classicWolfTheme .joinIdentityPanel,
+.classicWolfTheme .joinRoomScreenPanel,
 .classicWolfTheme .playHeader,
 .classicWolfTheme .playPanel,
 .classicWolfTheme .discussionRoleDeck,
@@ -3724,6 +3848,8 @@
 
 /* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt. */
 .avalonTheme .modal,
+.avalonTheme .joinIdentityPanel,
+.avalonTheme .joinRoomScreenPanel,
 .avalonTheme .roomPanel {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -5308,6 +5434,8 @@
 
 .hero,
 .modal,
+.joinIdentityPanel,
+.joinRoomScreenPanel,
 .roomStatusGrid article,
 .spectatorPanel,
 .spectatorStatusGrid article,
