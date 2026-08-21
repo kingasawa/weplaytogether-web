@@ -16,6 +16,8 @@ export default function ClassicWolfJoinScreen() {
       titleId="classic-wolf-join-room-title"
       roomCodeInputId="classic-wolf-join-room-code"
       guestNameInputId="classic-wolf-join-guest-name"
+      gameBackgroundSrc="/images/boards/wolf-classic.png"
+      gameBackgroundAlt="Ảnh nền phòng Ma Sói Nhiều Đêm"
       listPublicRooms={listPublicClassicWolfRooms}
       joinRoom={joinClassicWolfRoom}
     />

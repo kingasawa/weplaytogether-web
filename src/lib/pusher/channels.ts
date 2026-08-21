@@ -3,6 +3,7 @@ const DEFAULT_WOLF_ROOM_PUBLIC_CHANNEL_PREFIX = "nicecode-websocket-";
 
 export const WOLF_ROOM_UPDATED_EVENT = "wolf-room-updated";
 export const WOLF_PLAY_UPDATED_EVENT = "wolf-play-updated";
+export const WOLF_LOBBY_UPDATED_EVENT = "wolf-lobby-updated";
 
 function getWolfRoomChannelPrefix() {
   return process.env.NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX ?? DEFAULT_WOLF_ROOM_CHANNEL_PREFIX;
@@ -18,6 +19,12 @@ export function getWolfRoomChannelName(roomCode: string) {
 
 export function getWolfRoomPublicChannelName(roomCode: string) {
   return `${getWolfRoomPublicChannelPrefix()}${roomCode.trim().toLowerCase()}`;
+}
+
+// Kênh chung cho các màn hình danh sách phòng public của mọi game.
+// Mã phòng luôn là 4 chữ cái nên hậu tố "lobby" không thể trùng kênh phòng nào.
+export function getWolfLobbyChannelName() {
+  return `${getWolfRoomPublicChannelPrefix()}lobby`;
 }
 
 export function getWolfRoomCodeFromChannel(channelName: string) {

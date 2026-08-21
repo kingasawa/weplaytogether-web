@@ -8,7 +8,6 @@ import {
   LogIn,
   Play,
   Plus,
-  RefreshCw,
   UserRound,
   X,
 } from "lucide-react";
@@ -36,6 +35,7 @@ import {
   listPublicAvalonRooms,
   type AvalonPublicRoomSummary,
 } from "./actions";
+import { JoinRoomModal } from "../wolf/join-room-modal";
 import { PlayerAvatarPicker } from "../wolf/player-avatar-picker";
 import styles from "../wolf/page.module.css";
 
@@ -442,108 +442,24 @@ export default function AvalonGameScreen() {
       )}
 
       {isJoinOpen && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
-            aria-labelledby="join-room-title"
-            aria-modal="true"
-            className={`${styles.modal} ${styles.joinRoomModal}`}
-            role="dialog"
-          >
-            <button
-              className={styles.closeButton}
-              type="button"
-              aria-label="Đóng nhập mã phòng"
-              onClick={() => setIsJoinOpen(false)}
-            >
-              <X aria-hidden="true" />
-            </button>
-            <h2 id="join-room-title">Tham gia Avalon</h2>
-            <p>Chọn phòng public đang mở hoặc nhập mã phòng.</p>
-            <div className={styles.publicRoomsPanel}>
-              <div className={styles.publicRoomsHeader}>
-                <h3>Phòng public</h3>
-                <button
-                  className={styles.smallButton}
-                  type="button"
-                  disabled={isRoomListPending}
-                  onClick={loadPublicRooms}
-                >
-                  <RefreshCw aria-hidden="true" />
-                  {isRoomListPending ? "ĐANG TẢI" : "LÀM MỚI"}
-                </button>
-              </div>
-
-              {publicRoomsError && <span className={styles.errorText}>{publicRoomsError}</span>}
-
-              {!publicRoomsError && isRoomListPending && publicRooms.length === 0 && (
-                <p className={styles.publicRoomsEmpty}>Đang tải phòng public...</p>
-              )}
-
-              {!publicRoomsError && !isRoomListPending && publicRooms.length === 0 && (
-                <p className={styles.publicRoomsEmpty}>Chưa có phòng public đang mở.</p>
-              )}
-
-              {publicRooms.length > 0 && (
-                <table className={styles.publicRoomTable}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Mã phòng</th>
-                      <th scope="col">Host</th>
-                      <th scope="col">Người chơi</th>
-                      <th scope="col">Vào</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {publicRooms.map((room) => (
-                      <tr key={room.code}>
-                        <td data-label="Mã phòng">
-                          <strong>{room.code.toUpperCase()}</strong>
-                        </td>
-                        <td data-label="Host">{room.hostName}</td>
-                        <td data-label="Người chơi">
-                          {room.playerCount}/{room.maxPlayers}
-                        </td>
-                        <td data-label="Vào">
-                          <button
-                            className={styles.smallButton}
-                            type="button"
-                            disabled={isPending || room.playerCount >= room.maxPlayers}
-                            onClick={() => joinPublicRoom(room.code)}
-                          >
-                            <Play aria-hidden="true" />
-                            {room.playerCount >= room.maxPlayers ? "ĐẦY" : "VÀO"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <form className={styles.joinForm} onSubmit={joinRoom}>
-              <label htmlFor="avalon-room-code">Mã phòng</label>
-              <input
-                autoFocus
-                id="avalon-room-code"
-                inputMode="text"
-                maxLength={4}
-                pattern="[a-zA-Z]{4}"
-                placeholder="abcd"
-                type="text"
-                value={normalizedRoomCode}
-                onChange={(event) => {
-                  setRoomCode(event.target.value);
-                  setRoomCodeError("");
-                }}
-              />
-              {roomCodeError && <span className={styles.errorText}>{roomCodeError}</span>}
-              <button className={styles.primaryButton} type="submit" disabled={isPending}>
-                <Play aria-hidden="true" />
-                {isPending ? "ĐANG VÀO..." : "VÀO PHÒNG"}
-              </button>
-            </form>
-          </section>
-        </div>
+        <JoinRoomModal
+          backgroundSrc="/images/boards/avalon.png"
+          backgroundAlt="Ảnh nền phòng Avalon"
+          roomCode={normalizedRoomCode}
+          roomCodeError={roomCodeError}
+          isPending={isPending}
+          publicRooms={publicRooms}
+          publicRoomsError={publicRoomsError}
+          isRoomListPending={isRoomListPending}
+          onClose={() => setIsJoinOpen(false)}
+          onRoomCodeChange={(value) => {
+            setRoomCode(value);
+            setRoomCodeError("");
+          }}
+          onSubmitJoin={joinRoom}
+          onRefreshPublicRooms={loadPublicRooms}
+          onJoinPublicRoom={joinPublicRoom}
+        />
       )}
 
       {isIdentityOpen && (

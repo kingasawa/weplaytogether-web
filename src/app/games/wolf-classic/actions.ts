@@ -387,6 +387,13 @@ function getRequestedAvatarObjectKey(avatarObjectKey: string | null | undefined,
   };
 }
 
+// Avatar upload duoc gan voi session id. Khi session doi (cookie het han, bi xoa, doi
+// trinh duyet/thiet bi), key cu con luu o localStorage khong con khop -> chi bo qua avatar
+// va cho vao phong binh thuong, khong chan nguoi choi vao phong vi ly do nay.
+function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, sessionId: string) {
+  return normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
+}
+
 function shuffleRoles(roles: ClassicWolfRole[]) {
   const shuffled = [...roles];
 
@@ -1965,13 +1972,7 @@ export async function createClassicWolfRoom(
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -2049,13 +2050,7 @@ export async function joinClassicWolfRoom(
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
   const { data: room, error: roomError } = await supabase
     .from("wolf_rooms")
@@ -2112,13 +2107,18 @@ export async function joinClassicWolfRoom(
     return { ok: false, error: "Phòng đã đủ 10 người chơi." };
   }
 
+  // Phòng rỗng thì không còn host: người vào đầu tiên nhận quyền host, nếu không sẽ
+  // không ai bấm bắt đầu được.
+  const shouldBecomeHost = players.length === 0;
+
   const { data: player, error: playerError } = await insertWolfRoomPlayer(supabase, {
     room_id: room.id,
     session_id: sessionId,
     name,
     avatar_key: playerAvatarKey,
     avatar_object_key: playerAvatarObjectKey,
-    is_ready: false,
+    is_host: shouldBecomeHost,
+    is_ready: shouldBecomeHost,
   });
 
   if (playerError || !player) {
@@ -2128,6 +2128,10 @@ export async function joinClassicWolfRoom(
         getAvatarObjectKeyErrorMessage(playerError) ??
         "Không thể tham gia phòng.",
     };
+  }
+
+  if (shouldBecomeHost) {
+    await supabase.from("wolf_rooms").update({ host_player_id: player.id }).eq("id", room.id);
   }
 
   await safeBroadcastWolfRoomUpdate(code);

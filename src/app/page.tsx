@@ -133,7 +133,6 @@ export default function Home() {
         <CardShine />
 
         <footer className={styles.legalFooter}>
-          <p>Boardverse is available at weplaytogether.online.</p>
           <nav aria-label="Legal links">
             <Link href="/privacy-policy">
               <ShieldCheck aria-hidden="true" />

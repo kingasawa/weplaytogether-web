@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowLeft, Globe2, KeyRound, LogIn, RefreshCw, Users } from "lucide-react";
+import { KeyRound, LogIn, RefreshCw, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { RoomCodeInput } from "./wolf/room-code-input";
-import styles from "./wolf/page.module.css";
+import { RoomCodeInput } from "./room-code-input";
+import styles from "./page.module.css";
 
-type PublicRoomSummary = {
+export type JoinRoomModalRoom = {
   code: string;
   hostName: string;
   playerCount: number;
@@ -15,67 +15,63 @@ type PublicRoomSummary = {
 
 type JoinTab = "code" | "public";
 
-type RoomCodeJoinScreenProps = {
-  gameName: string;
-  themeClassName: string;
-  titleId: string;
-  roomCodeInputId: string;
+type JoinRoomModalProps = {
+  /** Ảnh nền riêng theo game (avalon / wolf / wolf-classic) */
   backgroundSrc: string;
   backgroundAlt: string;
   roomCode: string;
   roomCodeError: string;
-  publicRooms: PublicRoomSummary[];
-  publicRoomsError: string;
   isPending: boolean;
+  publicRooms: JoinRoomModalRoom[];
+  publicRoomsError: string;
   isRoomListPending: boolean;
-  onBack: () => void;
+  onClose: () => void;
+  onRoomCodeChange: (value: string) => void;
+  onSubmitJoin: (event: FormEvent<HTMLFormElement>) => void;
   onRefreshPublicRooms: () => void;
-  onJoinPublicRoom: (roomCode: string) => void;
-  onRoomCodeChange: (roomCode: string) => void;
-  onSubmitRoomCode: (event: FormEvent<HTMLFormElement>) => void;
+  onJoinPublicRoom: (code: string) => void;
 };
 
-export default function RoomCodeJoinScreen({
-  gameName,
-  themeClassName,
-  titleId,
-  roomCodeInputId,
+export function JoinRoomModal({
   backgroundSrc,
   backgroundAlt,
   roomCode,
   roomCodeError,
+  isPending,
   publicRooms,
   publicRoomsError,
-  isPending,
   isRoomListPending,
-  onBack,
+  onClose,
+  onRoomCodeChange,
+  onSubmitJoin,
   onRefreshPublicRooms,
   onJoinPublicRoom,
-  onRoomCodeChange,
-  onSubmitRoomCode,
-}: RoomCodeJoinScreenProps) {
+}: JoinRoomModalProps) {
   const [activeTab, setActiveTab] = useState<JoinTab>("code");
 
   return (
-    <main className={`${styles.page} ${styles.joinRoomScreenPage} ${themeClassName}`}>
-      <section className={`${styles.joinRoomScreenPanel} ${styles.joinScreenPanel}`} aria-labelledby={titleId}>
-        <div className={styles.joinScreenBanner} aria-hidden="true">
-          <Image alt={backgroundAlt} fill sizes="(max-width: 768px) 100vw, 36rem" src={backgroundSrc} />
+    <div className={styles.modalBackdrop} role="presentation">
+      <section
+        aria-labelledby="join-room-title"
+        aria-modal="true"
+        className={`${styles.modal} ${styles.joinRoomModal}`}
+        role="dialog"
+      >
+        <div className={styles.joinModalBanner} aria-hidden="true">
+          <Image alt={backgroundAlt} fill sizes="(max-width: 768px) 100vw, 34rem" src={backgroundSrc} />
         </div>
 
-        <div className={styles.joinScreenTopBar}>
-          <button className={`${styles.joinIdentityBackButton} ${styles.joinScreenBackButton}`} type="button" onClick={onBack}>
-            <ArrowLeft aria-hidden="true" />
-            Quay lại
-          </button>
-          <span className={styles.joinIdentityEyebrow}>
-            <Users aria-hidden="true" />
-            {gameName}
-          </span>
-        </div>
+        <button
+          className={styles.closeButton}
+          type="button"
+          aria-label="Đóng tham gia phòng"
+          onClick={onClose}
+        >
+          <X aria-hidden="true" />
+        </button>
 
-        <header className={`${styles.joinIdentityHeader} ${styles.joinScreenHeader}`}>
-          <h1 id={titleId}>Tham gia phòng</h1>
+        <header className={styles.joinModalHeader}>
+          <h2 id="join-room-title">Tham gia phòng</h2>
         </header>
 
         <div className={styles.joinTabs} role="tablist" aria-label="Cách tham gia phòng">
@@ -102,21 +98,22 @@ export default function RoomCodeJoinScreen({
             aria-selected={activeTab === "public"}
             onClick={() => setActiveTab("public")}
           >
-            <Globe2 aria-hidden="true" />
+            <Users aria-hidden="true" />
             Phòng public
           </button>
         </div>
 
         {activeTab === "code" ? (
-          <form className={styles.joinPanel} onSubmit={onSubmitRoomCode}>
-            <div className={`${styles.joinPanelHeading} ${styles.joinPanelHeadingPlain}`}>
+          <form className={styles.joinPanel} onSubmit={onSubmitJoin}>
+            <div className={styles.joinPanelHeading}>
+              <KeyRound aria-hidden="true" />
               <div>
                 <h3>Nhập mã phòng</h3>
                 <p>Nhập 4 ký tự mã phòng để tham gia.</p>
               </div>
             </div>
 
-            <RoomCodeInput value={roomCode} onChange={onRoomCodeChange} firstBoxId={roomCodeInputId} />
+            <RoomCodeInput value={roomCode} onChange={onRoomCodeChange} />
 
             {roomCodeError && <span className={styles.errorText}>{roomCodeError}</span>}
 
@@ -129,7 +126,7 @@ export default function RoomCodeJoinScreen({
             </button>
           </form>
         ) : (
-          <>
+          <div className={styles.joinPanel}>
             <div className={styles.publicRoomsHeader}>
               <h3>Danh sách</h3>
               <button
@@ -190,9 +187,9 @@ export default function RoomCodeJoinScreen({
                 })}
               </ul>
             )}
-          </>
+          </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

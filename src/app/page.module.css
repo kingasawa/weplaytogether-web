@@ -610,18 +610,26 @@
   }
 }
 
+/* Vệt sáng vừa chạy vừa dài ra tới giữa quãng rồi từ từ ngắn lại.
+   scaleX/scaleY chỉ đổi chiều dài vệt, không đổi độ dày; mốc ở giữa giữ đúng
+   toạ độ tuyến tính của đường chạy nên quỹ đạo không đổi. */
 @keyframes cardShineTop {
   0% {
-    transform: translateX(-115%);
+    transform: translateX(-115%) scaleX(0.5);
     opacity: 0;
   }
-  6%,
+  6% {
+    opacity: 1;
+  }
+  15% {
+    transform: translateX(95%) scaleX(1.75);
+  }
   22% {
     opacity: 1;
   }
   30%,
   100% {
-    transform: translateX(305%);
+    transform: translateX(305%) scaleX(0.5);
     opacity: 0;
   }
 }
@@ -629,16 +637,21 @@
 @keyframes cardShineRight {
   0%,
   24% {
-    transform: translateY(-115%);
+    transform: translateY(-115%) scaleY(0.5);
     opacity: 0;
   }
-  30%,
+  30% {
+    opacity: 1;
+  }
+  39% {
+    transform: translateY(70%) scaleY(1.75);
+  }
   46% {
     opacity: 1;
   }
   54%,
   100% {
-    transform: translateY(255%);
+    transform: translateY(255%) scaleY(0.5);
     opacity: 0;
   }
 }
@@ -646,16 +659,21 @@
 @keyframes cardShineBottom {
   0%,
   48% {
-    transform: translateX(115%);
+    transform: translateX(115%) scaleX(0.5);
     opacity: 0;
   }
-  54%,
+  54% {
+    opacity: 1;
+  }
+  63% {
+    transform: translateX(-95%) scaleX(1.75);
+  }
   70% {
     opacity: 1;
   }
   78%,
   100% {
-    transform: translateX(-305%);
+    transform: translateX(-305%) scaleX(0.5);
     opacity: 0;
   }
 }
@@ -663,15 +681,20 @@
 @keyframes cardShineLeft {
   0%,
   72% {
-    transform: translateY(115%);
+    transform: translateY(115%) scaleY(0.5);
     opacity: 0;
   }
-  78%,
+  78% {
+    opacity: 1;
+  }
+  86% {
+    transform: translateY(-70%) scaleY(1.75);
+  }
   92% {
     opacity: 1;
   }
   100% {
-    transform: translateY(-255%);
+    transform: translateY(-255%) scaleY(0.5);
     opacity: 0;
   }
 }

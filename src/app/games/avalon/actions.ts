@@ -612,6 +612,13 @@ function getRequestedAvatarObjectKey(avatarObjectKey: string | null | undefined,
   };
 }
 
+// Avatar upload duoc gan voi session id. Khi session doi (cookie het han, bi xoa, doi
+// trinh duyet/thiet bi), key cu con luu o localStorage khong con khop -> chi bo qua avatar
+// va cho vao phong binh thuong, khong chan nguoi choi vao phong vi ly do nay.
+function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, sessionId: string) {
+  return normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
+}
+
 function mapLobbyPlayer(player: PlayerRow): AvalonLobbyPlayer {
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
 
@@ -1312,13 +1319,7 @@ export async function createAvalonRoom(
   const normalizedName = normalizePlayerName(playerName);
   const normalizedAvatarKey = normalizePlayerAvatarKey(avatarKey);
 
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -1402,13 +1403,7 @@ export async function joinAvalonRoom(
   }
 
   const sessionId = await getOrCreatePlayerSessionId();
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
   const { supabase, room, error } = await getRoomByCode(normalizedRoomCode);
 
@@ -1425,11 +1420,17 @@ export async function joinAvalonRoom(
     return { ok: false, error: "Không tìm thấy phòng Avalon." };
   }
 
-  if (room.status !== "waiting") {
+  const players = await getActivePlayers(supabase, room);
+
+  // Người cuối rời phòng khiến phòng bị đánh dấu "finished". Phòng rỗng như vậy chỉ là
+  // phòng bỏ lại, không phải đang chơi — cho vào lại (người vào trở thành host mới)
+  // thay vì báo nhầm "đã bắt đầu" và chặn luôn.
+  const isAbandonedEmptyRoom = room.status === "finished" && players.length === 0;
+
+  if (room.status !== "waiting" && !isAbandonedEmptyRoom) {
     return { ok: false, error: "Phòng Avalon này đã bắt đầu." };
   }
 
-  const players = await getActivePlayers(supabase, room);
   const normalizedName = normalizePlayerName(playerName);
   const normalizedAvatarKey = normalizePlayerAvatarKey(avatarKey);
   const existingPlayer = players.find((player) => player.session_id === sessionId);
@@ -1468,14 +1469,18 @@ export async function joinAvalonRoom(
     return { ok: false, error: "Phòng Avalon đã đủ 10 người." };
   }
 
+  // Phòng rỗng thì không còn host: người vào đầu tiên nhận quyền host, nếu không sẽ
+  // không ai bấm bắt đầu được.
+  const shouldBecomeHost = players.length === 0;
+
   const { data: player, error: playerError } = await insertRoomPlayer(supabase, {
     room_id: room.id,
     session_id: sessionId,
     name: normalizedName,
     avatar_key: normalizedAvatarKey,
     avatar_object_key: playerAvatarObjectKey,
-    is_host: false,
-    is_ready: false,
+    is_host: shouldBecomeHost,
+    is_ready: shouldBecomeHost,
   });
 
   if (playerError || !player) {
@@ -1483,6 +1488,13 @@ export async function joinAvalonRoom(
       ok: false,
       error: getAvatarObjectKeyErrorMessage(playerError) ?? "Không thể tham gia phòng Avalon.",
     };
+  }
+
+  if (shouldBecomeHost) {
+    await supabase
+      .from("wolf_rooms")
+      .update({ status: "waiting", host_player_id: player.id, current_game_id: null })
+      .eq("id", room.id);
   }
 
   await safeBroadcastWolfRoomUpdate(room.code);

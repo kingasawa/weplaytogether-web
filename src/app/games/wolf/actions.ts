@@ -491,6 +491,13 @@ function getRequestedAvatarObjectKey(avatarObjectKey: string | null | undefined,
   };
 }
 
+// Avatar upload duoc gan voi session id. Khi session doi (cookie het han, bi xoa, doi
+// trinh duyet/thiet bi), key cu con luu o localStorage khong con khop -> chi bo qua avatar
+// va cho vao phong binh thuong, khong chan nguoi choi vao phong vi ly do nay.
+function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, sessionId: string) {
+  return normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
+}
+
 function shuffleRoles(roles: WolfRole[]) {
   const shuffled = [...roles];
 
@@ -2659,13 +2666,7 @@ export async function createWolfRoom(
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -2750,13 +2751,7 @@ export async function joinWolfRoom(
   const sessionId = await getOrCreatePlayerSessionId();
   const name = normalizePlayerName(playerName);
   const playerAvatarKey = normalizePlayerAvatarKey(avatarKey);
-  const requestedAvatarObjectKey = getRequestedAvatarObjectKey(avatarObjectKey, sessionId);
-
-  if (!requestedAvatarObjectKey.ok) {
-    return { ok: false, error: requestedAvatarObjectKey.error };
-  }
-
-  const playerAvatarObjectKey = requestedAvatarObjectKey.avatarObjectKey;
+  const playerAvatarObjectKey = getUsableAvatarObjectKey(avatarObjectKey, sessionId);
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   const { data: room, error: roomError } = await supabase
@@ -2772,6 +2767,24 @@ export async function joinWolfRoom(
       error:
         getDatabaseErrorMessage(roomError?.code) ?? "Không tìm thấy phòng với mã này.",
     };
+  }
+
+  // Người cuối rời phòng khiến phòng bị đánh dấu "finished". Phòng rỗng như vậy chỉ là
+  // phòng bỏ lại, không phải đang chơi — hồi sinh để vào lại được thay vì chặn luôn.
+  if (room.status === "finished") {
+    const { count: abandonedPlayerCount } = await supabase
+      .from("wolf_room_players")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", room.id);
+
+    if ((abandonedPlayerCount ?? 0) === 0) {
+      await supabase
+        .from("wolf_rooms")
+        .update({ status: "waiting", current_game_id: null })
+        .eq("id", room.id);
+      room.status = "waiting";
+      room.current_game_id = null;
+    }
   }
 
   if (room.status !== "waiting") {
@@ -2849,6 +2862,10 @@ export async function joinWolfRoom(
     return { ok: false, error: "Phòng đã đủ người." };
   }
 
+  // Phòng rỗng thì không còn host: người vào đầu tiên nhận quyền host, nếu không sẽ
+  // không ai bấm bắt đầu được.
+  const shouldBecomeHost = (activePlayerCount ?? 0) === 0;
+
   const { data: player, error: playerError } = await insertWolfRoomPlayer(
     supabase,
     {
@@ -2857,6 +2874,8 @@ export async function joinWolfRoom(
       name,
       avatar_key: playerAvatarKey,
       avatar_object_key: playerAvatarObjectKey,
+      is_host: shouldBecomeHost,
+      is_ready: shouldBecomeHost,
     }
   );
 
@@ -2867,6 +2886,10 @@ export async function joinWolfRoom(
         getAvatarObjectKeyErrorMessage(playerError) ??
         "Không thể vào phòng. Vui lòng thử lại.",
     };
+  }
+
+  if (shouldBecomeHost) {
+    await supabase.from("wolf_rooms").update({ host_player_id: player.id }).eq("id", room.id);
   }
 
   await safeBroadcastWolfRoomUpdate(room.code);

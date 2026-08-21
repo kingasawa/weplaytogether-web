@@ -1,7 +1,9 @@
 import Pusher from "pusher";
 import {
+  getWolfLobbyChannelName,
   getWolfRoomChannelName,
   getWolfRoomPublicChannelName,
+  WOLF_LOBBY_UPDATED_EVENT,
   WOLF_PLAY_UPDATED_EVENT,
   WOLF_ROOM_UPDATED_EVENT,
 } from "./channels";
@@ -103,6 +105,9 @@ export async function broadcastWolfRoomUpdate(roomCode: string) {
   await Promise.all([
     triggerPusherEvent(getWolfRoomChannelName(roomCode), WOLF_ROOM_UPDATED_EVENT, data),
     triggerPusherEvent(getWolfRoomPublicChannelName(roomCode), WOLF_ROOM_UPDATED_EVENT, data),
+    // Mọi thay đổi phòng (tạo/vào/rời/kick/bắt đầu/kết thúc) đều đổi danh sách phòng public
+    // → báo luôn cho kênh lobby để màn hình /join tự cập nhật, không cần bấm làm mới.
+    triggerPusherEvent(getWolfLobbyChannelName(), WOLF_LOBBY_UPDATED_EVENT, data),
   ]);
 }
 
