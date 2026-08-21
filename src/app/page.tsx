@@ -73,6 +73,7 @@ function Logo() {
 function GameCard({ game }: { game: FeaturedGame }) {
   return (
     <Link className={styles.gameCard} href={game.href} data-game-card>
+      <span className={styles.gameCardShine} aria-hidden="true" />
       <div className={styles.gameCover}>
         <Image
           alt={`Ảnh bìa game ${game.name}`}

@@ -495,53 +495,81 @@
   backdrop-filter: blur(3px) saturate(140%);
 }
 
-.gameCard::before {
-  content: "";
+.gameCardShine {
   position: absolute;
-  top: -45%;
-  bottom: -45%;
-  left: -70%;
+  inset: -1px;
   z-index: 2;
-  width: 45%;
-  border-radius: 999rem;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    color-mix(in srgb, var(--text) 14%, transparent) 38%,
-    color-mix(in srgb, var(--primary-light) 56%, transparent) 50%,
-    color-mix(in srgb, var(--text) 18%, transparent) 62%,
-    transparent 100%
-  );
-  box-shadow: 0 0 1.4rem color-mix(in srgb, var(--primary-light) 32%, transparent);
-  transform: translateX(-140%) skewX(-16deg);
+  padding: 1.5px;
+  border-radius: inherit;
+  -webkit-mask:
+    linear-gradient(var(--text) 0 0) content-box,
+    linear-gradient(var(--text) 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  overflow: hidden;
   pointer-events: none;
   opacity: 0;
+}
+
+.gameCardShine::before {
+  content: "";
+  position: absolute;
+  inset: -55%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 72deg,
+    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 92deg,
+    var(--text) 100deg,
+    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 108deg,
+    transparent 128deg,
+    transparent 360deg
+  );
+  transform: rotate(0deg);
   will-change: transform, opacity;
 }
 
-.gameCard[data-shine="on"]::before {
-  animation: cardShine 1.4s ease-out;
+.gameCard[data-shine="on"] .gameCardShine {
+  animation: cardShineFade 1.4s linear;
 }
 
-@keyframes cardShine {
+.gameCard[data-shine="on"] .gameCardShine::before {
+  animation: cardShineSpin 1.4s linear;
+}
+
+@keyframes cardShineFade {
   0% {
-    transform: translateX(-140%) skewX(-16deg);
     opacity: 0;
   }
-  16% {
-    opacity: 0.92;
+  12% {
+    opacity: 1;
   }
-  82% {
-    opacity: 0.92;
+  88% {
+    opacity: 1;
   }
   100% {
-    transform: translateX(430%) skewX(-16deg);
     opacity: 0;
+  }
+}
+
+@keyframes cardShineSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@supports not ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .gameCardShine {
+    display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gameCard[data-shine="on"]::before {
+  .gameCard[data-shine="on"] .gameCardShine,
+  .gameCard[data-shine="on"] .gameCardShine::before {
     animation: none;
   }
 }
