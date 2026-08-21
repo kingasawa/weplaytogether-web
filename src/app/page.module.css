@@ -496,45 +496,103 @@
 }
 
 .gameCardShine {
+  --shine-thickness: 2px;
   position: absolute;
-  inset: -1px;
+  inset: 0;
   z-index: 2;
-  padding: 1.5px;
   border-radius: inherit;
-  -webkit-mask:
-    linear-gradient(var(--text) 0 0) content-box,
-    linear-gradient(var(--text) 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
 }
 
-.gameCardShine::before {
-  content: "";
+.gameCardShine span {
   position: absolute;
-  inset: -55%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 72deg,
-    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 92deg,
-    var(--text) 100deg,
-    color-mix(in srgb, var(--primary-light) 70%, var(--text)) 108deg,
-    transparent 128deg,
-    transparent 360deg
-  );
-  transform: rotate(0deg);
+  display: block;
+  border-radius: 999rem;
+  opacity: 0;
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--primary-light) 62%, transparent);
   will-change: transform, opacity;
+}
+
+.shineTop,
+.shineBottom {
+  width: 34%;
+  height: var(--shine-thickness);
+}
+
+.shineRight,
+.shineLeft {
+  width: var(--shine-thickness);
+  height: 40%;
+}
+
+.shineTop {
+  top: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--primary-light) 72%, var(--text)),
+    transparent
+  );
+  transform: translateX(-115%);
+}
+
+.shineRight {
+  top: 0;
+  right: 0;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--primary-light) 72%, var(--text)),
+    transparent
+  );
+  transform: translateY(-115%);
+}
+
+.shineBottom {
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    270deg,
+    transparent,
+    color-mix(in srgb, var(--primary-light) 72%, var(--text)),
+    transparent
+  );
+  transform: translateX(115%);
+}
+
+.shineLeft {
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    0deg,
+    transparent,
+    color-mix(in srgb, var(--primary-light) 72%, var(--text)),
+    transparent
+  );
+  transform: translateY(115%);
 }
 
 .gameCard[data-shine="on"] .gameCardShine {
   animation: cardShineFade 1.4s linear;
 }
 
-.gameCard[data-shine="on"] .gameCardShine::before {
-  animation: cardShineSpin 1.4s linear;
+.gameCard[data-shine="on"] .shineTop {
+  animation: cardShineTop 1.4s linear;
+}
+
+.gameCard[data-shine="on"] .shineRight {
+  animation: cardShineRight 1.4s linear;
+}
+
+.gameCard[data-shine="on"] .shineBottom {
+  animation: cardShineBottom 1.4s linear;
+}
+
+.gameCard[data-shine="on"] .shineLeft {
+  animation: cardShineLeft 1.4s linear;
 }
 
 @keyframes cardShineFade {
@@ -552,24 +610,75 @@
   }
 }
 
-@keyframes cardShineSpin {
+@keyframes cardShineTop {
   0% {
-    transform: rotate(0deg);
+    transform: translateX(-115%);
+    opacity: 0;
   }
+  6%,
+  22% {
+    opacity: 1;
+  }
+  30%,
   100% {
-    transform: rotate(360deg);
+    transform: translateX(305%);
+    opacity: 0;
   }
 }
 
-@supports not ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
-  .gameCardShine {
-    display: none;
+@keyframes cardShineRight {
+  0%,
+  24% {
+    transform: translateY(-115%);
+    opacity: 0;
+  }
+  30%,
+  46% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    transform: translateY(255%);
+    opacity: 0;
+  }
+}
+
+@keyframes cardShineBottom {
+  0%,
+  48% {
+    transform: translateX(115%);
+    opacity: 0;
+  }
+  54%,
+  70% {
+    opacity: 1;
+  }
+  78%,
+  100% {
+    transform: translateX(-305%);
+    opacity: 0;
+  }
+}
+
+@keyframes cardShineLeft {
+  0%,
+  72% {
+    transform: translateY(115%);
+    opacity: 0;
+  }
+  78%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-255%);
+    opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .gameCard[data-shine="on"] .gameCardShine,
-  .gameCard[data-shine="on"] .gameCardShine::before {
+  .gameCard[data-shine="on"] .gameCardShine span {
     animation: none;
   }
 }
