@@ -245,6 +245,8 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
 
   useWolfRoomPresence({
     enabled: !isPreview && Boolean(playState.currentPlayerId),
+    // Poll dự phòng + tự khôi phục khi kẹt; tắt khi ván đã có kết quả.
+    pollingEnabled: !isResultPhase,
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
     onRoomUpdate: refreshPlayState,

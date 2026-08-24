@@ -3,7 +3,7 @@
 import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useState, useTransition, type PointerEvent } from "react";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
@@ -415,25 +415,13 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     setPlayState(nextState);
   }, [playState.room.code, router]);
 
-  const { isPresenceReady } = useWolfRoomPresence({
+  // Poll dự phòng + tự khôi phục khi kẹt đã nằm trong hook, không cần interval riêng ở đây.
+  useWolfRoomPresence({
     enabled: Boolean(playState.currentPlayerId),
+    pollingEnabled: playState.game.phase !== "result",
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
   });
-
-  useEffect(() => {
-    if (!playState.currentPlayerId || playState.game.phase === "result") {
-      return;
-    }
-
-    const fallbackRefreshInterval = window.setInterval(() => {
-      void refreshPlayState();
-    }, isPresenceReady ? 8000 : 2500);
-
-    return () => {
-      window.clearInterval(fallbackRefreshInterval);
-    };
-  }, [isPresenceReady, playState.currentPlayerId, playState.game.phase, refreshPlayState]);
 
   function getWaitingPlayers() {
     if (playState.game.phase === "card_reveal" || playState.game.phase === "night_review") {

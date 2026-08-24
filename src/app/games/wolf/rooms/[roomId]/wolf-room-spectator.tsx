@@ -3,7 +3,7 @@
 import { LoaderCircle, Trophy, UserPlus, Users } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import {
   readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
@@ -36,6 +36,7 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
     }
   }, [spectatorState.room.code]);
 
+  // Poll dự phòng + tự khôi phục khi kẹt đã nằm trong hook, không cần interval riêng ở đây.
   useWolfRoomPresence({
     enabled: true,
     mode: "public",
@@ -43,16 +44,6 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
     onPlayUpdate: refreshSpectatorState,
     onRoomUpdate: refreshSpectatorState,
   });
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void refreshSpectatorState();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [refreshSpectatorState]);
 
   function joinNextGame() {
     setMessage("");

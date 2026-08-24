@@ -437,25 +437,13 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     setWitchDecision((current) => (nextState.game.phase === "night" ? current : "rescue_prompt"));
   }, [playState.room.code, router]);
 
-  const { isPresenceReady } = useWolfRoomPresence({
+  // Poll dự phòng + tự khôi phục khi kẹt đã nằm trong hook, không cần interval riêng ở đây.
+  useWolfRoomPresence({
     enabled: Boolean(playState.currentPlayerId),
+    pollingEnabled: playState.game.phase !== "result",
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
   });
-
-  useEffect(() => {
-    if (!playState.currentPlayerId || playState.game.phase === "result") {
-      return;
-    }
-
-    const fallbackRefreshInterval = window.setInterval(() => {
-      void refreshPlayState();
-    }, isPresenceReady ? 8000 : 2500);
-
-    return () => {
-      window.clearInterval(fallbackRefreshInterval);
-    };
-  }, [isPresenceReady, playState.currentPlayerId, playState.game.phase, refreshPlayState]);
 
   useEffect(() => {
     if (!isNightPhase || !playState.currentPlayerId || !playState.activeNightTurn?.isAutoPass) {
