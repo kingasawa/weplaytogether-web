@@ -1,0 +1,8 @@
+# Cache header cho static asset do Cloudflare phục vụ (không qua Worker).
+# https://developers.cloudflare.com/workers/static-assets/headers
+
+/images/*
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
