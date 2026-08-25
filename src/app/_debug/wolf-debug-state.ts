@@ -141,6 +141,12 @@ export function buildDebugWolfState(phase: WolfGamePhase, resultCaseKey?: string
     if (resultCaseKey === LONE_WEREWOLF_SEER_CASE_KEY) {
       return {
         ...state,
+        // Preview cần biết role của người chơi để mô phỏng bước soi bài.
+        // Bộ vai riêng cho kịch bản này: mình là Ma Sói DUY NHẤT trên bàn.
+        players: buildPlayers({
+          revealRoles: true,
+          roleByPlayerId: { p1: "werewolf_seer", p2: "seer", p3: "villager", p4: "troublemaker", p5: "robber" },
+        }),
         myCard: { originalRole: "werewolf_seer", currentRole: null, nightReviewRole: null },
         werewolfTeammates: [],
         activeNightTurn: {

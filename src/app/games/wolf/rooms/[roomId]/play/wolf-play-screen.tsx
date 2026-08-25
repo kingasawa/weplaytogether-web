@@ -291,10 +291,20 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   const werewolfTeammateNames = hasWerewolfTeammates
     ? playState.werewolfTeammates.map((player) => player.playerName)
     : copycatWerewolfTeammates.map((player) => player.playerName);
+  // Sói Tiên Tri đi hai bước trong cùng một lượt: soi người chơi trước và thấy role ngay,
+  // sau đó nếu là sói đơn mới được mở thêm một lá giữa bàn.
+  const isWerewolfSeerEffect = effectiveNightActionRole === "werewolf_seer";
+  const werewolfSeerTargetPlayerId = isWerewolfSeerEffect
+    ? (isActingAsDoppelganger ? activeDoppelgangerActionTargetIds[0] : selectedPlayerIds[0]) ?? null
+    : null;
+  const werewolfSeerReveal = werewolfSeerTargetPlayerId
+    ? revealedPlayerCards.find((card) => card.playerId === werewolfSeerTargetPlayerId) ?? null
+    : null;
+  const isWerewolfSeerScryDone = Boolean(werewolfSeerReveal);
   // Sói đơn được xem một lá giữa bàn. Áp dụng cho cả Sói Tiên Tri và sói do Nhân Bản / Copy Cat copy.
   const isLoneWerewolfPeek =
-    (effectiveNightActionRole === "werewolf" || effectiveNightActionRole === "werewolf_seer") &&
-    !hasWerewolfTeammates;
+    !hasWerewolfTeammates &&
+    (effectiveNightActionRole === "werewolf" || (isWerewolfSeerEffect && isWerewolfSeerScryDone));
   const nightResultActionRole =
     playState.myAction?.actionType === "copycat"
       ? copycatCopiedRole
@@ -494,6 +504,21 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   }
 
   async function revealPlayerCard(playerId: string) {
+    // Trang debug không có ván thật để gọi server: lấy luôn role từ mock state.
+    if (isPreview) {
+      const previewPlayer = playState.players.find((player) => player.id === playerId);
+      const previewRole = previewPlayer?.role;
+
+      if (previewPlayer && previewRole) {
+        setRevealedPlayerCards((current) => [
+          ...current.filter((card) => card.playerId !== playerId),
+          { ok: true, playerId, playerName: previewPlayer.name, role: previewRole },
+        ]);
+      }
+
+      return;
+    }
+
     try {
       const result = await revealWolfPlayerCard(playState.room.code, playerId);
 
@@ -527,6 +552,21 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
 
       if (activeDoppelgangerCopiedRole === "seer" && viewedCenterIndexes.length > 0) {
         setMessage("Nhân Bản copy Tiên Tri đã xem lá giữa thì không thể chuyển sang xem người chơi.");
+        return;
+      }
+
+      if (activeDoppelgangerCopiedRole === "werewolf_seer") {
+        const copiedId = selectedPlayerIds[0] ?? copiedPlayerId;
+        const isDeselecting = activeDoppelgangerActionTargetIds[0] === playerId;
+
+        setSelectedCenterIndexes([]);
+        setRevealedCenterCards([]);
+        setSelectedPlayerIds(isDeselecting ? [copiedId] : [copiedId, playerId]);
+
+        if (!isDeselecting) {
+          void revealPlayerCard(playerId);
+        }
+
         return;
       }
 
@@ -565,6 +605,21 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       setSelectedCenterIndexes((current) => current.slice(0, 1));
     }
 
+    if (isWerewolfSeerEffect) {
+      // Đổi mục tiêu thì bỏ luôn lá giữa đã chọn: phải soi người xong mới tới bước lá giữa.
+      const isDeselecting = selectedPlayerIds[0] === playerId;
+
+      setSelectedCenterIndexes([]);
+      setRevealedCenterCards([]);
+      setSelectedPlayerIds(isDeselecting ? [] : [playerId]);
+
+      if (!isDeselecting) {
+        void revealPlayerCard(playerId);
+      }
+
+      return;
+    }
+
     setSelectedPlayerIds((current) => {
       if (usesTroublemakerSelection) {
         if (current.includes(playerId)) {
@@ -579,6 +634,11 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   }
 
   async function revealCenterCard(centerIndex: number) {
+    // Trang debug không có ván thật: chỉ cho chọn, không gọi server (tránh báo lỗi giả).
+    if (isPreview) {
+      return;
+    }
+
     if (!isMyNightTurn) {
       setMessage("Chưa tới lượt của bạn.");
       return;
@@ -1082,9 +1142,14 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         : selectedPlayerIds;
     const playerPickerLabel = isChoosingDoppelgangerTarget
       ? "Chọn người để nhân bản"
-      : nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole
-        ? `Thực hiện ${WOLF_ROLE_LABELS[activeDoppelgangerCopiedRole]}`
-        : "Chọn người chơi";
+      : isWerewolfSeerEffect
+        ? "Bước 1: chọn người để soi"
+        : nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole
+          ? `Thực hiện ${WOLF_ROLE_LABELS[activeDoppelgangerCopiedRole]}`
+          : "Chọn người chơi";
+    const centerPickerLabel = isWerewolfSeerEffect
+      ? "Bước 2: bạn là Ma Sói duy nhất, được xem thêm 1 lá giữa bàn"
+      : "Chọn lá giữa bàn";
     return (
       <>
         {nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole && (
@@ -1093,6 +1158,12 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
               label={`Nhân bản ${getPlayerName(playState.players, activeDoppelgangerCopiedPlayerId)}`}
               role={activeDoppelgangerCopiedRole}
             />
+          </div>
+        )}
+
+        {werewolfSeerReveal && (
+          <div className={styles.playerRevealGrid}>
+            <RoleCard label={`Soi ${werewolfSeerReveal.playerName}`} role={werewolfSeerReveal.role} />
           </div>
         )}
 
@@ -1139,7 +1210,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
 
         {needsCenterPicker && (
           <div className={styles.playPicker}>
-            <span>Chọn lá giữa bàn</span>
+            <span>{centerPickerLabel}</span>
             {playState.centerCards.map((card) => {
               const isCenterLoading = revealingCenterIndexes.includes(card.index);
               const revealLabel =
@@ -1214,7 +1285,9 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             activeDoppelgangerCopiedRole === "copycat" ||
             (activeDoppelgangerCopiedRole === "seer" &&
               isSeerSelectionComplete(selectedCenterIndexes)) ||
-            (activeDoppelgangerCopiedRole === "werewolf_seer" && activeDoppelgangerActionTargetIds.length === 1) ||
+            (activeDoppelgangerCopiedRole === "werewolf_seer" &&
+              activeDoppelgangerActionTargetIds.length === 1 &&
+              isWerewolfSeerScryDone) ||
             (activeDoppelgangerCopiedRole === "robber" && activeDoppelgangerActionTargetIds.length === 1) ||
             (activeDoppelgangerCopiedRole === "troublemaker" && activeDoppelgangerActionTargetIds.length === 2) ||
             (activeDoppelgangerCopiedRole === "witch" &&
@@ -1225,7 +1298,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     nightActionRole === "villager" ||
     nightActionRole === "insomniac" ||
     (nightActionRole === "werewolf" && (hasWerewolfTeammates ? selectedCenterIndexes.length === 0 : selectedCenterIndexes.length <= 1)) ||
-    (nightActionRole === "werewolf_seer" && selectedPlayerIds.length === 1) ||
+    (nightActionRole === "werewolf_seer" && selectedPlayerIds.length === 1 && isWerewolfSeerScryDone) ||
     (nightActionRole === "robber" && selectedPlayerIds.length === 1) ||
     (nightActionRole === "troublemaker" && selectedPlayerIds.length === 2) ||
     (nightActionRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 1) ||
@@ -1242,7 +1315,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         copycatCopiedRole === "copycat" ||
         (copycatCopiedRole === "seer" &&
           isSeerSelectionComplete(selectedCenterIndexes)) ||
-        (copycatCopiedRole === "werewolf_seer" && selectedPlayerIds.length === 1) ||
+        (copycatCopiedRole === "werewolf_seer" && selectedPlayerIds.length === 1 && isWerewolfSeerScryDone) ||
         (copycatCopiedRole === "robber" && selectedPlayerIds.length === 1) ||
         (copycatCopiedRole === "troublemaker" && selectedPlayerIds.length === 2) ||
         (copycatCopiedRole === "witch" && selectedPlayerIds.length === 1 && selectedCenterIndexes.length === 1) ||

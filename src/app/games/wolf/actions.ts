@@ -4177,13 +4177,18 @@ export async function revealWolfPlayerCard(
     activeNightTurn?.activeRole === "doppelganger" &&
     (myCard?.original_role === "doppelganger" ||
       (myCard?.original_role === "copycat" && activeNightTurn.isCopycatCopiedRole));
+  // Sói Tiên Tri soi người chơi và thấy kết quả ngay trong lượt, trước khi quyết định
+  // có xem thêm lá giữa bàn hay không (chỉ sói đơn mới được xem thêm).
+  const canRevealWerewolfSeerTarget =
+    activeNightTurn?.activeRole === "werewolf_seer" ||
+    (activeNightTurn?.activeRole === "doppelganger" && activeNightTurn.copiedRole === "werewolf_seer");
 
   if (
     !activeNightTurn ||
     activeNightTurn.playerId !== currentPlayer.id ||
-    !canRevealDoppelgangerTarget
+    (!canRevealDoppelgangerTarget && !canRevealWerewolfSeerTarget)
   ) {
-    return { ok: false, error: "Chưa tới lượt Nhân Bản của bạn." };
+    return { ok: false, error: "Chưa tới lượt soi bài của bạn." };
   }
 
   const targetCard = getPlayerCard(cards, targetPlayerId);
