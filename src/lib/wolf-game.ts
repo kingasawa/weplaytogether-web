@@ -16,7 +16,8 @@ export const WOLF_ROLE_LABELS: Record<WolfRole, string> = {
 
 export const WOLF_ROLE_DESCRIPTIONS: Record<WolfRole, string> = {
   werewolf: "Tìm đồng đội Ma Sói. Nếu chỉ có một Ma Sói, có thể xem một lá giữa bàn.",
-  werewolf_seer: "Thuộc phe Ma Sói và được soi một lá bài của người chơi.",
+  werewolf_seer:
+    "Thuộc phe Ma Sói, thức dậy cùng bầy sói và được soi một lá bài của người chơi. Nếu là Ma Sói duy nhất, được xem thêm một lá giữa bàn.",
   villager: "Không có hành động ban đêm. Dùng thảo luận để tìm Ma Sói.",
   seer: "Chọn tối đa hai lá giữa bàn để biết từng lá là Sói hay không phải Sói. Nếu lá đầu là Sói, phải dừng lượt ngay.",
   robber: "Đổi bài của mình với một người chơi khác và biết lá vừa lấy.",

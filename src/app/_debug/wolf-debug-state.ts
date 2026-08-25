@@ -2,6 +2,9 @@ import type { WolfGamePhase, WolfRole } from "@/lib/supabase/types";
 import type { WolfPlayState } from "../games/wolf/actions";
 import { getDebugWolfResultCase } from "./wolf-result-cases";
 
+// Case dùng chung cho cả phase night (xem UI lượt sói đơn) lẫn phase result (xem log).
+export const LONE_WEREWOLF_SEER_CASE_KEY = "werewolf-seer-lone";
+
 export const DEBUG_WOLF_PHASES: WolfGamePhase[] = [
   "card_reveal",
   "night",
@@ -134,6 +137,24 @@ export function buildDebugWolfState(phase: WolfGamePhase, resultCaseKey?: string
   }
 
   if (phase === "night") {
+    // Lượt Sói Tiên Tri là sói đơn: vừa chọn người để soi, vừa được xem một lá giữa bàn.
+    if (resultCaseKey === LONE_WEREWOLF_SEER_CASE_KEY) {
+      return {
+        ...state,
+        myCard: { originalRole: "werewolf_seer", currentRole: null, nightReviewRole: null },
+        werewolfTeammates: [],
+        activeNightTurn: {
+          playerId: "p1",
+          playerName: "Khánh",
+          originalRole: "werewolf_seer",
+          activeRole: "werewolf_seer",
+          copiedRole: null,
+          isCopycatCopiedRole: false,
+        },
+        isNightTurnInProgress: true,
+      };
+    }
+
     return {
       ...state,
       activeNightTurn: {

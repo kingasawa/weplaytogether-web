@@ -311,8 +311,8 @@ export const DEBUG_WOLF_RESULT_CASES: DebugWolfResultCase[] = [
         {
           "id": "werewolf-p2-2",
           "title": "Bước 2: Yun thực hiện Ma Sói",
-          "logText": "Yun (Copy Cat → Ma Sói) hoàn tất lượt mà không xem lá giữa bàn",
-          "description": "Yun không chọn xem lá giữa bàn trong lượt Ma Sói. Hành động này không làm đổi vị trí lá bài."
+          "logText": "Yun (Copy Cat → Ma Sói) xem lá giữa 3 (Mất Ngủ)",
+          "description": "Yun là Ma Sói đơn nên được xem một lá giữa bàn. Hành động này không làm đổi vị trí lá bài."
         },
         {
           "id": "troublemaker-p5-3",
@@ -717,6 +717,114 @@ export const DEBUG_WOLF_RESULT_CASES: DebugWolfResultCase[] = [
         "originalRole": "villager",
         "finalRole": "villager",
         "finalTeamRole": "villager"
+      }
+    ]
+  },
+  {
+    "key": "werewolf-seer-lone",
+    "label": "Sói Tiên Tri là sói đơn",
+    "note": "Yun là Ma Sói duy nhất: soi bài Khánh, đồng thời được xem thêm một lá giữa bàn.",
+    "roleDeck": [
+      "werewolf_seer",
+      "seer",
+      "robber",
+      "witch",
+      "drunk",
+      "troublemaker",
+      "villager",
+      "villager"
+    ],
+    "myOriginalRole": "seer",
+    "myFinalRole": "seer",
+    "voteTargetByPlayerId": {
+      "p1": "p2",
+      "p2": "p3",
+      "p3": "p2",
+      "p4": "p2",
+      "p5": "p1"
+    },
+    "result": {
+      "eliminatedPlayerIds": [
+        "p2"
+      ],
+      "winnerTeam": "villagers",
+      "winnerText": "Có Ma Sói bị treo. Dân làng thắng.",
+      "skippedVoteCount": 0,
+      "voteCounts": [
+        {
+          "playerId": "p1",
+          "votes": 1
+        },
+        {
+          "playerId": "p2",
+          "votes": 3
+        },
+        {
+          "playerId": "p3",
+          "votes": 1
+        },
+        {
+          "playerId": "p4",
+          "votes": 0
+        },
+        {
+          "playerId": "p5",
+          "votes": 0
+        }
+      ]
+    },
+    "cardMovementSummary": {
+      "orderText": "Log được xử lý theo thứ tự hành động trong đêm: 1. Copy Cat → 2. Nhân Bản → 3. Ma Sói → 4. Sói Tiên Tri → 5. Tiên Tri → 6. Kẻ Trộm → 7. Phù Thuỷ → 8. Say Rượu → 9. Kẻ Gây Rối → 10. Mất Ngủ. Copy Cat copy trước, rồi chức năng đã copy chạy ở đúng lượt của role đó.",
+      "steps": [
+        {
+          "id": "werewolf_seer-p2-1",
+          "title": "Bước 1: Yun hành động bằng vai ban đầu Sói Tiên Tri",
+          "logText": "Yun (Sói Tiên Tri) xem lá giữa 2 (Phù Thuỷ)",
+          "description": "Yun là sói đơn nên được xem thêm một lá giữa bàn. Hành động này không làm đổi vị trí lá bài."
+        },
+        {
+          "id": "werewolf_seer-p2-2",
+          "title": "Bước 2: Yun hành động bằng vai ban đầu Sói Tiên Tri",
+          "logText": "Yun (Sói Tiên Tri) soi Khánh (Tiên Tri)",
+          "description": "Yun xem bài ban đầu của Khánh. Hành động này chỉ tiết lộ thông tin, không đổi lá bài."
+        }
+      ]
+    },
+    "allPlayersSummary": [
+      {
+        "playerId": "p1",
+        "playerName": "Khánh",
+        "originalRole": "seer",
+        "finalRole": "seer",
+        "finalTeamRole": "seer"
+      },
+      {
+        "playerId": "p2",
+        "playerName": "Yun",
+        "originalRole": "werewolf_seer",
+        "finalRole": "werewolf_seer",
+        "finalTeamRole": "werewolf_seer"
+      },
+      {
+        "playerId": "p3",
+        "playerName": "Trí",
+        "originalRole": "villager",
+        "finalRole": "villager",
+        "finalTeamRole": "villager"
+      },
+      {
+        "playerId": "p4",
+        "playerName": "Lan Nè",
+        "originalRole": "troublemaker",
+        "finalRole": "troublemaker",
+        "finalTeamRole": "troublemaker"
+      },
+      {
+        "playerId": "p5",
+        "playerName": "Đại Chúa",
+        "originalRole": "robber",
+        "finalRole": "robber",
+        "finalTeamRole": "robber"
       }
     ]
   }

@@ -3,6 +3,7 @@ import WolfDebugNav from "../_debug/wolf-debug-nav";
 import {
   buildDebugWolfState,
   DEBUG_WOLF_PHASES,
+  LONE_WEREWOLF_SEER_CASE_KEY,
   normalizeDebugWolfPhase,
 } from "../_debug/wolf-debug-state";
 import { DEBUG_WOLF_RESULT_CASES, getDebugWolfResultCase } from "../_debug/wolf-result-cases";
@@ -26,7 +27,7 @@ export default async function DebugWolfPage({ searchParams }: DebugWolfPageProps
   return (
     <>
       <WolfPlayScreen
-        initialState={buildDebugWolfState(activePhase, activeCase.key)}
+        initialState={buildDebugWolfState(activePhase, resultCaseKey ?? activeCase.key)}
         isPreview
         key={`${activePhase}:${activeCase.key}`}
       />
@@ -36,8 +37,16 @@ export default async function DebugWolfPage({ searchParams }: DebugWolfPageProps
           ...DEBUG_WOLF_PHASES.map((wolfPhase) => ({
             href: `/debug-wolf?phase=${wolfPhase}`,
             label: WOLF_PHASE_LABELS[wolfPhase],
-            isActive: wolfPhase === activePhase && !isResultPhase,
+            isActive:
+              wolfPhase === activePhase &&
+              !isResultPhase &&
+              !(wolfPhase === "night" && resultCaseKey === LONE_WEREWOLF_SEER_CASE_KEY),
           })),
+          {
+            href: `/debug-wolf?phase=night&case=${LONE_WEREWOLF_SEER_CASE_KEY}`,
+            label: "Ban đêm · Sói Tiên Tri đơn",
+            isActive: activePhase === "night" && resultCaseKey === LONE_WEREWOLF_SEER_CASE_KEY,
+          },
           ...DEBUG_WOLF_RESULT_CASES.map((resultCase) => ({
             href: `/debug-wolf?phase=result&case=${resultCase.key}`,
             label: `Kết quả · ${resultCase.label}`,

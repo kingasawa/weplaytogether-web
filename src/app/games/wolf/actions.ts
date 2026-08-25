@@ -1374,12 +1374,24 @@ function buildNightReviewMessages(
   if (action.action_type === "werewolf_seer") {
     if (action.target_player_id) {
       const targetCard = getPlayerCard(cards, action.target_player_id);
-
-      return [
+      const messages = [
         `Bạn đã soi ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
           targetCard?.original_role
         )}.`,
       ];
+
+      // Sói đơn được xem thêm một lá giữa bàn.
+      if (validateCenterIndex(action.target_center_index)) {
+        const centerCard = getCenterCard(cards, action.target_center_index as number);
+
+        messages.push(
+          `Bạn là Ma Sói duy nhất nên được xem lá giữa ${(action.target_center_index as number) + 1}: ${getRoleReviewLabel(
+            centerCard?.original_role
+          )}.`
+        );
+      }
+
+      return messages;
     }
 
     return ["Sói Tiên Tri chưa chọn người chơi để soi."];
@@ -1546,14 +1558,25 @@ function buildNightReviewMessages(
 
     if (copiedRole === "werewolf_seer" && action.target_player_id_2) {
       const targetCard = getPlayerCard(cards, action.target_player_id_2);
-
-      return [
+      const messages = [
         `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)} (${getRoleReviewLabel(
           copiedRole
         )}) và soi ${getPlayerName(players, action.target_player_id_2)}: ${getRoleReviewLabel(
           targetCard?.original_role
         )}.`,
       ];
+
+      if (validateCenterIndex(action.target_center_index)) {
+        const centerCard = getCenterCard(cards, action.target_center_index as number);
+
+        messages.push(
+          `Bạn là Ma Sói duy nhất nên được xem lá giữa ${(action.target_center_index as number) + 1}: ${getRoleReviewLabel(
+            centerCard?.original_role
+          )}.`
+        );
+      }
+
+      return messages;
     }
 
     return [
@@ -2262,6 +2285,18 @@ function simulateNightResolution(
             description: `${actorName} nhân bản Sói Tiên Tri và soi lá của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
           });
           stepNumber += 1;
+
+          if (validateCenterIndex(action.target_center_index)) {
+            const centerCard = getCenterCard(cards, action.target_center_index as number);
+
+            steps.push({
+              id: `${role}-${card.player_id}-${stepNumber}`,
+              title: getActionTitle(actorName),
+              logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.werewolf_seer}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard ? roleOfCard(centerCard) : null)})`,
+              description: `${actorName} là sói đơn nên được xem thêm một lá giữa bàn.`,
+            });
+            stepNumber += 1;
+          }
         }
 
         if (copiedRole === "seer") {
@@ -2336,6 +2371,36 @@ function simulateNightResolution(
         const actorName = getPlayerName(players, card.player_id);
         const targetCard = getPlayerCard(cards, action.target_player_id);
         const targetName = getPlayerName(players, action.target_player_id);
+        const werewolfTeammateNames = cards
+          .filter(
+            (possibleTeammateCard) =>
+              possibleTeammateCard.player_id &&
+              possibleTeammateCard.player_id !== card.player_id &&
+              isWerewolfRole(wakingRoleByPlayerId.get(possibleTeammateCard.player_id as string))
+          )
+          .map((possibleTeammateCard) => getPlayerName(players, possibleTeammateCard.player_id));
+
+        // Sói Tiên Tri thức dậy cùng bầy sói trước: thấy đồng đội, hoặc nếu là sói đơn thì
+        // được xem một lá giữa bàn.
+        if (werewolfTeammateNames.length > 0) {
+          steps.push({
+            id: `${role}-${card.player_id}-${stepNumber}`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) thấy Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}`,
+            description: `${actorName} thức dậy cùng bầy sói nên biết đồng đội của mình.`,
+          });
+          stepNumber += 1;
+        } else if (validateCenterIndex(primaryCenterIndex)) {
+          const centerCard = getCenterCard(cards, primaryCenterIndex as number);
+
+          steps.push({
+            id: `${role}-${card.player_id}-${stepNumber}`,
+            title: getActionTitle(actorName),
+            logText: `${actorName} (${actorRoleLabel}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard ? roleOfCard(centerCard) : null)})`,
+            description: `${actorName} là sói đơn nên được xem thêm một lá giữa bàn. Hành động này không làm đổi vị trí lá bài.`,
+          });
+          stepNumber += 1;
+        }
 
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
@@ -3968,6 +4033,13 @@ export async function revealWolfCenterCard(
 
   const revealAsSeer = activeRole === "seer" || doppelgangerCopiedRole === "seer";
   const werewolfCount = getWerewolfPlayerIdsAfterCopycat(cards, actions).length;
+  // Sói đơn được xem một lá giữa bàn, kể cả Sói Tiên Tri hay sói do Nhân Bản copy.
+  const isLoneWerewolfReveal =
+    werewolfCount === 1 &&
+    (activeRole === "werewolf" ||
+      activeRole === "werewolf_seer" ||
+      (activeRole === "doppelganger" &&
+        (doppelgangerCopiedRole === "werewolf" || doppelgangerCopiedRole === "werewolf_seer")));
   const canRevealCenter =
     (activeRole === "doppelganger" &&
       (doppelgangerCopiedRole === "seer" ||
@@ -3977,7 +4049,7 @@ export async function revealWolfCenterCard(
     activeRole === "witch" ||
     activeRole === "drunk" ||
     activeRole === "copycat" ||
-    (activeRole === "werewolf" && werewolfCount === 1);
+    isLoneWerewolfReveal;
 
   if (!canRevealCenter) {
     return { ok: false, error: "Vai trò của bạn không được xem lá giữa bàn lúc này." };
@@ -4250,6 +4322,29 @@ export async function submitWolfNightAction(
       return { ok: false, error: "Nhân Bản copy Sói Tiên Tri phải chọn một người chơi để soi." };
     }
 
+    if (copiedRole === "werewolf" || copiedRole === "werewolf_seer") {
+      const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
+      const copiedRoleLabel = WOLF_ROLE_LABELS[copiedRole];
+
+      if (werewolfCount > 1 && (input.targetCenterIndex != null || input.targetCenterIndex2 != null)) {
+        return {
+          ok: false,
+          error: `Có từ 2 Ma Sói trở lên nên Nhân Bản copy ${copiedRoleLabel} không được xem lá giữa bàn.`,
+        };
+      }
+
+      if (
+        werewolfCount === 1 &&
+        ((input.targetCenterIndex != null && !validateCenterIndex(input.targetCenterIndex)) ||
+          input.targetCenterIndex2 != null)
+      ) {
+        return {
+          ok: false,
+          error: `Nhân Bản copy ${copiedRoleLabel} khi là sói đơn chỉ được xem tối đa một lá giữa bàn.`,
+        };
+      }
+    }
+
     if (copiedRole === "robber" && (!input.targetPlayerId2 || !otherPlayerIds.has(input.targetPlayerId2))) {
       return { ok: false, error: "Nhân Bản copy Kẻ Trộm phải chọn một người chơi khác để đổi bài." };
     }
@@ -4297,8 +4392,24 @@ export async function submitWolfNightAction(
     }
   }
 
-  if (originalRole === "werewolf_seer" && (!input.targetPlayerId || !activePlayerIds.has(input.targetPlayerId))) {
-    return { ok: false, error: "Sói Tiên Tri phải chọn một người chơi để soi." };
+  if (originalRole === "werewolf_seer") {
+    if (!input.targetPlayerId || !activePlayerIds.has(input.targetPlayerId)) {
+      return { ok: false, error: "Sói Tiên Tri phải chọn một người chơi để soi." };
+    }
+
+    const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
+
+    if (werewolfCount > 1 && (input.targetCenterIndex != null || input.targetCenterIndex2 != null)) {
+      return { ok: false, error: "Có từ 2 Ma Sói trở lên nên Sói Tiên Tri không được xem lá giữa bàn." };
+    }
+
+    if (
+      werewolfCount === 1 &&
+      ((input.targetCenterIndex != null && !validateCenterIndex(input.targetCenterIndex)) ||
+        input.targetCenterIndex2 != null)
+    ) {
+      return { ok: false, error: "Sói Tiên Tri đơn chỉ được xem tối đa một lá giữa bàn." };
+    }
   }
 
   if (
@@ -4397,11 +4508,15 @@ export async function submitWolfNightAction(
       }
     }
 
-    if (copiedRole === "werewolf") {
+    if (copiedRole === "werewolf" || copiedRole === "werewolf_seer") {
       const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
+      const copiedRoleLabel = WOLF_ROLE_LABELS[copiedRole];
 
       if (werewolfCount > 1 && (input.targetCenterIndex2 != null || input.targetCenterIndex3 != null)) {
-        return { ok: false, error: "Có từ 2 Ma Sói trở lên nên Copy Cat copy Ma Sói không được xem lá giữa bàn." };
+        return {
+          ok: false,
+          error: `Có từ 2 Ma Sói trở lên nên Copy Cat copy ${copiedRoleLabel} không được xem lá giữa bàn.`,
+        };
       }
 
       if (
@@ -4411,7 +4526,10 @@ export async function submitWolfNightAction(
             input.targetCenterIndex2 === savedTargetCenterIndex)) ||
           input.targetCenterIndex3 != null)
       ) {
-        return { ok: false, error: "Copy Cat copy Ma Sói đơn chỉ được xem tối đa một lá giữa bàn khác lá đã copy." };
+        return {
+          ok: false,
+          error: `Copy Cat copy ${copiedRoleLabel} khi là sói đơn chỉ được xem tối đa một lá giữa bàn khác lá đã copy.`,
+        };
       }
     }
 

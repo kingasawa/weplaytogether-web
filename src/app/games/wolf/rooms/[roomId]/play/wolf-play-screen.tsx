@@ -291,6 +291,10 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   const werewolfTeammateNames = hasWerewolfTeammates
     ? playState.werewolfTeammates.map((player) => player.playerName)
     : copycatWerewolfTeammates.map((player) => player.playerName);
+  // Sói đơn được xem một lá giữa bàn. Áp dụng cho cả Sói Tiên Tri và sói do Nhân Bản / Copy Cat copy.
+  const isLoneWerewolfPeek =
+    (effectiveNightActionRole === "werewolf" || effectiveNightActionRole === "werewolf_seer") &&
+    !hasWerewolfTeammates;
   const nightResultActionRole =
     playState.myAction?.actionType === "copycat"
       ? copycatCopiedRole
@@ -409,7 +413,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       ? 2
       : effectiveNightActionRole === "witch"
         ? 1
-        : effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates
+        : isLoneWerewolfPeek
           ? 1
           : effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly
             ? 1
@@ -621,7 +625,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         ((isCopycatCopyTurn && selectedCenterIndexes.length === 0) ||
           (isCopycatCopiedRoleTurn &&
             (copycatCopiedRole === "seer" || copycatCopiedRole === "witch")))) ||
-      (effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates);
+      isLoneWerewolfPeek;
     const isDeselecting = selectedCenterIndexes.includes(centerIndex);
     const isCopycatCopiedCenter = isCopycatCopiedRoleTurn && copiedCenterIndex === centerIndex;
 
@@ -1068,7 +1072,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       effectiveNightActionRole === "witch" ||
       effectiveNightActionRole === "drunk" ||
       (effectiveNightActionRole === "copycat" && !isDoppelgangerCopycatOnly) ||
-      (effectiveNightActionRole === "werewolf" && !isActingAsDoppelganger && !hasWerewolfTeammates);
+      isLoneWerewolfPeek;
     const isPlayerPickerDisabled =
       isCenterRevealPending ||
       copiedSeerCenterPathStarted;
