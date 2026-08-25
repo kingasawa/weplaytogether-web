@@ -13,7 +13,7 @@ export default function AvalonJoinScreen() {
       titleId="avalon-join-room-title"
       roomCodeInputId="avalon-join-room-code"
       guestNameInputId="avalon-join-guest-name"
-      gameBackgroundSrc="/images/boards/avalon.png"
+      gameBackgroundSrc="/images/boards/avalon.webp"
       gameBackgroundAlt="Ảnh nền phòng Avalon"
       listPublicRooms={listPublicAvalonRooms}
       joinRoom={joinAvalonRoom}

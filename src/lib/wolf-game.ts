@@ -39,17 +39,17 @@ export const WOLF_PHASE_LABELS: Record<WolfGamePhase, string> = {
 };
 
 export const WOLF_ROLE_CARD_IMAGES: Partial<Record<WolfRole, { alt: string; src: string }>> = {
-  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.png" },
-  werewolf_seer: { alt: "Lá bài Sói Tiên Tri", src: "/images/boards/cards/wolf/werewolf_seer.png" },
-  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.png" },
-  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.png" },
-  robber: { alt: "Lá bài Kẻ Trộm", src: "/images/boards/cards/wolf/robber.png" },
-  troublemaker: { alt: "Lá bài Kẻ Gây Rối", src: "/images/boards/cards/wolf/troublemaker.png" },
-  witch: { alt: "Lá bài Phù Thuỷ", src: "/images/boards/cards/wolf/witch.png" },
-  drunk: { alt: "Lá bài Say Rượu", src: "/images/boards/cards/wolf/drunk.png" },
-  insomniac: { alt: "Lá bài Mất Ngủ", src: "/images/boards/cards/wolf/insomniac.png" },
-  doppelganger: { alt: "Lá bài Nhân Bản", src: "/images/boards/cards/wolf/doppelganger.png" },
-  copycat: { alt: "Lá bài Copy Cat", src: "/images/boards/cards/wolf/copycat.png" },
+  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.webp" },
+  werewolf_seer: { alt: "Lá bài Sói Tiên Tri", src: "/images/boards/cards/wolf/werewolf_seer.webp" },
+  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.webp" },
+  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.webp" },
+  robber: { alt: "Lá bài Kẻ Trộm", src: "/images/boards/cards/wolf/robber.webp" },
+  troublemaker: { alt: "Lá bài Kẻ Gây Rối", src: "/images/boards/cards/wolf/troublemaker.webp" },
+  witch: { alt: "Lá bài Phù Thuỷ", src: "/images/boards/cards/wolf/witch.webp" },
+  drunk: { alt: "Lá bài Say Rượu", src: "/images/boards/cards/wolf/drunk.webp" },
+  insomniac: { alt: "Lá bài Mất Ngủ", src: "/images/boards/cards/wolf/insomniac.webp" },
+  doppelganger: { alt: "Lá bài Nhân Bản", src: "/images/boards/cards/wolf/doppelganger.webp" },
+  copycat: { alt: "Lá bài Copy Cat", src: "/images/boards/cards/wolf/copycat.webp" },
 };
 
 export function getWolfRoleImagePath(role: WolfRole) {

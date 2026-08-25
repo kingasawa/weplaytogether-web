@@ -13,7 +13,7 @@ export default function WolfJoinScreen() {
       titleId="wolf-join-room-title"
       roomCodeInputId="wolf-join-room-code"
       guestNameInputId="wolf-join-guest-name"
-      gameBackgroundSrc="/images/boards/wolf.png"
+      gameBackgroundSrc="/images/boards/wolf.webp"
       gameBackgroundAlt="Ảnh nền phòng Ma Sói Một Đêm"
       listPublicRooms={listPublicWolfRooms}
       joinRoom={joinWolfRoom}

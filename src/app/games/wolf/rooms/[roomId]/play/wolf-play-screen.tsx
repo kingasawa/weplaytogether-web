@@ -38,7 +38,7 @@ type WolfPlayScreenProps = {
 };
 
 const VOTE_SKIP_KEY = "__skip_vote__";
-const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
+const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
 
 type RevealedCenterCard = Extract<WolfCenterRevealResult, { ok: true }>;
 type RevealedPlayerCard = Extract<WolfPlayerRevealResult, { ok: true }>;

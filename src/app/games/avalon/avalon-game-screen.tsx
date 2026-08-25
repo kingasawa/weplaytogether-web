@@ -325,7 +325,7 @@ export default function AvalonGameScreen() {
             fill
             preload
             sizes="100vw"
-            src="/images/boards/avalon.png"
+            src="/images/boards/avalon.webp"
           />
         </div>
 
@@ -443,7 +443,7 @@ export default function AvalonGameScreen() {
 
       {isJoinOpen && (
         <JoinRoomModal
-          backgroundSrc="/images/boards/avalon.png"
+          backgroundSrc="/images/boards/avalon.webp"
           backgroundAlt="Ảnh nền phòng Avalon"
           roomCode={normalizedRoomCode}
           roomCodeError={roomCodeError}

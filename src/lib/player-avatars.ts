@@ -43,7 +43,7 @@ export function normalizePlayerAvatarKey(avatarKey?: string | null): PlayerAvata
 }
 
 export function getPlayerAvatarPath(avatarKey?: string | null) {
-  return `/images/avatars/${normalizePlayerAvatarKey(avatarKey)}.png`;
+  return `/images/avatars/${normalizePlayerAvatarKey(avatarKey)}.webp`;
 }
 
 export function normalizeUploadedPlayerAvatarObjectKey(avatarObjectKey?: string | null) {

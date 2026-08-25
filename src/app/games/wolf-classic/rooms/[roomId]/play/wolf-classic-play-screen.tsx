@@ -51,14 +51,14 @@ const PHASE_LABELS: Record<ClassicWolfPlayState["game"]["phase"], string> = {
 };
 
 const VOTE_SKIP_KEY = "__skip_vote__";
-const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
+const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
 const CLASSIC_WOLF_ROLE_CARD_IMAGES: Partial<Record<ClassicWolfRole, { alt: string; src: string }>> = {
-  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.png" },
-  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.png" },
-  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.png" },
-  witch: { alt: "Lá bài Phù Thủy", src: "/images/boards/cards/wolf/witch.png" },
-  guard: { alt: "Lá bài Bảo Vệ", src: "/images/boards/cards/wolf/guard.png" },
-  hunter: { alt: "Lá bài Thợ Săn", src: "/images/boards/cards/wolf/hunter.png" },
+  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.webp" },
+  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.webp" },
+  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.webp" },
+  witch: { alt: "Lá bài Phù Thủy", src: "/images/boards/cards/wolf/witch.webp" },
+  guard: { alt: "Lá bài Bảo Vệ", src: "/images/boards/cards/wolf/guard.webp" },
+  hunter: { alt: "Lá bài Thợ Săn", src: "/images/boards/cards/wolf/hunter.webp" },
 };
 
 type WitchDecision = "rescue_prompt" | "rescue" | "poison_prompt" | "poison" | "skip";

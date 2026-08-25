@@ -2039,16 +2039,47 @@ function buildGameResult(
   };
 }
 
-function simulateNightResolution(
-  cards: CardRow[],
-  actions: ActionRow[],
-  players: PlayerRow[] = []
-): {
+type WolfNightResolution = {
   currentRoleByCardId: Map<string, WolfRole>;
   effectiveRoleByCardId: Map<string, WolfRole>;
   cardMovementSummary: WolfCardMovementSummary;
   immediateRoleRevealByPlayerId: Map<string, WolfRole>;
-} {
+};
+
+const EMPTY_PLAYERS: PlayerRow[] = [];
+
+// Mô phỏng đêm là phần tốn CPU nhất của mỗi request, mà nó đang bị gọi lại hơn 10 lần với
+// cùng một bộ dữ liệu (getNightReviewRole, getInsomniacCurrentRole, buildNightReviewMessages...).
+// Hàm thuần tuý nên cache được theo đúng tham số của request. Dùng WeakMap khoá theo mảng cards
+// để không giữ rác giữa các request: mỗi request fetch ra mảng mới.
+const nightResolutionCache = new WeakMap<
+  CardRow[],
+  { actions: ActionRow[]; players: PlayerRow[]; resolution: WolfNightResolution }
+>();
+
+function simulateNightResolution(
+  cards: CardRow[],
+  actions: ActionRow[],
+  players: PlayerRow[] = EMPTY_PLAYERS
+): WolfNightResolution {
+  const cached = nightResolutionCache.get(cards);
+
+  if (cached && cached.actions === actions && cached.players === players) {
+    return cached.resolution;
+  }
+
+  const resolution = computeNightResolution(cards, actions, players);
+  nightResolutionCache.set(cards, { actions, players, resolution });
+
+  return resolution;
+}
+
+// Không gọi trực tiếp hàm này: dùng simulateNightResolution() để hưởng cache.
+function computeNightResolution(
+  cards: CardRow[],
+  actions: ActionRow[],
+  players: PlayerRow[]
+): WolfNightResolution {
   const actionByPlayerId = new Map(actions.map((action) => [action.player_id, action]));
   // Danh tính lá bài vật lý: chỉ đổi chỗ qua swapCards, không bao giờ bị ghi đè.
   const currentRoleByCardId = new Map(cards.map((card) => [card.id, card.original_role]));

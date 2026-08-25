@@ -48,7 +48,7 @@ import {
 } from "../../../actions";
 import styles from "../../../../wolf/page.module.css";
 
-const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.png";
+const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
 const PRIVATE_REVEAL_OPEN_DRAG_RATIO = 1 / 3;
 const PRIVATE_REVEAL_CLOSE_DRAG_RATIO = 1 / 4;
 const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;

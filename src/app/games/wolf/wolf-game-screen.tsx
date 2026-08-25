@@ -352,7 +352,7 @@ export default function WolfGameScreen() {
             fill
             priority
             sizes="100vw"
-            src="/images/ui/wolf_game_bg.png"
+            src="/images/ui/wolf_game_bg.webp"
           />
         </div>
 
@@ -475,7 +475,7 @@ export default function WolfGameScreen() {
 
       {isJoinOpen && (
         <JoinRoomModal
-          backgroundSrc="/images/boards/wolf.png"
+          backgroundSrc="/images/boards/wolf.webp"
           backgroundAlt="Ảnh nền phòng Ma Sói"
           roomCode={normalizedRoomCode}
           roomCodeError={roomCodeError}

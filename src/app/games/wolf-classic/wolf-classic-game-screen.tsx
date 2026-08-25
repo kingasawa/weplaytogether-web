@@ -326,7 +326,7 @@ export default function ClassicWolfGameScreen() {
             fill
             priority
             sizes="100vw"
-            src="/images/ui/wolf_game_bg.png"
+            src="/images/ui/wolf_game_bg.webp"
           />
         </div>
 
@@ -448,7 +448,7 @@ export default function ClassicWolfGameScreen() {
 
       {isJoinOpen && (
         <JoinRoomModal
-          backgroundSrc="/images/boards/wolf-classic.png"
+          backgroundSrc="/images/boards/wolf-classic.webp"
           backgroundAlt="Ảnh nền phòng Ma Sói cổ điển"
           roomCode={normalizedRoomCode}
           roomCodeError={roomCodeError}

@@ -22,7 +22,7 @@
   /* container-type → nội dung co giãn theo khung, không theo viewport */
   container-type: inline-size;
   /* Nền trang home từ ảnh home-bg.png */
-  background: url("/images/home-bg.png") center top / cover no-repeat, var(--bg-primary);
+  background: url("/images/home-bg.webp") center top / cover no-repeat, var(--bg-primary);
 }
 
 /* ── Header ─────────────────────────────────────────────────── */
