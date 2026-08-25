@@ -7,7 +7,7 @@ type SignUpPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Đăng ký | Boardverse",
+  title: "Đăng ký | WePlayTogether",
 };
 
 export default async function SignUpPage({ searchParams }: SignUpPageProps) {

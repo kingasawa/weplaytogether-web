@@ -3,7 +3,7 @@ import { AVALON_SHARE_IMAGE, buildGameShareMetadata } from "@/lib/game-share-met
 import AvalonJoinScreen from "./avalon-join-screen";
 
 export const metadata: Metadata = buildGameShareMetadata({
-  title: "Tham gia phòng Avalon | Boardverse",
+  title: "Tham gia phòng Avalon | WePlayTogether",
   description: "Chọn phòng public hoặc nhập mã phòng Avalon.",
   path: "/games/avalon/join",
   image: AVALON_SHARE_IMAGE,

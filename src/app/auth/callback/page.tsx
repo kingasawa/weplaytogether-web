@@ -11,7 +11,7 @@ type AuthCallbackPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Đang đăng nhập | Boardverse",
+  title: "Đang đăng nhập | WePlayTogether",
 };
 
 function getFirstParam(value?: string | string[]) {

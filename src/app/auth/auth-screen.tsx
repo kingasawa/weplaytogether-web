@@ -76,7 +76,7 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
   return (
     <main className={styles.page}>
       <section className={styles.panel}>
-        <Link className={styles.brand} href="/" aria-label="Boardverse">
+        <Link className={styles.brand} href="/" aria-label="WePlayTogether">
           <span className={styles.brandIcon}>
             <Gamepad2 aria-hidden="true" />
           </span>
@@ -89,7 +89,7 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
         <div className={styles.heading}>
           <span>Google</span>
           <h1>{isSignUp ? "Đăng ký" : "Đăng nhập"}</h1>
-          <p>Đăng nhập bằng tài khoản Google để vào Boardverse.</p>
+          <p>Đăng nhập bằng tài khoản Google để vào WePlayTogether.</p>
         </div>
 
         <button className={styles.gmailButton} type="button" disabled={isPending} onClick={continueWithGmail}>

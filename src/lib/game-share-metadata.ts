@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const SITE_NAME = "Boardverse";
+const SITE_NAME = "WePlayTogether";
 
 type GameShareImage = {
   path: string;

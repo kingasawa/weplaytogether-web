@@ -556,16 +556,19 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       }
 
       if (activeDoppelgangerCopiedRole === "werewolf_seer") {
+        if (isWerewolfSeerScryDone) {
+          setMessage(
+            `Sói Tiên Tri chỉ được soi một người. Bạn đã soi ${werewolfSeerReveal?.playerName ?? "người này"}.`
+          );
+          return;
+        }
+
         const copiedId = selectedPlayerIds[0] ?? copiedPlayerId;
-        const isDeselecting = activeDoppelgangerActionTargetIds[0] === playerId;
 
         setSelectedCenterIndexes([]);
         setRevealedCenterCards([]);
-        setSelectedPlayerIds(isDeselecting ? [copiedId] : [copiedId, playerId]);
-
-        if (!isDeselecting) {
-          void revealPlayerCard(playerId);
-        }
+        setSelectedPlayerIds([copiedId, playerId]);
+        void revealPlayerCard(playerId);
 
         return;
       }
@@ -606,16 +609,19 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     }
 
     if (isWerewolfSeerEffect) {
-      // Đổi mục tiêu thì bỏ luôn lá giữa đã chọn: phải soi người xong mới tới bước lá giữa.
-      const isDeselecting = selectedPlayerIds[0] === playerId;
+      // Soi là thấy role ngay, nên mục tiêu bị chốt cứng ngay lần chọn đầu tiên.
+      // Cho đổi mục tiêu thì người chơi bấm lần lượt là soi được cả bàn.
+      if (isWerewolfSeerScryDone) {
+        setMessage(
+          `Sói Tiên Tri chỉ được soi một người. Bạn đã soi ${werewolfSeerReveal?.playerName ?? "người này"}.`
+        );
+        return;
+      }
 
       setSelectedCenterIndexes([]);
       setRevealedCenterCards([]);
-      setSelectedPlayerIds(isDeselecting ? [] : [playerId]);
-
-      if (!isDeselecting) {
-        void revealPlayerCard(playerId);
-      }
+      setSelectedPlayerIds([playerId]);
+      void revealPlayerCard(playerId);
 
       return;
     }
@@ -1135,7 +1141,9 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       isLoneWerewolfPeek;
     const isPlayerPickerDisabled =
       isCenterRevealPending ||
-      copiedSeerCenterPathStarted;
+      copiedSeerCenterPathStarted ||
+      // Đã soi xong thì khoá danh sách lại: mỗi lượt chỉ được soi đúng một người.
+      (isWerewolfSeerEffect && isWerewolfSeerScryDone);
     const selectedPickerPlayerIds =
       isActingAsDoppelganger && activeDoppelgangerCopiedRole
         ? activeDoppelgangerActionTargetIds

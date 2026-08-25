@@ -7,7 +7,7 @@ type SignInPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Đăng nhập | Boardverse",
+  title: "Đăng nhập | WePlayTogether",
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {

@@ -377,6 +377,35 @@
 
 /* ── Content Shell ──────────────────────────────────────────── */
 
+/* Phần giới thiệu app: bắt buộc cho khâu xét duyệt OAuth của Google (nêu tên + mục đích). */
+.intro {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: var(--spacing-lg);
+  padding: clamp(0.9rem, 4vw, 1.25rem);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-card) 62%, transparent);
+}
+
+.intro h1 {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+  line-height: 1.2;
+}
+
+.intro p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.intro a {
+  color: var(--primary-light);
+  text-decoration: underline;
+}
+
 .contentShell {
   width: 100%;
   max-width: 92rem;

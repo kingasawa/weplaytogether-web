@@ -7,15 +7,15 @@ const effectiveDate = "August 18, 2026";
 const contactEmail = "support@weplaytogether.online";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Boardverse",
-  description: "Privacy Policy for Boardverse and Google Sign-In data use.",
+  title: "Privacy Policy | WePlayTogether",
+  description: "Privacy Policy for WePlayTogether and Google Sign-In data use.",
 };
 
 export default function PrivacyPolicyPage() {
   return (
     <main className={styles.page} lang="en">
       <nav className={styles.topbar} aria-label="Legal navigation">
-        <Link className={styles.brand} href="/" aria-label="Boardverse home">
+        <Link className={styles.brand} href="/" aria-label="WePlayTogether home">
           <span className={styles.brandIcon}>
             <Gamepad2 aria-hidden="true" />
           </span>
@@ -37,7 +37,7 @@ export default function PrivacyPolicyPage() {
         <p className={styles.updated}>Effective date: {effectiveDate}</p>
 
         <p className={styles.lead}>
-          Boardverse, available at weplaytogether.online, is an online board game platform. This Privacy Policy
+          WePlayTogether, available at weplaytogether.online, is an online board game platform. This Privacy Policy
           explains what information we collect, how we use it, and the choices available to users who sign in with
           Google or use our game rooms.
         </p>
@@ -49,7 +49,7 @@ export default function PrivacyPolicyPage() {
 
         <section>
           <h2>1. Information We Collect</h2>
-          <p>We may collect the following information when you use Boardverse:</p>
+          <p>We may collect the following information when you use WePlayTogether:</p>
           <ul>
             <li>
               <strong>Google account information:</strong> your Google account identifier, email address, display name,
@@ -90,19 +90,19 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>3. Google User Data</h2>
           <p>
-            Boardverse uses Google user data only for sign-in, account identification, and displaying your basic profile
+            WePlayTogether uses Google user data only for sign-in, account identification, and displaying your basic profile
             within the service. We do not sell Google user data, use it for advertising, or use it to train generalized
             artificial intelligence models.
           </p>
           <p>
-            Boardverse uses and transfers information received from Google APIs in accordance with the Google API Services
+            WePlayTogether uses and transfers information received from Google APIs in accordance with the Google API Services
             User Data Policy, including the Limited Use requirements.
           </p>
         </section>
 
         <section>
           <h2>4. Sharing and Service Providers</h2>
-          <p>We do not sell personal information. We may share limited information only as needed to operate Boardverse:</p>
+          <p>We do not sell personal information. We may share limited information only as needed to operate WePlayTogether:</p>
           <ul>
             <li>with Supabase for authentication, database, and session services;</li>
             <li>with Cloudflare R2 or related hosting infrastructure for uploaded avatar storage and delivery;</li>
@@ -139,7 +139,7 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>7. Children</h2>
           <p>
-            Boardverse is not directed to children under 13. If you believe a child has provided personal information
+            WePlayTogether is not directed to children under 13. If you believe a child has provided personal information
             without appropriate consent, contact us so we can review and delete it where required.
           </p>
         </section>
@@ -163,7 +163,7 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>10. Contact</h2>
           <p>
-            For privacy questions or data deletion requests, contact Boardverse at{" "}
+            For privacy questions or data deletion requests, contact WePlayTogether at{" "}
             <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
           </p>
         </section>
