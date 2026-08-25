@@ -2536,6 +2536,38 @@
   color: var(--danger);
 }
 
+.resultReward {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding-block: 0.45rem;
+  padding-inline: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--host-badge) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--host-badge) 16%, transparent);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultReward svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--host-badge);
+}
+
+.resultRewardNegative {
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.resultRewardNegative svg {
+  color: var(--danger);
+}
+
 .nightlyResultHeader {
   display: grid;
   gap: var(--spacing-sm);

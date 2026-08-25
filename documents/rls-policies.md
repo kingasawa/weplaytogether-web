@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-18 -->
+﻿<!-- Last updated: 2026-08-25 -->
 
 # RLS Policies
 
@@ -11,6 +11,18 @@ RLS bật. Mỗi user chỉ thao tác hàng của chính mình (client dùng JWT
 - `users_update_own`: `for update using (auth.uid() = id) with check (auth.uid() = id)`
 
 Không có policy delete (không cho xóa hồ sơ từ client).
+
+## `public.player_score_events` (202608250001_wolf_scoring_currency.sql — pending apply)
+
+RLS bật:
+
+- `player_score_events_select_own`: `for select using (auth.uid() = user_id)`
+
+Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` (`security definer`, chạy bằng service role, execute chỉ grant cho `service_role`).
+
+## `public.leaderboard` (view, 202608250001_wolf_scoring_currency.sql — pending apply)
+
+Không phải bảng nên không có RLS trực tiếp; view select từ `public.users` và được tạo bởi role có `bypassrls` (Supabase SQL Editor), nên trả về toàn bộ user bất kể RLS của `public.users` chỉ cho tự đọc hàng của mình. Cột hiển thị không gồm `email`. `grant select` cho `anon` và `authenticated`.
 
 ## Current Remote State
 

@@ -177,6 +177,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
   const [isLeaveWarningOpen, setIsLeaveWarningOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
@@ -285,12 +286,14 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
+      setAccountUserId(hasSession ? data.session?.user.id ?? null : null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
       const savedGuestAvatarObjectKey = readStoredGuestPlayerAvatarObjectKey();
+      const hasSession = isAllowedGmailSession(session);
 
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
@@ -298,7 +301,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       setGuestAvatarInput(savedGuestAvatarKey);
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
-      setIsLoggedIn(isAllowedGmailSession(session));
+      setIsLoggedIn(hasSession);
+      setAccountUserId(hasSession ? session?.user.id ?? null : null);
     });
 
     return () => {
@@ -347,7 +351,13 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await joinWolfRoom(lobbyState.room.code, playerName, avatarKey, avatarObjectKey);
+      const result = await joinWolfRoom(
+        lobbyState.room.code,
+        playerName,
+        avatarKey,
+        avatarObjectKey,
+        accountUserId
+      );
 
       if (!result.ok) {
         setErrorMessage(result.error);

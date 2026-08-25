@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-19 -->
+﻿<!-- Last updated: 2026-08-25 -->
 
 # Migrations
 
@@ -272,6 +272,26 @@ Purpose:
 - Trigger `set_users_updated_at` tự cập nhật `updated_at` khi sửa.
 - Dùng cho trang `/profile` (sửa tên hiển thị + avatar mặc định) và tạo record tự động khi login lần đầu (`ensureMyProfile`).
 
+## 202608250001_wolf_scoring_currency.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608250001_wolf_scoring_currency.sql`
+
+Purpose:
+
+- Add hệ thống tính điểm (points) và tiền tệ Xu (coins) cho Ma Sói Một Đêm — chỉ áp dụng cho user đã đăng nhập.
+- Add `wolf_room_players.user_id` (nullable, references `public.users`) để liên kết một lượt chơi trong phòng với tài khoản đăng nhập; null cho guest.
+- Add `users.total_points` và `users.total_coins` (denormalized, cộng dồn) phục vụ bảng xếp hạng.
+- Create `public.player_score_events`, sổ ghi nhận điểm/Xu từng ván, không cascade theo `wolf_rooms` (phòng bị dọn dẹp định kỳ), unique `(game_id, user_id)` chống cộng trùng.
+- Create view `public.leaderboard` (không lộ email) cho trang xếp hạng đọc công khai.
+- Create function `public.award_wolf_game_points(...)` (`security definer`, chỉ `service_role` gọi được) để insert ledger + cộng dồn điểm/Xu trong một transaction, idempotent qua unique constraint.
+- Công thức: Dân làng thắng +5 điểm/+3 Xu mỗi người phe Dân; Ma Sói thắng +10 điểm/+5 Xu mỗi người phe Sói (gấp đôi vì phe Sói khó thắng hơn); phe thua bị trừ 2 điểm, Xu giữ nguyên (không trừ).
+- Gọi từ `setWolfGameResultPhase(...)` trong `src/app/games/wolf/actions.ts` ngay khi ván vào phase `result` lần đầu, và từ nhánh fallback trong `leaveWolfRoom(...)` nếu snapshot chưa từng được lưu.
+- Code có fallback graceful khi cột/bảng/view/function này chưa tồn tại trên remote (xem `isMissingUserIdColumnError` trong `src/lib/supabase/errors.ts`): tạo/vào phòng vẫn hoạt động bình thường, chỉ là chưa cộng điểm/Xu, trang `/board` hiển thị trạng thái rỗng thay vì lỗi.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -297,6 +317,6 @@ Remote execution update on 2026-08-17:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, and `202608170001_wolf_avatar_key_all_assets.sql` in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, and `202608250001_wolf_scoring_currency.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`) in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 

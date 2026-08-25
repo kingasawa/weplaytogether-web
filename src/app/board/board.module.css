@@ -197,6 +197,12 @@
   height: 1.35rem;
 }
 
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* ── Name & Score ───────────────────────────────────────────── */
 
 .name {
@@ -207,6 +213,12 @@
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.scoreGroup {
+  display: grid;
+  justify-items: end;
+  gap: 0.2rem;
 }
 
 .score {
@@ -223,6 +235,30 @@
   width: 1.05rem;
   height: 1.05rem;
   color: var(--medal-gold);
+}
+
+.coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.coins svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--host-badge);
+}
+
+.emptyState {
+  margin: 0;
+  padding: var(--spacing-lg) var(--spacing-md);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 /* Viền device do body (globals.css) đảm nhiệm. */

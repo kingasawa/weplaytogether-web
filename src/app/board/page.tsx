@@ -1,36 +1,68 @@
-import { ArrowLeft, CircleUserRound, Star, Trophy } from "lucide-react";
+import { ArrowLeft, CircleUserRound, Coins, Star, Trophy } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
+import {
+  getPlayerAvatarSrc,
+  getUploadedPlayerAvatarUrl,
+  isRemotePlayerAvatarSrc,
+} from "@/lib/player-avatars";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import styles from "./board.module.css";
 
 export const metadata: Metadata = {
   title: "Bảng xếp hạng | WE PLAY TOGETHER",
 };
 
+const LEADERBOARD_LIMIT = 50;
+
+type LeaderboardRow = {
+  id: string;
+  display_name: string | null;
+  avatar_key: string | null;
+  avatar_object_key: string | null;
+  total_points: number;
+  total_coins: number;
+};
+
 type RankRow = {
   rank: number;
   name: string;
-  score: number;
+  points: number;
+  coins: number;
+  avatarSrc: string;
 };
 
-const leaderboard: RankRow[] = [
-  { rank: 1, name: "USERNAME_01", score: 9822934 },
-  { rank: 2, name: "USERNAME_02", score: 8824935 },
-  { rank: 3, name: "USERNAME_03", score: 8225632 },
-  { rank: 4, name: "USERNAME_04", score: 6219328 },
-  { rank: 5, name: "USERNAME_05", score: 5432932 },
-  { rank: 6, name: "USERNAME_06", score: 2024556 },
-  { rank: 7, name: "USERNAME_07", score: 1009344 },
-  { rank: 8, name: "USERNAME_08", score: 982293 },
-  { rank: 9, name: "USERNAME_09", score: 764120 },
-  { rank: 10, name: "USERNAME_10", score: 512088 },
-];
-
-function formatScore(score: number) {
-  return score.toLocaleString("vi-VN");
+function formatNumber(value: number) {
+  return value.toLocaleString("vi-VN");
 }
 
-export default function BoardPage() {
+async function getLeaderboardRows(): Promise<RankRow[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("leaderboard")
+    .select("id, display_name, avatar_key, avatar_object_key, total_points, total_coins")
+    .gt("total_points", 0)
+    .order("total_points", { ascending: false })
+    .order("total_coins", { ascending: false })
+    .limit(LEADERBOARD_LIMIT);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return (data as LeaderboardRow[]).map((row, index) => ({
+    rank: index + 1,
+    name: row.display_name?.trim() || "Người chơi ẩn danh",
+    points: row.total_points,
+    coins: row.total_coins,
+    avatarSrc: getPlayerAvatarSrc(row.avatar_key, getUploadedPlayerAvatarUrl(row.avatar_object_key)),
+  }));
+}
+
+export default async function BoardPage() {
+  const leaderboard = await getLeaderboardRows();
+
   return (
     <main className={styles.page}>
       <section className={styles.screen} aria-labelledby="board-title">
@@ -44,41 +76,63 @@ export default function BoardPage() {
           <span aria-hidden="true" />
         </header>
 
-        <ol className={styles.list}>
-          {leaderboard.map((row) => {
-            const isTopThree = row.rank <= 3;
+        {leaderboard.length === 0 ? (
+          <p className={styles.emptyState}>
+            Chưa có ai ghi điểm. Thắng một ván Ma Sói khi đã đăng nhập để lên bảng xếp hạng!
+          </p>
+        ) : (
+          <ol className={styles.list}>
+            {leaderboard.map((row) => {
+              const isTopThree = row.rank <= 3;
 
-            return (
-              <li
-                className={styles.row}
-                data-rank={isTopThree ? row.rank : undefined}
-                key={row.rank}
-              >
-                <span className={styles.rank}>
-                  {isTopThree ? (
-                    <span className={styles.medal} data-rank={row.rank}>
-                      <Star aria-hidden="true" />
-                      <b>{row.rank}</b>
+              return (
+                <li
+                  className={styles.row}
+                  data-rank={isTopThree ? row.rank : undefined}
+                  key={row.rank}
+                >
+                  <span className={styles.rank}>
+                    {isTopThree ? (
+                      <span className={styles.medal} data-rank={row.rank}>
+                        <Star aria-hidden="true" />
+                        <b>{row.rank}</b>
+                      </span>
+                    ) : (
+                      <b className={styles.rankNumber}>{row.rank}</b>
+                    )}
+                  </span>
+
+                  <span className={styles.avatar}>
+                    {row.avatarSrc ? (
+                      <Image
+                        alt=""
+                        height={36}
+                        src={row.avatarSrc}
+                        unoptimized={isRemotePlayerAvatarSrc(row.avatarSrc)}
+                        width={36}
+                      />
+                    ) : (
+                      <CircleUserRound aria-hidden="true" />
+                    )}
+                  </span>
+
+                  <span className={styles.name}>{row.name}</span>
+
+                  <span className={styles.scoreGroup}>
+                    <span className={styles.score}>
+                      <Trophy aria-hidden="true" />
+                      {formatNumber(row.points)}
                     </span>
-                  ) : (
-                    <b className={styles.rankNumber}>{row.rank}</b>
-                  )}
-                </span>
-
-                <span className={styles.avatar}>
-                  <CircleUserRound aria-hidden="true" />
-                </span>
-
-                <span className={styles.name}>{row.name}</span>
-
-                <span className={styles.score}>
-                  <Trophy aria-hidden="true" />
-                  {formatScore(row.score)}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+                    <span className={styles.coins}>
+                      <Coins aria-hidden="true" />
+                      {formatNumber(row.coins)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </section>
     </main>
   );

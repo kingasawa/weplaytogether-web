@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-19 -->
+﻿<!-- Last updated: 2026-08-25 -->
 
 # Database Schema
 
@@ -26,6 +26,8 @@ On 2026-08-12, local migration `202608120001_wolf_result_snapshot.sql` was creat
 
 On 2026-08-17, local migration `202608170001_wolf_avatar_key_all_assets.sql` was created to repair the avatar key check constraint for deployments that already applied the older named-avatar migration without `duy`, `na`, and `oanh`.
 
+On 2026-08-25, local migration `202608250001_wolf_scoring_currency.sql` was created to add a scoring (điểm) and currency (Xu) system for Ma Sói Một Đêm. Adds `wolf_room_players.user_id`, `users.total_points`/`users.total_coins`, the `player_score_events` ledger table, the public `leaderboard` view, and the `award_wolf_game_points(...)` function. Only logged-in users (rows with a non-null `wolf_room_players.user_id`) earn points/coins; guests are unaffected.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -45,6 +47,9 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608110002_wolf_hourly_room_maintenance.sql`
 - `supabase/migrations/202608120001_wolf_result_snapshot.sql`
 - `supabase/migrations/202608170001_wolf_avatar_key_all_assets.sql`
+- `supabase/migrations/202608180001_wolf_player_avatar_objects.sql`
+- `supabase/migrations/202608180002_user_profiles.sql`
+- `supabase/migrations/202608250001_wolf_scoring_currency.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -65,6 +70,8 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `display_name text null` — tên hiển thị trong game
 - `avatar_key text not null default 'avatar0'`
 - `avatar_object_key text null` — object key avatar upload lên R2 hoặc URL ảnh đại diện Google đã validate (nếu có)
+- `total_points integer not null default 0` — tổng điểm xếp hạng, cộng dồn qua `award_wolf_game_points(...)`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
+- `total_coins integer not null default 0` — tổng Xu (tiền tệ trong app), cộng dồn cùng lúc với điểm. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()` (trigger `set_users_updated_at`)
 - RLS bật; mỗi user chỉ select/insert/update hàng của mình (`auth.uid() = id`). Client đọc/ghi trực tiếp bằng JWT.
@@ -89,6 +96,7 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `name text not null`, trimmed length 1-32
 - `avatar_key text not null default 'avatar0'`, constrained to available avatar asset keys
 - `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`) hoặc URL ảnh đại diện Google đã validate. Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
+- `user_id uuid null references public.users(id) on delete set null` — liên kết hàng người chơi trong phòng với tài khoản đã đăng nhập (Google). Null cho guest. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Dùng để xác định ai được cộng điểm/Xu khi ván Ma Sói Một Đêm kết thúc. Khi cột chưa tồn tại, code tự fallback coi mọi người chơi là guest (không cộng điểm/Xu).
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`
@@ -148,6 +156,30 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
+#### `public.player_score_events`
+
+Sổ ghi nhận điểm/Xu từng ván cho user đã đăng nhập. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Cố ý KHÔNG cascade theo `wolf_rooms`/`wolf_game_sessions` vì phòng bị dọn dẹp định kỳ (xem `maintain_wolf_rooms`) — sổ này phải sống sót sau khi phòng bị xoá.
+
+- `id uuid primary key default gen_random_uuid()`
+- `user_id uuid not null references public.users(id) on delete cascade`
+- `game_key text not null` — hiện chỉ `'wolf'` (Ma Sói Một Đêm); dự kiến mở rộng cho `wolf-classic`/`avalon` sau
+- `game_id uuid not null` — id của `wolf_game_sessions`, lưu giá trị plain (không FK) để không phụ thuộc vòng đời phòng
+- `room_code text not null` — snapshot mã phòng phục vụ audit/lịch sử sau khi phòng đã bị xoá
+- `team text not null` — `'villagers'` hoặc `'werewolves'`
+- `role text not null` — vai trò cuối game (finalTeamRole) của người chơi
+- `is_winner boolean not null`
+- `points_awarded integer not null default 0`
+- `coins_awarded integer not null default 0`
+- `created_at timestamptz not null default now()`
+- Unique `(game_id, user_id)` — chống trao điểm/Xu trùng nếu action chạy lại
+- RLS bật; user chỉ đọc được hàng của chính mình (`auth.uid() = user_id`). Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` chạy bằng service role.
+
+#### `public.leaderboard` (view)
+
+View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Select từ `public.users`, sort theo `total_points desc, total_coins desc`. Grant select cho `anon` và `authenticated`.
+
+- `id`, `display_name`, `avatar_key`, `avatar_object_key`, `total_points`, `total_coins`
+
 #### `public.wolf_game_phase_confirmations`
 
 - `id uuid primary key default gen_random_uuid()`
@@ -176,6 +208,14 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - Result snapshot consistency: `wolf_game_sessions.result_snapshot` must be null or a JSON object
 
 ### Functions And Scheduled Jobs
+
+#### `public.award_wolf_game_points(p_game_id, p_room_code, p_game_key, p_awards)`
+
+- **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
+- Nhận `p_awards` là mảng jsonb `{ user_id, team, role, is_winner, points, coins }`.
+- Insert vào `player_score_events` với `on conflict (game_id, user_id) do nothing` (idempotent), rồi cộng dồn `points_awarded`/`coins_awarded` vào `users.total_points`/`users.total_coins` trong cùng transaction.
+- Gọi từ server action `src/app/games/wolf/actions.ts` (`awardWolfGameScores`) ngay sau khi ván Ma Sói Một Đêm vào phase `result` và `result_snapshot` được lưu lần đầu.
+- Function execution is revoked from `PUBLIC` and granted to `service_role`.
 
 #### `public.cleanup_old_wolf_rooms(...)`
 

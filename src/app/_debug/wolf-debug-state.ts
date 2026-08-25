@@ -122,6 +122,7 @@ function buildBaseState(phase: WolfGamePhase): WolfPlayState {
     cardMovementSummary: null,
     allPlayersSummary: null,
     roleDeck: DEBUG_ROLE_DECK,
+    myScoreReward: null,
   };
 }
 

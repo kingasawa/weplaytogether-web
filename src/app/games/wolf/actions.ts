@@ -11,6 +11,7 @@ import {
 import {
   isMissingAvatarKeyColumnError,
   isMissingAvatarObjectKeyColumnError,
+  isMissingUserIdColumnError,
 } from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRole, WolfRoomStatus } from "@/lib/supabase/types";
@@ -99,6 +100,7 @@ type PlayerRow = {
   name: string;
   avatar_key?: string | null;
   avatar_object_key?: string | null;
+  user_id?: string | null;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -418,6 +420,9 @@ export type WolfPlayState = {
   cardMovementSummary: WolfCardMovementSummary | null;
   allPlayersSummary: WolfPlayerResultSummary[] | null;
   roleDeck: WolfRole[];
+  // Điểm/Xu người chơi hiện tại vừa nhận từ ván này. null nếu chưa tới result hoặc là guest
+  // (chưa đăng nhập, không được cộng điểm).
+  myScoreReward: { points: number; coins: number } | null;
 };
 
 export type WolfNightActionInput = {
@@ -590,7 +595,46 @@ async function getRoomByCode(roomCode: string) {
   return { supabase, room: room as RoomRow | null, error };
 }
 
+// wolf_room_players.user_id là cột mới (migration 202608250001), có thể chưa được apply thủ công
+// trên remote. Thử select kèm user_id trước; nếu cột chưa tồn tại thì fallback về logic cũ và
+// gán user_id = null cho mọi hàng (coi như toàn bộ người chơi là guest).
 async function getActivePlayers(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  room: RoomRow
+): Promise<PlayerRow[]> {
+  const { data: players, error } = await supabase
+    .from("wolf_room_players")
+    .select(
+      "id, room_id, session_id, name, avatar_key, avatar_object_key, user_id, is_host, is_ready, joined_at"
+    )
+    .eq("room_id", room.id)
+    .order("joined_at", { ascending: true });
+
+  if (!error) {
+    return (players ?? []) as PlayerRow[];
+  }
+
+  if (isMissingUserIdColumnError(error)) {
+    const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+    return legacyPlayers.map((player) => ({ ...player, user_id: null }));
+  }
+
+  const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+  const { data: userIdRows } = await supabase
+    .from("wolf_room_players")
+    .select("id, user_id")
+    .eq("room_id", room.id);
+  const userIdByPlayerId = new Map(
+    (userIdRows ?? []).map((row) => [row.id as string, (row as { user_id: string | null }).user_id])
+  );
+
+  return legacyPlayers.map((player) => ({
+    ...player,
+    user_id: userIdByPlayerId.get(player.id) ?? null,
+  }));
+}
+
+async function getActivePlayersWithoutUserId(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow
 ) {
@@ -652,6 +696,7 @@ async function insertWolfRoomPlayer(
     name: string;
     avatar_key: string;
     avatar_object_key?: string | null;
+    user_id?: string | null;
     is_host?: boolean;
     is_ready?: boolean;
   }
@@ -664,12 +709,17 @@ async function insertWolfRoomPlayer(
     is_host: values.is_host,
     is_ready: values.is_ready,
     ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
+    ...(values.user_id ? { user_id: values.user_id } : {}),
   };
   const { data, error } = await supabase
     .from("wolf_room_players")
     .insert(insertValues)
     .select("id")
     .single();
+
+  if (values.user_id && isMissingUserIdColumnError(error)) {
+    return insertWolfRoomPlayer(supabase, { ...values, user_id: undefined });
+  }
 
   if (values.avatar_object_key && isMissingAvatarObjectKeyColumnError(error)) {
     return { data, error };
@@ -699,17 +749,23 @@ async function updateWolfRoomPlayerIdentity(
   playerId: string,
   name: string,
   avatarKey: string,
-  avatarObjectKey: string | null
+  avatarObjectKey: string | null,
+  userId?: string | null
 ) {
   const updateValues = {
     name,
     avatar_key: avatarKey,
     avatar_object_key: avatarObjectKey,
+    ...(userId ? { user_id: userId } : {}),
   };
   const { error } = await supabase
     .from("wolf_room_players")
     .update(updateValues)
     .eq("id", playerId);
+
+  if (userId && isMissingUserIdColumnError(error)) {
+    return updateWolfRoomPlayerIdentity(supabase, playerId, name, avatarKey, avatarObjectKey, null);
+  }
 
   if (avatarObjectKey && isMissingAvatarObjectKeyColumnError(error)) {
     return error;
@@ -1964,7 +2020,7 @@ async function maybeAutoAdvancePhase(
     const votePlayerIds = new Set((votesData ?? []).map((vote) => vote.voter_player_id));
 
     if (players.every((player) => votePlayerIds.has(player.id))) {
-      await setWolfGameResultPhase(supabase, room.current_game_id, players);
+      await setWolfGameResultPhase(supabase, room.current_game_id, room.code, players);
     }
   }
 }
@@ -2878,9 +2934,102 @@ async function buildWolfResultSnapshotFromDatabase(
   );
 }
 
+// Ma Sói khó thắng hơn Dân làng (chỉ có 2-3 Sói trong 6-10 người, lại phải qua thảo luận +
+// vote của cả bàn) nên phe Sói thắng được thưởng điểm/Xu gấp đôi phe Dân làng thắng.
+// Phe thua bị trừ điểm nhưng không mất Xu. Chỉ user đã đăng nhập (có wolf_room_players.user_id)
+// mới bị ảnh hưởng điểm/Xu.
+const WOLF_SCORE_RULES: Record<"villagers" | "werewolves", { points: number; coins: number }> = {
+  villagers: { points: 5, coins: 3 },
+  werewolves: { points: 10, coins: 5 },
+};
+
+const WOLF_LOSS_POINTS_PENALTY = -2;
+const WOLF_LOSS_COINS_PENALTY = 0;
+
+function getWolfScoreTeam(role: WolfRole): "villagers" | "werewolves" {
+  return isWerewolfRole(role) ? "werewolves" : "villagers";
+}
+
+function computeWolfScoreReward(
+  currentPlayer: PlayerRow | null,
+  resultSnapshot: WolfResultSnapshot | null
+): { points: number; coins: number } | null {
+  if (!currentPlayer?.user_id || !resultSnapshot) {
+    return null;
+  }
+
+  const summary = resultSnapshot.allPlayersSummary.find(
+    (playerSummary) => playerSummary.playerId === currentPlayer.id
+  );
+
+  if (!summary) {
+    return null;
+  }
+
+  const team = getWolfScoreTeam(summary.finalTeamRole ?? summary.finalRole);
+
+  if (team !== resultSnapshot.result.winnerTeam) {
+    return { points: WOLF_LOSS_POINTS_PENALTY, coins: WOLF_LOSS_COINS_PENALTY };
+  }
+
+  const rule = WOLF_SCORE_RULES[team];
+  return { points: rule.points, coins: rule.coins };
+}
+
+// Trao điểm/Xu cho người chơi đã đăng nhập khi ván vào phase "result". Idempotent: RPC
+// award_wolf_game_points chống cộng trùng qua unique (game_id, user_id) nên gọi lại an toàn.
+async function awardWolfGameScores(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  roomCode: string,
+  players: PlayerRow[],
+  resultSnapshot: WolfResultSnapshot
+) {
+  const playerById = new Map(players.map((player) => [player.id, player]));
+
+  const awards = resultSnapshot.allPlayersSummary
+    .map((summary) => {
+      const player = playerById.get(summary.playerId);
+
+      if (!player?.user_id) {
+        return null;
+      }
+
+      const team = getWolfScoreTeam(summary.finalTeamRole ?? summary.finalRole);
+      const isWinner = team === resultSnapshot.result.winnerTeam;
+      const rule = WOLF_SCORE_RULES[team];
+
+      return {
+        user_id: player.user_id,
+        team,
+        role: summary.finalTeamRole ?? summary.finalRole,
+        is_winner: isWinner,
+        points: isWinner ? rule.points : WOLF_LOSS_POINTS_PENALTY,
+        coins: isWinner ? rule.coins : WOLF_LOSS_COINS_PENALTY,
+      };
+    })
+    .filter((award): award is NonNullable<typeof award> => award !== null);
+
+  if (awards.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.rpc("award_wolf_game_points", {
+    p_game_id: gameId,
+    p_room_code: roomCode,
+    p_game_key: WOLF_GAME_KEY,
+    p_awards: awards,
+  });
+
+  if (error) {
+    console.error("[wolf] Không thể trao điểm/Xu:", error);
+  }
+}
+
 async function setWolfGameResultPhase(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   gameId: string,
+  roomCode: string,
   players: PlayerRow[]
 ) {
   const resultSnapshot = await buildWolfResultSnapshotFromDatabase(supabase, gameId, players);
@@ -2893,11 +3042,13 @@ async function setWolfGameResultPhase(
     .eq("id", gameId);
 
   if (!error) {
+    await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
     return;
   }
 
   if (isMissingResultSnapshotColumnError(error)) {
     await supabase.from("wolf_game_sessions").update({ phase: "result" }).eq("id", gameId);
+    await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
   }
 }
 
@@ -2947,7 +3098,8 @@ export async function createWolfRoom(
   playerName?: string,
   avatarKey?: string,
   isPublic = true,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<WolfActionResult> {
   const supabase = createSupabaseAdminClient();
   const sessionId = await getOrCreatePlayerSessionId();
@@ -2986,6 +3138,7 @@ export async function createWolfRoom(
         name,
         avatar_key: playerAvatarKey,
         avatar_object_key: playerAvatarObjectKey,
+        user_id: userId,
         is_host: true,
         is_ready: true,
       }
@@ -3026,7 +3179,8 @@ export async function joinWolfRoom(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<WolfActionResult> {
   const code = normalizeRoomCode(roomCode);
 
@@ -3115,7 +3269,8 @@ export async function joinWolfRoom(
       existingPlayer.id,
       name,
       playerAvatarKey,
-      playerAvatarObjectKey
+      playerAvatarObjectKey,
+      userId
     );
 
     if (updateError) {
@@ -3161,6 +3316,7 @@ export async function joinWolfRoom(
       name,
       avatar_key: playerAvatarKey,
       avatar_object_key: playerAvatarObjectKey,
+      user_id: userId,
       is_host: shouldBecomeHost,
       is_ready: shouldBecomeHost,
     }
@@ -3326,6 +3482,8 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
       if (!resultSnapshotSaved) {
         return;
       }
+
+      await awardWolfGameScores(supabase, room.current_game_id, room.code, players, resultSnapshot);
     }
   }
 
@@ -3989,6 +4147,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       ? resultSnapshot?.allPlayersSummary ?? buildAllPlayersSummary(players, cards)
       : null,
     roleDeck: resultSnapshot?.roleDeck ?? buildRoleDeck(cards),
+    myScoreReward: computeWolfScoreReward(currentPlayer, resultSnapshot ?? null),
   };
 }
 
@@ -4869,7 +5028,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   }
 
   if (game.phase === "voting") {
-    await setWolfGameResultPhase(supabase, game.id, players);
+    await setWolfGameResultPhase(supabase, game.id, room.code, players);
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }

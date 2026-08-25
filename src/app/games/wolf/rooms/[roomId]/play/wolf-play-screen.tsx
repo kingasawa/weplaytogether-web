@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Coins, History, LoaderCircle, LogOut, RotateCcw, Trophy, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition, type PointerEvent } from "react";
@@ -1585,6 +1585,24 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             >
               {playState.result.winnerText}
             </strong>
+            {playState.myScoreReward &&
+              (playState.myScoreReward.points !== 0 || playState.myScoreReward.coins !== 0) && (
+                <span
+                  className={`${styles.resultReward} ${
+                    playState.myScoreReward.points < 0 ? styles.resultRewardNegative : ""
+                  }`}
+                >
+                  <Trophy aria-hidden="true" />
+                  {playState.myScoreReward.points > 0 ? "+" : ""}
+                  {playState.myScoreReward.points} điểm
+                  {playState.myScoreReward.coins !== 0 && (
+                    <>
+                      <Coins aria-hidden="true" />
+                      +{playState.myScoreReward.coins} Xu
+                    </>
+                  )}
+                </span>
+              )}
             <div className={styles.playPicker}>
               {playState.result.skippedVoteCount > 0 && (
                 <span className={styles.voteResult}>

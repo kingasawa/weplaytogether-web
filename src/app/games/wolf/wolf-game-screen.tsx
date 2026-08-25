@@ -62,6 +62,7 @@ export default function WolfGameScreen() {
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
@@ -114,6 +115,7 @@ export default function WolfGameScreen() {
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
+      setAccountUserId(hasSession ? data.session?.user.id ?? null : null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -123,6 +125,7 @@ export default function WolfGameScreen() {
       const hasSession = isAllowedGmailSession(session);
 
       setIsLoggedIn(hasSession);
+      setAccountUserId(hasSession ? session?.user.id ?? null : null);
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
@@ -182,7 +185,7 @@ export default function WolfGameScreen() {
   ) {
     setActionError("");
     startTransition(async () => {
-      const result = await createWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey);
+      const result = await createWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey, accountUserId);
 
       if (!result.ok) {
         setActionError(result.error);
@@ -208,7 +211,7 @@ export default function WolfGameScreen() {
 
     setRoomCodeError("");
     startTransition(async () => {
-      const result = await joinWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey);
+      const result = await joinWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey, accountUserId);
 
       if (!result.ok) {
         setRoomCodeError(result.error);

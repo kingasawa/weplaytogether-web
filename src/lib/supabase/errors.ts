@@ -33,3 +33,7 @@ export function isMissingAvatarKeyColumnError(error: SupabaseErrorLike) {
 export function isMissingAvatarObjectKeyColumnError(error: SupabaseErrorLike) {
   return isMissingColumnError(error, "avatar_object_key");
 }
+
+export function isMissingUserIdColumnError(error: SupabaseErrorLike) {
+  return isMissingColumnError(error, "user_id");
+}
