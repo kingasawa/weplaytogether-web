@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   title: "Bảng xếp hạng | WE PLAY TOGETHER",
 };
 
+// Đọc dữ liệu qua service role tại request time — không được prerender tĩnh lúc build vì
+// SUPABASE_SERVICE_ROLE_KEY không có ở build step (chỉ có ở runtime), và bảng xếp hạng
+// luôn cần dữ liệu mới nhất chứ không phải bản đóng băng lúc build.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const LEADERBOARD_LIMIT = 50;
 
 type LeaderboardRow = {
