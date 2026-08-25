@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, CircleAlert, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, History, LoaderCircle, LogOut, RotateCcw, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition, type PointerEvent } from "react";
@@ -33,6 +33,8 @@ import styles from "../../../page.module.css";
 
 type WolfPlayScreenProps = {
   initialState: WolfPlayState;
+  // Chế độ preview (trang debug): chỉ dựng UI từ mock data, không gọi server / không realtime.
+  isPreview?: boolean;
 };
 
 const VOTE_SKIP_KEY = "__skip_vote__";
@@ -130,7 +132,7 @@ function getWolfRoleTeam(role: WolfRole | null) {
   return role ? WOLF_ROLE_TEAMS[role] : null;
 }
 
-export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
+export default function WolfPlayScreen({ initialState, isPreview = false }: WolfPlayScreenProps) {
   const router = useRouter();
   const [playState, setPlayState] = useState(initialState);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
@@ -362,7 +364,15 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
   const maxVoteCount = playState.result
     ? playState.result.voteCounts.reduce((max, voteCount) => Math.max(max, voteCount.votes), 0)
     : 0;
-  const currentPlayerResultTeam = getWolfRoleTeam(playState.myCard?.currentRole ?? null);
+  const currentPlayerResultSummary =
+    playState.allPlayersSummary?.find((summary) => summary.playerId === playState.currentPlayerId) ?? null;
+  // Lá Nhân Bản / Copy Cat vẫn hiển thị đúng tên nó, nhưng phe thắng/thua theo chức năng đính kèm.
+  const currentPlayerResultTeam = getWolfRoleTeam(
+    currentPlayerResultSummary?.finalTeamRole ??
+      currentPlayerResultSummary?.finalRole ??
+      playState.myCard?.currentRole ??
+      null
+  );
   const isCurrentPlayerWinner =
     playState.result && currentPlayerResultTeam
       ? playState.result.winnerTeam === currentPlayerResultTeam
@@ -405,6 +415,10 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             ? 1
             : 0;
   const refreshPlayState = useCallback(async () => {
+    if (isPreview) {
+      return;
+    }
+
     const nextState = await getWolfPlayState(playState.room.code);
 
     if (!nextState) {
@@ -413,11 +427,11 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
     }
 
     setPlayState(nextState);
-  }, [playState.room.code, router]);
+  }, [isPreview, playState.room.code, router]);
 
   // Poll dự phòng + tự khôi phục khi kẹt đã nằm trong hook, không cần interval riêng ở đây.
   useWolfRoomPresence({
-    enabled: Boolean(playState.currentPlayerId),
+    enabled: !isPreview && Boolean(playState.currentPlayerId),
     pollingEnabled: playState.game.phase !== "result",
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
@@ -1283,7 +1297,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
         } ${isResultPhase ? styles.resultHeader : ""}`}
       >
         <div>
-          <span>Phòng {playState.room.code.toUpperCase()}</span>
           <h1>{WOLF_PHASE_LABELS[playState.game.phase]}</h1>
         </div>
         {playState.isCurrentPlayerHost && (
@@ -1519,29 +1532,39 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
             {renderNightReminderButton()}
           </div>
           <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
-            {roleDeckSummary.map((roleSummary) => (
-              <article
-                key={roleSummary.role}
-                className={`${styles.roleDeckTile} ${styles.discussionRoleTile} ${
-                  roleSummary.role === "werewolf" || roleSummary.role === "werewolf_seer"
-                    ? styles.roleDeckTileWolf
-                    : ""
-                }`}
-              >
+            {roleDeckSummary.map((roleSummary) => {
+              const roleCardImagePath = getWolfRoleImagePath(roleSummary.role);
+              // Ảnh lá bài đã in sẵn tên role nên không cần label; role chưa có ảnh thì
+              // dùng mặt lưng bài + vẫn hiện tên để còn nhận ra.
+              const roleImagePath = roleCardImagePath ?? PRIVATE_CARD_COVER_IMAGE_PATH;
+
+              return (
                 <button
+                  key={roleSummary.role}
                   aria-label={`Xem hướng dẫn ${WOLF_ROLE_LABELS[roleSummary.role]}`}
-                  className={styles.roleDeckInfoButton}
+                  className={`${styles.roleDeckTile} ${styles.discussionRoleTile}`}
                   type="button"
                   onClick={() => setSelectedRoleGuide(roleSummary.role)}
                 >
-                  <CircleAlert aria-hidden="true" />
+                  <span className={styles.roleDeckTileImage}>
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      fill
+                      sizes="(max-width: 768px) 22vw, 5rem"
+                      src={roleImagePath}
+                    />
+                    {!roleCardImagePath && (
+                      <span className={styles.roleDeckTileName}>{WOLF_ROLE_LABELS[roleSummary.role]}</span>
+                    )}
+                  </span>
+                  <span aria-label={`${roleSummary.count} lá`} className={styles.roleDeckTileCount}>
+                    {roleSummary.count}
+                  </span>
                 </button>
-                <strong>{WOLF_ROLE_LABELS[roleSummary.role]}</strong>
-                <span>{roleSummary.count} lá</span>
-              </article>
-            ))}
+              );
+            })}
           </div>
-          <p className={styles.discussionHint}>Mục tiêu: thảo luận và tìm ra người đáng nghi nhất.</p>
         </section>
       )}
 
@@ -1636,9 +1659,6 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                 <div className={styles.resultSummaryRow} key={summary.playerId}>
                   <div className={styles.resultSummaryHeader}>
                     <strong>{summary.playerName}</strong>
-                    {summary.finalRole !== summary.originalRole && (
-                      <span className={styles.resultRoleTag}>Bị đổi bài</span>
-                    )}
                   </div>
                   <div className={styles.resultRoleChange}>
                     <span>
@@ -1648,7 +1668,14 @@ export default function WolfPlayScreen({ initialState }: WolfPlayScreenProps) {
                     <ArrowRight className={styles.resultRoleArrow} aria-hidden="true" />
                     <span>
                       Bài hiện tại
-                      <strong>{WOLF_ROLE_LABELS[summary.finalRole]}</strong>
+                      <span className={styles.resultFinalRole}>
+                        <strong>{WOLF_ROLE_LABELS[summary.finalRole]}</strong>
+                        {summary.finalTeamRole && summary.finalTeamRole !== summary.finalRole && (
+                          <span className={styles.resultRoleTag}>
+                            {WOLF_ROLE_LABELS[summary.finalTeamRole]}
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </div>
                 </div>

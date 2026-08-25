@@ -4,7 +4,6 @@ import {
   ArrowUp,
   BadgeCheck,
   Check,
-  CircleAlert,
   Eye,
   FlaskConical,
   History,
@@ -208,31 +207,13 @@ function renderNightPickerIcon(intent: NightPickerIntent) {
   return null;
 }
 
-function renderDiscussionRoleIcon(role: ClassicWolfRole) {
-  if (role === "guard") {
-    return <Shield aria-hidden="true" />;
-  }
+type ClassicWolfPlayScreenProps = {
+  initialState: ClassicWolfPlayState;
+  // Chế độ preview (trang debug): chỉ dựng UI từ mock data, không gọi server / không realtime.
+  isPreview?: boolean;
+};
 
-  if (role === "seer") {
-    return <Eye aria-hidden="true" />;
-  }
-
-  if (role === "werewolf") {
-    return <Skull aria-hidden="true" />;
-  }
-
-  if (role === "witch") {
-    return <FlaskConical aria-hidden="true" />;
-  }
-
-  if (role === "hunter") {
-    return <BadgeCheck aria-hidden="true" />;
-  }
-
-  return <Users aria-hidden="true" />;
-}
-
-export default function ClassicWolfPlayScreen({ initialState }: { initialState: ClassicWolfPlayState }) {
+export default function ClassicWolfPlayScreen({ initialState, isPreview = false }: ClassicWolfPlayScreenProps) {
   const router = useRouter();
   const [playState, setPlayState] = useState(initialState);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -389,6 +370,10 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     playState.result && currentPlayerTeam ? playState.result.winnerTeam === currentPlayerTeam : null;
 
   const refreshPlayState = useCallback(async () => {
+    if (isPreview) {
+      return;
+    }
+
     const nextState = await getClassicWolfPlayState(playState.room.code);
 
     if (!nextState) {
@@ -435,18 +420,18 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
       return current && nextState.players.some((player) => player.id === current && player.isAlive) ? current : null;
     });
     setWitchDecision((current) => (nextState.game.phase === "night" ? current : "rescue_prompt"));
-  }, [playState.room.code, router]);
+  }, [isPreview, playState.room.code, router]);
 
   // Poll dự phòng + tự khôi phục khi kẹt đã nằm trong hook, không cần interval riêng ở đây.
   useWolfRoomPresence({
-    enabled: Boolean(playState.currentPlayerId),
+    enabled: !isPreview && Boolean(playState.currentPlayerId),
     pollingEnabled: playState.game.phase !== "result",
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
   });
 
   useEffect(() => {
-    if (!isNightPhase || !playState.currentPlayerId || !playState.activeNightTurn?.isAutoPass) {
+    if (isPreview || !isNightPhase || !playState.currentPlayerId || !playState.activeNightTurn?.isAutoPass) {
       return;
     }
 
@@ -477,6 +462,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
     };
   }, [
     isNightPhase,
+    isPreview,
     playState.activeNightTurn?.isAutoPass,
     playState.currentPlayerId,
     playState.room.code,
@@ -898,7 +884,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
           {playState.witchVictimPlayerId && (
             <div className={styles.playPicker}>
               <span
-                className={`${styles.voteResultTop} ${
+                className={`${styles.voteResult} ${styles.voteResultTop} ${
                   witchDecision === "rescue" ? styles.playOptionActiveHeal : ""
                 }`}
               >
@@ -1232,7 +1218,6 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
         } ${isResultPhase ? styles.resultHeader : ""}`}
       >
         <div>
-          <span>Phòng {playState.room.code.toUpperCase()} · Đêm {playState.game.roundNumber}</span>
           <h1>{currentPhaseLabel}</h1>
         </div>
         {isCardRevealPhase && <p>Xem vai bí mật của bạn. Khi đã nhớ role, bấm OK.</p>}
@@ -1350,7 +1335,7 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
                 {reviewEvent && reviewEvent.playerIds.length > 0 ? (
                   <div className={styles.playPicker}>
                     {reviewEvent.playerIds.map((playerId) => (
-                      <span className={styles.voteResultTop} key={playerId}>
+                      <span className={`${styles.voteResult} ${styles.voteResultTop}`} key={playerId}>
                         {getPlayerName(playState.players, playerId)} {reviewEvent.phase === "day" ? "bị treo cổ" : "đã chết"}
                       </span>
                     ))}
@@ -1584,28 +1569,39 @@ export default function ClassicWolfPlayScreen({ initialState }: { initialState: 
             <span>Vai trò trong ván</span>
           </div>
           <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
-            {roleDeckSummary.map((roleSummary) => (
-              <article
-                key={roleSummary.role}
-                className={`${styles.roleDeckTile} ${styles.discussionRoleTile} ${
-                  roleSummary.role === "werewolf" ? styles.roleDeckTileWolf : ""
-                }`}
-              >
+            {roleDeckSummary.map((roleSummary) => {
+              const roleCardImage = CLASSIC_WOLF_ROLE_CARD_IMAGES[roleSummary.role];
+              // Ảnh lá bài đã in sẵn tên role nên không cần label; role chưa có ảnh thì
+              // dùng mặt lưng bài + vẫn hiện tên để còn nhận ra.
+              const roleCardImageSrc = roleCardImage?.src ?? PRIVATE_CARD_COVER_IMAGE_PATH;
+
+              return (
                 <button
+                  key={roleSummary.role}
                   aria-label={`Xem hướng dẫn ${CLASSIC_WOLF_ROLE_LABELS[roleSummary.role]}`}
-                  className={styles.roleDeckInfoButton}
+                  className={`${styles.roleDeckTile} ${styles.discussionRoleTile}`}
                   type="button"
                   onClick={() => setSelectedRoleGuide(roleSummary.role)}
                 >
-                  <CircleAlert aria-hidden="true" />
+                  <span className={styles.roleDeckTileImage}>
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      fill
+                      sizes="(max-width: 768px) 22vw, 5rem"
+                      src={roleCardImageSrc}
+                    />
+                    {!roleCardImage && (
+                      <span className={styles.roleDeckTileName}>{CLASSIC_WOLF_ROLE_LABELS[roleSummary.role]}</span>
+                    )}
+                  </span>
+                  <span aria-label={`${roleSummary.count} lá`} className={styles.roleDeckTileCount}>
+                    {roleSummary.count}
+                  </span>
                 </button>
-                <span className={styles.discussionRoleIcon}>{renderDiscussionRoleIcon(roleSummary.role)}</span>
-                <strong>{CLASSIC_WOLF_ROLE_LABELS[roleSummary.role]}</strong>
-                <span>{roleSummary.count} role</span>
-              </article>
-            ))}
+              );
+            })}
           </div>
-          <p className={styles.discussionHint}>Mục tiêu: thảo luận và tìm ra người đáng nghi nhất.</p>
         </section>
       )}
 

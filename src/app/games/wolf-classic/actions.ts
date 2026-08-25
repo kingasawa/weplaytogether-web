@@ -115,7 +115,15 @@ type ClassicWolfDeathEvent = {
 type ClassicWolfNightRole = "guard" | "werewolf" | "seer" | "witch" | "hunter" | "villager";
 
 const CLASSIC_WOLF_NIGHT_ROLE_ORDER: ClassicWolfNightRole[] = ["guard", "werewolf", "seer", "witch", "hunter"];
+// Thứ tự hiển thị bộ vai trong ván = thứ tự thức dậy ban đêm, vai không có lượt đêm xếp cuối.
+const CLASSIC_WOLF_ROLE_DECK_ORDER: ClassicWolfRole[] = [...CLASSIC_WOLF_NIGHT_ROLE_ORDER, "villager"];
 const CLASSIC_WOLF_VILLAGER_DECOY_ANCHOR_ROLES: ClassicWolfNightRole[] = ["guard", "seer", "witch"];
+
+function buildClassicWolfRoleDeck(roleByPlayerId: Record<string, ClassicWolfRole>) {
+  const roles = Object.values(roleByPlayerId);
+
+  return CLASSIC_WOLF_ROLE_DECK_ORDER.flatMap((deckRole) => roles.filter((role) => role === deckRole));
+}
 
 type ClassicWolfNightAutoPassTurn = {
   endsAt: string;
@@ -2574,7 +2582,7 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
             winnerText: state.winnerText,
           }
         : null,
-    roleDeck: Object.values(state.roleByPlayerId),
+    roleDeck: buildClassicWolfRoleDeck(state.roleByPlayerId),
     nightHistory: gameData.phase === "result" ? buildClassicWolfNightHistory(players, state) : [],
   };
 }
