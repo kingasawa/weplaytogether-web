@@ -589,7 +589,7 @@ async function getPlayerSessionId() {
 async function getRoomByCode(roomCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data: room, error } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", normalizeRoomCode(roomCode))
     .eq("game_key", WOLF_GAME_KEY)
@@ -598,7 +598,7 @@ async function getRoomByCode(roomCode: string) {
   return { supabase, room: room as RoomRow | null, error };
 }
 
-// wolf_room_players.user_id là cột mới (migration 202608250001), có thể chưa được apply thủ công
+// room_players.user_id là cột mới (migration 202608250001), có thể chưa được apply thủ công
 // trên remote. Thử select kèm user_id trước; nếu cột chưa tồn tại thì fallback về logic cũ và
 // gán user_id = null cho mọi hàng (coi như toàn bộ người chơi là guest).
 async function getActivePlayers(
@@ -606,7 +606,7 @@ async function getActivePlayers(
   room: RoomRow
 ): Promise<PlayerRow[]> {
   const { data: players, error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select(
       "id, room_id, session_id, name, avatar_key, avatar_object_key, user_id, is_host, is_ready, joined_at"
     )
@@ -624,7 +624,7 @@ async function getActivePlayers(
 
   const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
   const { data: userIdRows } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, user_id")
     .eq("room_id", room.id);
   const userIdByPlayerId = new Map(
@@ -642,14 +642,14 @@ async function getActivePlayersWithoutUserId(
   room: RoomRow
 ) {
   const { data: players, error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, room_id, session_id, name, avatar_key, avatar_object_key, is_host, is_ready, joined_at")
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
 
   if (isMissingAvatarObjectKeyColumnError(error)) {
     const { data: playersWithoutAvatarObjectKey, error: avatarKeyError } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -662,7 +662,7 @@ async function getActivePlayersWithoutUserId(
     }
 
     const { data: playersWithoutAvatar } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -676,7 +676,7 @@ async function getActivePlayersWithoutUserId(
 
   if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -715,7 +715,7 @@ async function insertWolfRoomPlayer(
     ...(values.user_id ? { user_id: values.user_id } : {}),
   };
   const { data, error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .insert(insertValues)
     .select("id")
     .single();
@@ -741,7 +741,7 @@ async function insertWolfRoomPlayer(
   };
 
   return supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .insert(fallbackValues)
     .select("id")
     .single();
@@ -762,7 +762,7 @@ async function updateWolfRoomPlayerIdentity(
     ...(userId ? { user_id: userId } : {}),
   };
   const { error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update(updateValues)
     .eq("id", playerId);
 
@@ -776,7 +776,7 @@ async function updateWolfRoomPlayerIdentity(
 
   if (isMissingAvatarObjectKeyColumnError(error)) {
     const { error: fallbackError } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .update({ name, avatar_key: avatarKey })
       .eq("id", playerId);
 
@@ -788,7 +788,7 @@ async function updateWolfRoomPlayerIdentity(
   }
 
   const { error: fallbackError } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ name })
     .eq("id", playerId);
 
@@ -800,7 +800,7 @@ function mapLobbyPlayer(
   liveProfilesByUserId?: Map<string, LivePlayerProfile>
 ): WolfLobbyPlayer {
   // Người chơi đã đăng nhập: ưu tiên tên/avatar "live" từ public.users thay vì bản snapshot
-  // đã lưu ở wolf_room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
+  // đã lưu ở room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
   // mọi phòng, không cần vào lại phòng để "cập nhật" thủ công. Guest (không có user_id) luôn
   // dùng bản snapshot vì không có hàng nào trong users để tham chiếu.
   const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
@@ -855,7 +855,7 @@ function mapPublicRoomSummaries(
 async function listPublicRoomsByGameKey(gameKey: string): Promise<WolfPublicRoomsResult> {
   const supabase = createSupabaseAdminClient();
   const { data: rooms, error: roomError } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, host_player_id, updated_at")
     .eq("game_key", gameKey)
     .eq("status", "waiting")
@@ -880,7 +880,7 @@ async function listPublicRoomsByGameKey(gameKey: string): Promise<WolfPublicRoom
   }
 
   const { data: players, error: playerError } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, room_id, name, is_host, joined_at")
     .in(
       "room_id",
@@ -1870,7 +1870,7 @@ async function getPhaseConfirmations(
   phase: WolfGamePhase
 ) {
   const { data } = await supabase
-    .from("wolf_game_phase_confirmations")
+    .from("game_phase_confirmations")
     .select("id, game_id, player_id, phase")
     .eq("game_id", gameId)
     .eq("phase", phase);
@@ -1916,7 +1916,7 @@ async function getWolfGameRowById(
   gameId: string
 ) {
   const { data, error } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select(WOLF_GAME_SELECT_WITH_RESULT_SNAPSHOT)
     .eq("id", gameId)
     .maybeSingle();
@@ -1937,7 +1937,7 @@ async function getWolfGameRowById(
   }
 
   const { data: fallbackData } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select(WOLF_GAME_SELECT)
     .eq("id", gameId)
     .maybeSingle();
@@ -1960,7 +1960,7 @@ async function maybeAutoAdvancePhase(
 
     if (confirmations.length >= players.length) {
       await supabase
-        .from("wolf_game_sessions")
+        .from("game_sessions")
         .update({ phase: "night" })
         .eq("id", room.current_game_id);
     }
@@ -1970,11 +1970,11 @@ async function maybeAutoAdvancePhase(
 
   if (phase === "night") {
     const { data: actionsData } = await supabase
-      .from("wolf_game_actions")
+      .from("game_actions")
       .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
       .eq("game_id", room.current_game_id);
     const { data: cardsData } = await supabase
-      .from("wolf_game_cards")
+      .from("game_cards")
       .select("id, game_id, player_id, center_index, original_role, current_role")
       .eq("game_id", room.current_game_id);
     const actions = (actionsData ?? []) as ActionRow[];
@@ -1985,7 +1985,7 @@ async function maybeAutoAdvancePhase(
     if (!getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds)) {
       await resolveNightActions(room.current_game_id);
       await supabase
-        .from("wolf_game_sessions")
+        .from("game_sessions")
         .update({
           phase: "discussion",
           discussion_ends_at: null,
@@ -2001,7 +2001,7 @@ async function maybeAutoAdvancePhase(
 
     if (confirmations.length >= players.length) {
       await supabase
-        .from("wolf_game_sessions")
+        .from("game_sessions")
         .update({
           phase: "discussion",
           discussion_ends_at: null,
@@ -2017,7 +2017,7 @@ async function maybeAutoAdvancePhase(
 
     if (confirmations.length >= players.length) {
       await supabase
-        .from("wolf_game_sessions")
+        .from("game_sessions")
         .update({ phase: "voting" })
         .eq("id", room.current_game_id);
     }
@@ -2027,7 +2027,7 @@ async function maybeAutoAdvancePhase(
 
   if (phase === "voting") {
     const { data: votesData } = await supabase
-      .from("wolf_game_votes")
+      .from("game_votes")
       .select("voter_player_id")
       .eq("game_id", room.current_game_id);
     const votePlayerIds = new Set((votesData ?? []).map((vote) => vote.voter_player_id));
@@ -2927,15 +2927,15 @@ async function buildWolfResultSnapshotFromDatabase(
   players: PlayerRow[]
 ) {
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", gameId);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", gameId);
   const { data: votesData } = await supabase
-    .from("wolf_game_votes")
+    .from("game_votes")
     .select("id, game_id, voter_player_id, target_player_id, is_skip")
     .eq("game_id", gameId);
 
@@ -2949,7 +2949,7 @@ async function buildWolfResultSnapshotFromDatabase(
 
 // Ma Sói khó thắng hơn Dân làng (chỉ có 2-3 Sói trong 6-10 người, lại phải qua thảo luận +
 // vote của cả bàn) nên phe Sói thắng được thưởng điểm/Xu gấp đôi phe Dân làng thắng.
-// Phe thua bị trừ điểm nhưng không mất Xu. Chỉ user đã đăng nhập (có wolf_room_players.user_id)
+// Phe thua bị trừ điểm nhưng không mất Xu. Chỉ user đã đăng nhập (có room_players.user_id)
 // mới bị ảnh hưởng điểm/Xu.
 const WOLF_SCORE_RULES: Record<"villagers" | "werewolves", { points: number; coins: number }> = {
   villagers: { points: 5, coins: 3 },
@@ -3047,7 +3047,7 @@ async function setWolfGameResultPhase(
 ) {
   const resultSnapshot = await buildWolfResultSnapshotFromDatabase(supabase, gameId, players);
   const { error } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .update({
       phase: "result",
       result_snapshot: resultSnapshot,
@@ -3060,7 +3060,7 @@ async function setWolfGameResultPhase(
   }
 
   if (isMissingResultSnapshotColumnError(error)) {
-    await supabase.from("wolf_game_sessions").update({ phase: "result" }).eq("id", gameId);
+    await supabase.from("game_sessions").update({ phase: "result" }).eq("id", gameId);
     await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
   }
 }
@@ -3071,7 +3071,7 @@ async function saveWolfGameResultSnapshot(
   resultSnapshot: WolfResultSnapshot
 ) {
   const { error } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .update({ result_snapshot: resultSnapshot })
     .eq("id", gameId);
 
@@ -3081,11 +3081,11 @@ async function saveWolfGameResultSnapshot(
 async function resolveNightActions(gameId: string) {
   const supabase = createSupabaseAdminClient();
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", gameId);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", gameId);
 
@@ -3096,7 +3096,7 @@ async function resolveNightActions(gameId: string) {
   await Promise.all(
     cards.map((card) =>
       supabase
-        .from("wolf_game_cards")
+        .from("game_cards")
         .update({ current_role: currentRoleByCardId.get(card.id) ?? card.original_role })
         .eq("id", card.id)
     )
@@ -3124,7 +3124,7 @@ export async function createWolfRoom(
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const code = generateRoomCode();
     const { data: room, error: roomError } = await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .insert({ code, game_key: WOLF_GAME_KEY, is_public: isPublic })
       .select("id, code, status, host_player_id, created_at, updated_at, game_key")
       .single();
@@ -3158,7 +3158,7 @@ export async function createWolfRoom(
     );
 
     if (playerError || !hostPlayer) {
-      await supabase.from("wolf_rooms").delete().eq("id", room.id);
+      await supabase.from("rooms").delete().eq("id", room.id);
       return {
         ok: false,
         error:
@@ -3168,7 +3168,7 @@ export async function createWolfRoom(
     }
 
     await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .update({ host_player_id: hostPlayer.id })
       .eq("id", room.id);
 
@@ -3209,7 +3209,7 @@ export async function joinWolfRoom(
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   const { data: room, error: roomError } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3227,13 +3227,13 @@ export async function joinWolfRoom(
   // phòng bỏ lại, không phải đang chơi — hồi sinh để vào lại được thay vì chặn luôn.
   if (room.status === "finished") {
     const { count: abandonedPlayerCount } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id", { count: "exact", head: true })
       .eq("room_id", room.id);
 
     if ((abandonedPlayerCount ?? 0) === 0) {
       await supabase
-        .from("wolf_rooms")
+        .from("rooms")
         .update({ status: "waiting", current_game_id: null })
         .eq("id", room.id);
       room.status = "waiting";
@@ -3247,7 +3247,7 @@ export async function joinWolfRoom(
     }
 
     const { data: game } = await supabase
-      .from("wolf_game_sessions")
+      .from("game_sessions")
       .select("phase")
       .eq("id", room.current_game_id)
       .maybeSingle();
@@ -3257,11 +3257,11 @@ export async function joinWolfRoom(
     }
 
     await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .update({ status: "waiting", current_game_id: null })
       .eq("id", room.id);
     await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .update({ is_ready: false })
       .eq("room_id", room.id)
       .eq("is_host", false);
@@ -3270,7 +3270,7 @@ export async function joinWolfRoom(
   }
 
   const { data: existingPlayer } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id")
     .eq("room_id", room.id)
     .eq("session_id", sessionId)
@@ -3309,7 +3309,7 @@ export async function joinWolfRoom(
   }
 
   const { count: activePlayerCount } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id", { count: "exact", head: true })
     .eq("room_id", room.id);
 
@@ -3345,7 +3345,7 @@ export async function joinWolfRoom(
   }
 
   if (shouldBecomeHost) {
-    await supabase.from("wolf_rooms").update({ host_player_id: player.id }).eq("id", room.id);
+    await supabase.from("rooms").update({ host_player_id: player.id }).eq("id", room.id);
   }
 
   await safeBroadcastWolfRoomUpdate(room.code);
@@ -3394,7 +3394,7 @@ export async function updateWolfPlayerProfile(
   const playerAvatarUrl = getUploadedPlayerAvatarUrl(playerAvatarObjectKey);
 
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3409,7 +3409,7 @@ export async function updateWolfPlayerProfile(
   }
 
   const { data: player } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id")
     .eq("room_id", room.id)
     .eq("session_id", sessionId)
@@ -3460,7 +3460,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
 
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3503,7 +3503,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   }
 
   const { data: player } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, is_host")
     .eq("room_id", room.id)
     .eq("session_id", sessionId)
@@ -3514,7 +3514,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   }
 
   await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .delete()
     .eq("id", player.id);
 
@@ -3524,7 +3524,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   }
 
   const { data: nextHost } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id")
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true })
@@ -3533,7 +3533,7 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
 
   if (!nextHost) {
     await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .update({ host_player_id: null, status: "finished", current_game_id: null })
       .eq("id", room.id);
     await safeBroadcastWolfRoomUpdate(room.code);
@@ -3541,11 +3541,11 @@ export async function leaveWolfRoom(roomCode: string): Promise<void> {
   }
 
   await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ is_host: true, is_ready: true })
     .eq("id", nextHost.id);
   await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .update({ host_player_id: nextHost.id })
     .eq("id", room.id);
   await safeBroadcastWolfRoomUpdate(room.code);
@@ -3583,7 +3583,7 @@ export async function kickWolfPlayer(
   }
 
   const { error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .delete()
     .eq("id", targetPlayer.id)
     .eq("room_id", room.id);
@@ -3607,7 +3607,7 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
 
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3618,7 +3618,7 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
   }
 
   const { data: player } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, is_ready, is_host")
     .eq("room_id", room.id)
     .eq("session_id", sessionId)
@@ -3634,7 +3634,7 @@ export async function toggleWolfReady(roomCode: string): Promise<void> {
   }
 
   await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({
       is_ready: !player.is_ready,
     })
@@ -3652,7 +3652,7 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
 
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3687,7 +3687,7 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
 
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", code)
     .eq("game_key", WOLF_GAME_KEY)
@@ -3709,15 +3709,15 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
         result = game.result_snapshot.result;
       } else {
         const { data: cardsData } = await supabase
-          .from("wolf_game_cards")
+          .from("game_cards")
           .select("id, game_id, player_id, center_index, original_role, current_role")
           .eq("game_id", game.id);
         const { data: votesData } = await supabase
-          .from("wolf_game_votes")
+          .from("game_votes")
           .select("id, game_id, voter_player_id, target_player_id, is_skip")
           .eq("game_id", game.id);
         const { data: actionsData } = await supabase
-          .from("wolf_game_actions")
+          .from("game_actions")
           .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
           .eq("game_id", game.id);
         const resultCards = (cardsData ?? []) as CardRow[];
@@ -3808,7 +3808,7 @@ export async function startWolfGame(
   }
 
   const { data: game, error: gameError } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .insert({ room_id: room.id, phase: "card_reveal", round_number: 1 })
     .select("id")
     .single();
@@ -3835,7 +3835,7 @@ export async function startWolfGame(
   }));
 
   const { error: cardError } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .insert([...playerCards, ...centerCards]);
 
   if (cardError) {
@@ -3846,7 +3846,7 @@ export async function startWolfGame(
       message: cardError.message,
       roles: roleDeckValidation.roles,
     });
-    await supabase.from("wolf_game_sessions").delete().eq("id", game.id);
+    await supabase.from("game_sessions").delete().eq("id", game.id);
     if (cardError.message.includes("invalid input value for enum")) {
       return {
         ok: false,
@@ -3858,7 +3858,7 @@ export async function startWolfGame(
   }
 
   await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .update({ status: "playing", current_game_id: game.id })
     .eq("id", room.id);
 
@@ -3911,15 +3911,15 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   }
 
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", game.id);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", game.id);
   const { data: votesData } = await supabase
-    .from("wolf_game_votes")
+    .from("game_votes")
     .select("id, game_id, voter_player_id, target_player_id, is_skip")
     .eq("game_id", game.id);
 
@@ -4212,11 +4212,11 @@ export async function revealWolfCenterCard(
   }
 
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const cards = (cardsData ?? []) as CardRow[];
@@ -4345,11 +4345,11 @@ export async function revealWolfPlayerCard(
   }
 
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
@@ -4419,18 +4419,18 @@ export async function submitWolfNightAction(
   }
 
   const { data: myCard } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("original_role")
     .eq("game_id", room.current_game_id)
     .eq("player_id", currentPlayer.id)
     .maybeSingle();
   const originalRole = myCard?.original_role as WolfRole | undefined;
   const { data: gameCardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
   const { data: gameActionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const gameCards = (gameCardsData ?? []) as CardRow[];
@@ -4806,7 +4806,7 @@ export async function submitWolfNightAction(
 
   if (isCopycatCopiedRoleTurn) {
     const { error: resetConfirmationError } = await supabase
-      .from("wolf_game_phase_confirmations")
+      .from("game_phase_confirmations")
       .delete()
       .eq("game_id", room.current_game_id)
       .eq("player_id", currentPlayer.id)
@@ -4855,7 +4855,7 @@ export async function submitWolfNightAction(
       : activeNightTurn;
 
   const { error } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .upsert(
       submittedActionPayload,
       { onConflict: "game_id,player_id" }
@@ -4867,7 +4867,7 @@ export async function submitWolfNightAction(
 
   if (!doesNightTurnRequireResultConfirmation(submittedActiveNightTurn, submittedAction, gameCards)) {
     const { error: confirmationError } = await supabase
-      .from("wolf_game_phase_confirmations")
+      .from("game_phase_confirmations")
       .upsert(
         {
           game_id: room.current_game_id,
@@ -4897,7 +4897,7 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
   }
 
   const { data: game } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select("id, phase")
     .eq("id", room.current_game_id)
     .maybeSingle();
@@ -4914,11 +4914,11 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
   }
 
   const { data: cardsData } = await supabase
-    .from("wolf_game_cards")
+    .from("game_cards")
     .select("id, game_id, player_id, center_index, original_role, current_role")
     .eq("game_id", room.current_game_id);
   const { data: actionsData } = await supabase
-    .from("wolf_game_actions")
+    .from("game_actions")
     .select("id, game_id, player_id, action_type, target_player_id, target_player_id_2, target_player_id_3, target_center_index, target_center_index_2, target_center_index_3")
     .eq("game_id", room.current_game_id);
   const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
@@ -4937,7 +4937,7 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
   }
 
   const { error } = await supabase
-    .from("wolf_game_phase_confirmations")
+    .from("game_phase_confirmations")
     .upsert(
       {
         game_id: room.current_game_id,
@@ -4973,7 +4973,7 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
   }
 
   const { data: game } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select("id, phase")
     .eq("id", room.current_game_id)
     .maybeSingle();
@@ -4983,7 +4983,7 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
   }
 
   const { error } = await supabase
-    .from("wolf_game_phase_confirmations")
+    .from("game_phase_confirmations")
     .upsert(
       {
         game_id: game.id,
@@ -5019,7 +5019,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   }
 
   const { data: game } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select("id, phase")
     .eq("id", room.current_game_id)
     .maybeSingle();
@@ -5029,7 +5029,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   }
 
   if (game.phase === "card_reveal") {
-    await supabase.from("wolf_game_sessions").update({ phase: "night" }).eq("id", game.id);
+    await supabase.from("game_sessions").update({ phase: "night" }).eq("id", game.id);
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }
@@ -5037,7 +5037,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   if (game.phase === "night") {
     await resolveNightActions(game.id);
     await supabase
-      .from("wolf_game_sessions")
+      .from("game_sessions")
       .update({
         phase: "discussion",
         discussion_ends_at: null,
@@ -5048,7 +5048,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   }
 
   if (game.phase === "discussion") {
-    await supabase.from("wolf_game_sessions").update({ phase: "voting" }).eq("id", game.id);
+    await supabase.from("game_sessions").update({ phase: "voting" }).eq("id", game.id);
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }
@@ -5081,7 +5081,7 @@ export async function submitWolfVote(
   }
 
   const { data: game } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .select("id, phase")
     .eq("id", room.current_game_id)
     .maybeSingle();
@@ -5095,7 +5095,7 @@ export async function submitWolfVote(
   }
 
   const { error } = await supabase
-    .from("wolf_game_votes")
+    .from("game_votes")
     .upsert(
       {
         game_id: game.id,
@@ -5140,11 +5140,11 @@ export async function finishWolfGame(roomCode: string): Promise<WolfMutationResu
   }
 
   await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .update({ status: "waiting", current_game_id: null })
     .eq("id", room.id);
   await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ is_ready: false })
     .eq("room_id", room.id)
     .eq("is_host", false);

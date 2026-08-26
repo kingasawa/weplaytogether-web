@@ -51,23 +51,23 @@ The user reported successful manual SQL execution for the lobby/gameplay migrati
 
 The pending lobby migration defines these read policies after enabling RLS:
 
-- `Public read wolf rooms` on `public.wolf_rooms`
-- `Public read wolf room players` on `public.wolf_room_players`
+- `Public read wolf rooms` on `public.rooms`
+- `Public read wolf room players` on `public.room_players`
 
 ### `202606030002_wolf_gameplay.sql`
 
 The pending gameplay migration defines these read policies after enabling RLS:
 
-- `Public read wolf game sessions` on `public.wolf_game_sessions`
-- `Public read wolf game cards` on `public.wolf_game_cards`
-- `Public read wolf game actions` on `public.wolf_game_actions`
-- `Public read wolf game votes` on `public.wolf_game_votes`
+- `Public read wolf game sessions` on `public.game_sessions`
+- `Public read wolf game cards` on `public.game_cards`
+- `Public read wolf game actions` on `public.game_actions`
+- `Public read wolf game votes` on `public.game_votes`
 
 ### `202606030003_wolf_phase_confirmations.sql`
 
 The pending phase confirmation migration defines this read policy after enabling RLS:
 
-- `Public read wolf game phase confirmations` on `public.wolf_game_phase_confirmations`
+- `Public read wolf game phase confirmations` on `public.game_phase_confirmations`
 
 ### `202607280001_classic_wolf_state.sql`
 
@@ -77,8 +77,8 @@ The Ma Sói nhiều đêm state migration enables RLS on `public.classic_wolf_ga
 
 The room visibility migration replaces the lobby read policies:
 
-- `Public read wolf rooms` on `public.wolf_rooms` allows `anon` and `authenticated` to select only rows where `is_public = true`.
-- `Public read wolf room players` on `public.wolf_room_players` allows `anon` and `authenticated` to select players only for rooms where `is_public = true`.
+- `Public read wolf rooms` on `public.rooms` allows `anon` and `authenticated` to select only rows where `is_public = true`.
+- `Public read wolf room players` on `public.room_players` allows `anon` and `authenticated` to select players only for rooms where `is_public = true`.
 
 Private rooms are still read and joined through server actions using the service role after a user provides the room code.
 
@@ -94,7 +94,9 @@ Client writes are intentionally not granted. Room creation, lobby mutation, game
 
 ## Remote Apply Blocker
 
-The `wolf_game_phase_confirmations` policy remains pending until `202606030003_wolf_phase_confirmations.sql` is applied manually. Automated migration execution from this workspace remains unavailable with the current credentials/connectivity.
+The `game_phase_confirmations` policy remains pending until `202606030003_wolf_phase_confirmations.sql` is applied manually. Automated migration execution from this workspace remains unavailable with the current credentials/connectivity.
+
+On 2026-08-26, `202608260002_rename_shared_game_tables.sql` renamed `wolf_rooms`/`wolf_room_players`/`wolf_game_sessions`/`wolf_game_cards`/`wolf_game_actions`/`wolf_game_votes`/`wolf_game_phase_confirmations` to drop the misleading `wolf_` prefix (they're shared by all 3 games — see `documents/schema.md`). `alter table ... rename to ...` carries RLS policies over automatically (policies are stored as parsed expressions tied to the table's OID, not as text), so none of the policy *definitions* above needed changes — only which table each is attached to. The policy **names** themselves (e.g. `"Public read wolf rooms"`) were intentionally left as-is; renaming them wasn't required and wasn't part of what the user asked for. Same manual-SQL-Editor blocker applies — the Supabase MCP tool in this workspace is connected to an unrelated project ("Map Buddy"), not this app's project.
 
 On 2026-08-26, `202608260001_shop_items.sql` (shop RLS policies above) hit the same blocker: the Supabase MCP tool available in this workspace is connected to a different Supabase account/project, and `supabase link`/`db push` was blocked by the sandbox's auto-mode classifier before it could even attempt the network call. The migration must be pasted into the Supabase SQL Editor manually, same as the other pending migrations.
 

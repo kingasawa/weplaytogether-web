@@ -451,7 +451,7 @@ async function getPlayerSessionId() {
 async function getRoomByCode(roomCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data: room, error } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, game_key, status, host_player_id, current_game_id")
     .eq("code", normalizeRoomCode(roomCode))
     .eq("game_key", AVALON_GAME_KEY)
@@ -465,7 +465,7 @@ async function getActivePlayers(
   room: RoomRow
 ): Promise<PlayerRow[]> {
   const { data: players, error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select(
       "id, room_id, session_id, name, avatar_key, avatar_object_key, user_id, is_host, is_ready, joined_at"
     )
@@ -483,7 +483,7 @@ async function getActivePlayers(
 
   const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
   const { data: userIdRows } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, user_id")
     .eq("room_id", room.id);
   const userIdByPlayerId = new Map(
@@ -501,14 +501,14 @@ async function getActivePlayersWithoutUserId(
   room: RoomRow
 ) {
   const { data: players, error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, room_id, session_id, name, avatar_key, avatar_object_key, is_host, is_ready, joined_at")
     .eq("room_id", room.id)
     .order("joined_at", { ascending: true });
 
   if (isMissingAvatarObjectKeyColumnError(error)) {
     const { data: playersWithoutAvatarObjectKey, error: avatarKeyError } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, avatar_key, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -521,7 +521,7 @@ async function getActivePlayersWithoutUserId(
     }
 
     const { data: playersWithoutAvatar } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -535,7 +535,7 @@ async function getActivePlayersWithoutUserId(
 
   if (isMissingAvatarKeyColumnError(error)) {
     const { data: playersWithoutAvatar } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .select("id, room_id, session_id, name, is_host, is_ready, joined_at")
       .eq("room_id", room.id)
       .order("joined_at", { ascending: true });
@@ -573,7 +573,7 @@ async function insertRoomPlayer(
     ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
     ...(values.user_id ? { user_id: values.user_id } : {}),
   };
-  const { data, error } = await supabase.from("wolf_room_players").insert(insertValues).select("id").single();
+  const { data, error } = await supabase.from("room_players").insert(insertValues).select("id").single();
 
   if (values.user_id && isMissingUserIdColumnError(error)) {
     return insertRoomPlayer(supabase, { ...values, user_id: undefined });
@@ -595,7 +595,7 @@ async function insertRoomPlayer(
     is_ready: values.is_ready,
   };
 
-  return supabase.from("wolf_room_players").insert(fallbackValues).select("id").single();
+  return supabase.from("room_players").insert(fallbackValues).select("id").single();
 }
 
 async function updateRoomPlayerIdentity(
@@ -613,7 +613,7 @@ async function updateRoomPlayerIdentity(
     ...(userId ? { user_id: userId } : {}),
   };
   const { error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update(updateValues)
     .eq("id", playerId);
 
@@ -627,7 +627,7 @@ async function updateRoomPlayerIdentity(
 
   if (isMissingAvatarObjectKeyColumnError(error)) {
     const { error: fallbackError } = await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .update({ name, avatar_key: avatarKey })
       .eq("id", playerId);
 
@@ -639,7 +639,7 @@ async function updateRoomPlayerIdentity(
   }
 
   const { error: fallbackError } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ name })
     .eq("id", playerId);
 
@@ -682,7 +682,7 @@ function mapLobbyPlayer(
   liveProfilesByUserId?: Map<string, LivePlayerProfile>
 ): AvalonLobbyPlayer {
   // Người chơi đã đăng nhập: ưu tiên tên/avatar "live" từ public.users thay vì bản snapshot
-  // đã lưu ở wolf_room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
+  // đã lưu ở room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
   // mọi phòng, không cần vào lại phòng để "cập nhật" thủ công. Guest (không có user_id) luôn
   // dùng bản snapshot vì không có hàng nào trong users để tham chiếu.
   const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
@@ -803,7 +803,7 @@ async function syncSessionPhase(
   phase: AvalonPhase
 ) {
   await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .update({ phase: mapAvalonPhaseToSessionPhase(phase) })
     .eq("id", gameId);
 }
@@ -1332,7 +1332,7 @@ function advanceAfterQuest(state: AvalonGameState, questIndex: number): AvalonGa
 export async function listPublicAvalonRooms(): Promise<AvalonPublicRoomsResult> {
   const supabase = createSupabaseAdminClient();
   const { data: rooms, error: roomError } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id, code, host_player_id, updated_at")
     .eq("game_key", AVALON_GAME_KEY)
     .eq("status", "waiting")
@@ -1357,7 +1357,7 @@ export async function listPublicAvalonRooms(): Promise<AvalonPublicRoomsResult> 
   }
 
   const { data: players, error: playerError } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, room_id, name, is_host, joined_at")
     .in(
       "room_id",
@@ -1397,7 +1397,7 @@ export async function createAvalonRoom(
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const roomCode = generateRoomCode();
     const { data: room, error: roomError } = await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .insert({
         code: roomCode,
         game_key: AVALON_GAME_KEY,
@@ -1445,7 +1445,7 @@ export async function createAvalonRoom(
       };
     }
 
-    await supabase.from("wolf_rooms").update({ host_player_id: player.id }).eq("id", room.id);
+    await supabase.from("rooms").update({ host_player_id: player.id }).eq("id", room.id);
     await safeBroadcastWolfRoomUpdate(room.code);
 
     return {
@@ -1567,7 +1567,7 @@ export async function joinAvalonRoom(
 
   if (shouldBecomeHost) {
     await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .update({ status: "waiting", host_player_id: player.id, current_game_id: null })
       .eq("id", room.id);
   }
@@ -1753,7 +1753,7 @@ export async function toggleAvalonReady(roomCode: string): Promise<AvalonMutatio
   }
 
   const { error } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ is_ready: !currentPlayer.is_ready })
     .eq("id", currentPlayer.id);
 
@@ -1793,7 +1793,7 @@ export async function kickAvalonPlayer(
     return { ok: false, error: "Người chơi được chọn không hợp lệ." };
   }
 
-  const { error } = await supabase.from("wolf_room_players").delete().eq("id", targetPlayer.id);
+  const { error } = await supabase.from("room_players").delete().eq("id", targetPlayer.id);
 
   if (error) {
     return { ok: false, error: "Không thể kick người chơi." };
@@ -1822,19 +1822,19 @@ export async function leaveAvalonRoom(roomCode: string): Promise<AvalonMutationR
   const shouldTransferHost = isHost(currentPlayer, room) && remainingPlayers.length > 0;
   const nextHost = shouldTransferHost ? remainingPlayers[0] : null;
 
-  await supabase.from("wolf_room_players").delete().eq("id", currentPlayer.id);
+  await supabase.from("room_players").delete().eq("id", currentPlayer.id);
 
   if (nextHost) {
     await supabase
-      .from("wolf_room_players")
+      .from("room_players")
       .update({ is_host: true, is_ready: true })
       .eq("id", nextHost.id);
-    await supabase.from("wolf_rooms").update({ host_player_id: nextHost.id }).eq("id", room.id);
+    await supabase.from("rooms").update({ host_player_id: nextHost.id }).eq("id", room.id);
   }
 
   if (remainingPlayers.length === 0) {
     await supabase
-      .from("wolf_rooms")
+      .from("rooms")
       .update({ status: "finished", host_player_id: null, current_game_id: null })
       .eq("id", room.id);
   }
@@ -1882,7 +1882,7 @@ export async function startAvalonGame(
   }
 
   const { data: game, error: gameError } = await supabase
-    .from("wolf_game_sessions")
+    .from("game_sessions")
     .insert({
       room_id: room.id,
       phase: "card_reveal",
@@ -1915,7 +1915,7 @@ export async function startAvalonGame(
   }
 
   await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .update({ status: "playing", current_game_id: game.id })
     .eq("id", room.id);
 
@@ -1954,7 +1954,7 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
 
   for (let attempt = 0; attempt < PLAY_STATE_READ_RETRY_ATTEMPTS; attempt += 1) {
     const { data: gameData } = await supabase
-      .from("wolf_game_sessions")
+      .from("game_sessions")
       .select("id, room_id, phase, round_number, discussion_ends_at")
       .eq("id", room.current_game_id)
       .maybeSingle();
@@ -2626,9 +2626,9 @@ export async function finishAvalonGame(roomCode: string): Promise<AvalonMutation
     return { ok: false, error: "Chỉ chủ phòng mới được đưa mọi người về phòng chờ." };
   }
 
-  await supabase.from("wolf_rooms").update({ status: "waiting", current_game_id: null }).eq("id", room.id);
+  await supabase.from("rooms").update({ status: "waiting", current_game_id: null }).eq("id", room.id);
   await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .update({ is_ready: false })
     .eq("room_id", room.id)
     .eq("is_host", false);

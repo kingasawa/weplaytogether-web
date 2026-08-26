@@ -145,7 +145,7 @@ export type UserShopItemRow = {
 export type Database = {
   public: {
     Tables: {
-      wolf_rooms: {
+      rooms: {
         Row: WolfRoomRow;
         Insert: Partial<
           Pick<
@@ -214,7 +214,7 @@ export type Database = {
           Pick<UserShopItemRow, "user_id" | "item_id">;
         Update: Partial<Omit<UserShopItemRow, "id" | "user_id" | "item_id">>;
       };
-      wolf_room_players: {
+      room_players: {
         Row: WolfRoomPlayerRow;
         Insert: Partial<
           Pick<
@@ -225,7 +225,7 @@ export type Database = {
           Pick<WolfRoomPlayerRow, "room_id" | "session_id" | "name">;
         Update: Partial<Omit<WolfRoomPlayerRow, "id" | "room_id" | "joined_at">>;
       };
-      wolf_game_sessions: {
+      game_sessions: {
         Row: WolfGameSessionRow;
         Insert: Partial<
           Pick<
@@ -242,13 +242,13 @@ export type Database = {
           Pick<WolfGameSessionRow, "room_id">;
         Update: Partial<Omit<WolfGameSessionRow, "id" | "room_id" | "created_at">>;
       };
-      wolf_game_cards: {
+      game_cards: {
         Row: WolfGameCardRow;
         Insert: Partial<Pick<WolfGameCardRow, "id" | "player_id" | "center_index" | "created_at">> &
           Pick<WolfGameCardRow, "game_id" | "original_role" | "current_role">;
         Update: Partial<Omit<WolfGameCardRow, "id" | "game_id" | "created_at">>;
       };
-      wolf_game_actions: {
+      game_actions: {
         Row: WolfGameActionRow;
         Insert: Partial<
           Pick<
@@ -267,7 +267,7 @@ export type Database = {
           Pick<WolfGameActionRow, "game_id" | "player_id" | "action_type">;
         Update: Partial<Omit<WolfGameActionRow, "id" | "game_id" | "player_id" | "created_at">>;
       };
-      wolf_game_votes: {
+      game_votes: {
         Row: WolfGameVoteRow;
         Insert: Partial<Pick<WolfGameVoteRow, "id" | "created_at" | "updated_at">> &
           Pick<WolfGameVoteRow, "game_id" | "voter_player_id"> &
@@ -286,7 +286,7 @@ export type Database = {
           Pick<AvalonGameStateRow, "game_id" | "state">;
         Update: Partial<Omit<AvalonGameStateRow, "game_id" | "created_at">>;
       };
-      wolf_game_phase_confirmations: {
+      game_phase_confirmations: {
         Row: WolfGamePhaseConfirmationRow;
         Insert: Partial<Pick<WolfGamePhaseConfirmationRow, "id" | "created_at">> &
           Pick<WolfGamePhaseConfirmationRow, "game_id" | "player_id" | "phase">;

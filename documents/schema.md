@@ -6,13 +6,13 @@
 
 This document tracks the Ma Sói multiplayer lobby and gameplay schema status.
 
-Earlier verification on 2026-06-03 via Supabase REST returned `PGRST205` for `public.wolf_rooms`. The user later reported successful manual SQL execution for the lobby/gameplay migrations in Supabase SQL Editor.
+Earlier verification on 2026-06-03 via Supabase REST returned `PGRST205` for `public.rooms`. The user later reported successful manual SQL execution for the lobby/gameplay migrations in Supabase SQL Editor.
 
 On 2026-06-12, `public.wolf_role` was updated and verified through Supabase CLI `db query` over the session pooler. The verified enum values are `werewolf`, `villager`, `seer`, `robber`, `troublemaker`, `drunk`, `insomniac`, `werewolf_seer`, `witch`, and `copycat`.
 
-On 2026-06-12, `public.wolf_game_actions.target_center_index_3` and its 0-2 check constraint were added and verified through Supabase CLI `db query`.
+On 2026-06-12, `public.game_actions.target_center_index_3` and its 0-2 check constraint were added and verified through Supabase CLI `db query`.
 
-On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was created to add the pending `doppelganger` enum value and `wolf_game_actions.target_player_id_3` for Nhân Bản copying Kẻ Gây Rối.
+On 2026-07-27, local migration `202607270001_wolf_doppelganger_role.sql` was created to add the pending `doppelganger` enum value and `game_actions.target_player_id_3` for Nhân Bản copying Kẻ Gây Rối.
 
 On 2026-07-28, local migration `202607280001_classic_wolf_state.sql` was created to add the separate `classic_wolf_game_states` table for Ma Sói nhiều đêm state stored as JSON. This keeps one-night Ma Sói gameplay tables and constraints unchanged.
 
@@ -22,13 +22,15 @@ On 2026-08-11, local migration `202608110001_wolf_room_visibility.sql` was creat
 
 On 2026-08-11, local migration `202608110002_wolf_hourly_room_maintenance.sql` was created to close inactive rooms and run cleanup hourly. Waiting rooms inactive for 2 hours are marked `finished`; playing rooms inactive for 30 minutes are marked `finished`; already closed room data is deleted hourly after 1 hour.
 
-On 2026-08-12, local migration `202608120001_wolf_result_snapshot.sql` was created to add `wolf_game_sessions.result_snapshot`. One-night Ma Sói result data should be frozen into this JSON payload when a game enters `result`, so role summaries, vote counts, winner text, and night movement logs no longer depend on rows remaining in `wolf_room_players`.
+On 2026-08-12, local migration `202608120001_wolf_result_snapshot.sql` was created to add `game_sessions.result_snapshot`. One-night Ma Sói result data should be frozen into this JSON payload when a game enters `result`, so role summaries, vote counts, winner text, and night movement logs no longer depend on rows remaining in `room_players`.
 
 On 2026-08-17, local migration `202608170001_wolf_avatar_key_all_assets.sql` was created to repair the avatar key check constraint for deployments that already applied the older named-avatar migration without `duy`, `na`, and `oanh`.
 
-On 2026-08-25, local migration `202608250001_wolf_scoring_currency.sql` was created to add a scoring (điểm) and currency (Xu) system for Ma Sói Một Đêm. Adds `wolf_room_players.user_id`, `users.total_points`/`users.total_coins`, the `player_score_events` ledger table, the public `leaderboard` view, and the `award_wolf_game_points(...)` function. Only logged-in users (rows with a non-null `wolf_room_players.user_id`) earn points/coins; guests are unaffected.
+On 2026-08-25, local migration `202608250001_wolf_scoring_currency.sql` was created to add a scoring (điểm) and currency (Xu) system for Ma Sói Một Đêm. Adds `room_players.user_id`, `users.total_points`/`users.total_coins`, the `player_score_events` ledger table, the public `leaderboard` view, and the `award_wolf_game_points(...)` function. Only logged-in users (rows with a non-null `room_players.user_id`) earn points/coins; guests are unaffected.
 
 On 2026-08-26, local migration `202608260001_shop_items.sql` was created to add a shop feature: users spend `total_coins` (Xu) to buy decorative avatar frames and profile-info frames. Adds enum `shop_item_type`, tables `shop_items` and `user_shop_items`, `users.equipped_avatar_frame_id`/`users.equipped_profile_frame_id`, function `is_shop_admin()` (email-whitelist based, no `is_admin` column), and function `purchase_shop_item(...)` (security definer, atomic coin deduction + inventory insert). The migration is self-sufficient — it (re)creates `public.users` and the points/coins columns if the earlier pending migrations were never applied — so it can be run standalone in the SQL Editor.
+
+On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
 
@@ -110,36 +112,36 @@ Kho vật phẩm đã mua của user. **Pending apply**: thêm bởi `2026082600
 - Unique `(user_id, item_id)` — mỗi vật phẩm chỉ mua một lần
 - RLS bật; select cho `auth.uid() = user_id` hoặc admin. Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(...)`.
 
-#### `public.wolf_rooms`
+#### `public.rooms`
 
 - `id uuid primary key default gen_random_uuid()`
 - `code text not null unique`, constrained to 4 lowercase letters
 - `game_key text not null default 'wolf'`
 - `is_public boolean not null default true`
 - `status public.wolf_room_status not null default 'waiting'`
-- `host_player_id uuid null references public.wolf_room_players(id) on delete set null`
-- `current_game_id uuid null references public.wolf_game_sessions(id) on delete set null`
+- `host_player_id uuid null references public.room_players(id) on delete set null`
+- `current_game_id uuid null references public.game_sessions(id) on delete set null`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
-#### `public.wolf_room_players`
+#### `public.room_players`
 
 - `id uuid primary key default gen_random_uuid()`
-- `room_id uuid not null references public.wolf_rooms(id) on delete cascade`
+- `room_id uuid not null references public.rooms(id) on delete cascade`
 - `session_id text not null`
 - `name text not null`, trimmed length 1-32
 - `avatar_key text not null default 'avatar0'`, constrained to available avatar asset keys
-- `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`) hoặc URL ảnh đại diện Google đã validate. Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `wolf_room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
+- `avatar_object_key text null` — object key của avatar upload lên Cloudflare R2 (folder `avatar/`, bucket `uploads`) hoặc URL ảnh đại diện Google đã validate. Cơ chế dùng chung cho **toàn app**: mọi game (wolf, wolf-classic, avalon) đều chia sẻ bảng `room_players`, nên một cột này phục vụ tất cả game. **Pending apply**: thêm bởi `202608180001_wolf_player_avatar_objects.sql`, cần chạy thủ công trong Supabase SQL Editor. Khi cột chưa tồn tại, code tự fallback về `avatar_key`.
 - `user_id uuid null references public.users(id) on delete set null` — liên kết hàng người chơi trong phòng với tài khoản đã đăng nhập (Google). Null cho guest. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Dùng để xác định ai được cộng điểm/Xu khi ván Ma Sói Một Đêm kết thúc. Khi cột chưa tồn tại, code tự fallback coi mọi người chơi là guest (không cộng điểm/Xu).
 - `is_host boolean not null default false`
 - `is_ready boolean not null default false`
 - `joined_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
-#### `public.wolf_game_sessions`
+#### `public.game_sessions`
 
 - `id uuid primary key default gen_random_uuid()`
-- `room_id uuid not null references public.wolf_rooms(id) on delete cascade`
+- `room_id uuid not null references public.rooms(id) on delete cascade`
 - `phase public.wolf_game_phase not null default 'night'`
 - `round_number integer not null default 1`
 - `discussion_ends_at timestamptz null`
@@ -149,55 +151,65 @@ Kho vật phẩm đã mua của user. **Pending apply**: thêm bởi `2026082600
 
 #### `public.classic_wolf_game_states`
 
-- `game_id uuid primary key references public.wolf_game_sessions(id) on delete cascade`
+- `game_id uuid primary key references public.game_sessions(id) on delete cascade`
 - `state jsonb not null default '{}'::jsonb`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 - RLS enabled with no public read policy because this JSON contains secret Ma Sói nhiều đêm role/action state. Server actions read and write it with the service role.
 
-#### `public.wolf_game_cards`
+#### `public.avalon_game_states`
+
+Was missing from this document until 2026-08-26; found while researching the `game_sessions` rename. Added by `202608130001_avalon_game_state.sql` alongside the (unrenamed) latest `close_inactive_wolf_rooms(...)` definition.
+
+- `game_id uuid primary key references public.game_sessions(id) on delete cascade`
+- `state jsonb not null default '{}'::jsonb`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+- RLS enabled (`alter table ... enable row level security`); no policy statements found in the migration, so no role can read/write it through PostgREST — Avalon server actions must use the service role client, same pattern as `classic_wolf_game_states`.
+
+#### `public.game_cards`
 
 - `id uuid primary key default gen_random_uuid()`
-- `game_id uuid not null references public.wolf_game_sessions(id) on delete cascade`
-- `player_id uuid null references public.wolf_room_players(id) on delete cascade`
+- `game_id uuid not null references public.game_sessions(id) on delete cascade`
+- `player_id uuid null references public.room_players(id) on delete cascade`
 - `center_index integer null`, constrained to 0-2 for center cards
 - `original_role public.wolf_role not null`
 - `"current_role" public.wolf_role not null`
 - `created_at timestamptz not null default now()`
 
-#### `public.wolf_game_actions`
+#### `public.game_actions`
 
 - `id uuid primary key default gen_random_uuid()`
-- `game_id uuid not null references public.wolf_game_sessions(id) on delete cascade`
-- `player_id uuid not null references public.wolf_room_players(id) on delete cascade`
+- `game_id uuid not null references public.game_sessions(id) on delete cascade`
+- `player_id uuid not null references public.room_players(id) on delete cascade`
 - `action_type text not null`
-- `target_player_id uuid null references public.wolf_room_players(id) on delete set null`
-- `target_player_id_2 uuid null references public.wolf_room_players(id) on delete set null`
-- `target_player_id_3 uuid null references public.wolf_room_players(id) on delete set null`
+- `target_player_id uuid null references public.room_players(id) on delete set null`
+- `target_player_id_2 uuid null references public.room_players(id) on delete set null`
+- `target_player_id_3 uuid null references public.room_players(id) on delete set null`
 - `target_center_index integer null`, constrained to 0-2
 - `target_center_index_2 integer null`, constrained to 0-2
 - `target_center_index_3 integer null`, constrained to 0-2
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
-#### `public.wolf_game_votes`
+#### `public.game_votes`
 
 - `id uuid primary key default gen_random_uuid()`
-- `game_id uuid not null references public.wolf_game_sessions(id) on delete cascade`
-- `voter_player_id uuid not null references public.wolf_room_players(id) on delete cascade`
-- `target_player_id uuid null references public.wolf_room_players(id) on delete cascade`
+- `game_id uuid not null references public.game_sessions(id) on delete cascade`
+- `voter_player_id uuid not null references public.room_players(id) on delete cascade`
+- `target_player_id uuid null references public.room_players(id) on delete cascade`
 - `is_skip boolean not null default false`, true when the voter intentionally skips voting for a player
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
 #### `public.player_score_events`
 
-Sổ ghi nhận điểm/Xu từng ván cho user đã đăng nhập. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Cố ý KHÔNG cascade theo `wolf_rooms`/`wolf_game_sessions` vì phòng bị dọn dẹp định kỳ (xem `maintain_wolf_rooms`) — sổ này phải sống sót sau khi phòng bị xoá.
+Sổ ghi nhận điểm/Xu từng ván cho user đã đăng nhập. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Cố ý KHÔNG cascade theo `rooms`/`game_sessions` vì phòng bị dọn dẹp định kỳ (xem `maintain_wolf_rooms`) — sổ này phải sống sót sau khi phòng bị xoá.
 
 - `id uuid primary key default gen_random_uuid()`
 - `user_id uuid not null references public.users(id) on delete cascade`
 - `game_key text not null` — hiện chỉ `'wolf'` (Ma Sói Một Đêm); dự kiến mở rộng cho `wolf-classic`/`avalon` sau
-- `game_id uuid not null` — id của `wolf_game_sessions`, lưu giá trị plain (không FK) để không phụ thuộc vòng đời phòng
+- `game_id uuid not null` — id của `game_sessions`, lưu giá trị plain (không FK) để không phụ thuộc vòng đời phòng
 - `room_code text not null` — snapshot mã phòng phục vụ audit/lịch sử sau khi phòng đã bị xoá
 - `team text not null` — `'villagers'` hoặc `'werewolves'`
 - `role text not null` — vai trò cuối game (finalTeamRole) của người chơi
@@ -214,32 +226,32 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 
 - `id`, `display_name`, `avatar_key`, `avatar_object_key`, `total_points`, `total_coins`
 
-#### `public.wolf_game_phase_confirmations`
+#### `public.game_phase_confirmations`
 
 - `id uuid primary key default gen_random_uuid()`
-- `game_id uuid not null references public.wolf_game_sessions(id) on delete cascade`
-- `player_id uuid not null references public.wolf_room_players(id) on delete cascade`
+- `game_id uuid not null references public.game_sessions(id) on delete cascade`
+- `player_id uuid not null references public.room_players(id) on delete cascade`
 - `phase public.wolf_game_phase not null`
 - `created_at timestamptz not null default now()`
 
 ### Indexes And Constraints
 
-- Room lookup indexes on `wolf_rooms.code` and `wolf_rooms.status`
-- Public room list partial index on `wolf_rooms(game_key, updated_at desc) where is_public = true and status = 'waiting'`
-- Player lookup index on `wolf_room_players.room_id`
-- Player activity lookup index on `wolf_room_players(room_id, updated_at desc)`
-- Unique room session: `wolf_room_players(room_id, session_id)`
-- Gameplay lookup indexes on `wolf_game_sessions.room_id`, `wolf_game_sessions.phase`, `wolf_game_cards.game_id`, `wolf_game_cards.player_id`, `wolf_game_actions.game_id`, `wolf_game_votes.game_id`
-- Phase confirmation lookup index on `wolf_game_phase_confirmations.game_id`
+- Room lookup indexes on `rooms.code` and `rooms.status`
+- Public room list partial index on `rooms(game_key, updated_at desc) where is_public = true and status = 'waiting'`
+- Player lookup index on `room_players.room_id`
+- Player activity lookup index on `room_players(room_id, updated_at desc)`
+- Unique room session: `room_players(room_id, session_id)`
+- Gameplay lookup indexes on `game_sessions.room_id`, `game_sessions.phase`, `game_cards.game_id`, `game_cards.player_id`, `game_actions.game_id`, `game_votes.game_id`
+- Phase confirmation lookup index on `game_phase_confirmations.game_id`
 - Classic Ma Sói state primary-key lookup on `classic_wolf_game_states.game_id`
-- Unique player card per game: `wolf_game_cards(game_id, player_id) where player_id is not null`
-- Unique center card per game: `wolf_game_cards(game_id, center_index) where center_index is not null`
-- Unique night action per game/player: `wolf_game_actions(game_id, player_id)`
-- Unique vote per game/voter: `wolf_game_votes(game_id, voter_player_id)`
+- Unique player card per game: `game_cards(game_id, player_id) where player_id is not null`
+- Unique center card per game: `game_cards(game_id, center_index) where center_index is not null`
+- Unique night action per game/player: `game_actions(game_id, player_id)`
+- Unique vote per game/voter: `game_votes(game_id, voter_player_id)`
 - Vote target/skip consistency: `is_skip = true` requires `target_player_id is null`; `is_skip = false` requires `target_player_id is not null`
-- Unique phase confirmation per game/player/phase: `wolf_game_phase_confirmations(game_id, player_id, phase)`
+- Unique phase confirmation per game/player/phase: `game_phase_confirmations(game_id, player_id, phase)`
 - Avatar key check allows `avatar0`, `img` through `img_19`, `khanh`, `duong`, `duy`, `lan`, `na`, `oanh`, and `tri`
-- Result snapshot consistency: `wolf_game_sessions.result_snapshot` must be null or a JSON object
+- Result snapshot consistency: `game_sessions.result_snapshot` must be null or a JSON object
 
 ### Functions And Scheduled Jobs
 
@@ -272,7 +284,7 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 - Deletes `playing` rooms whose `current_game_id` is already in phase `result` after the configured `completed_playing_older_than` interval, default `7 days`.
 - Deletes empty `waiting` rooms with no players after the configured `empty_waiting_older_than` interval, default `1 day`.
 - Deletes stale `waiting` rooms after the configured `stale_waiting_older_than` interval, default `14 days`.
-- Related `wolf_room_players`, `wolf_game_sessions`, `wolf_game_cards`, `wolf_game_actions`, `wolf_game_votes`, and `wolf_game_phase_confirmations` rows are removed by existing `ON DELETE CASCADE` constraints.
+- Related `room_players`, `game_sessions`, `game_cards`, `game_actions`, `game_votes`, and `game_phase_confirmations` rows are removed by existing `ON DELETE CASCADE` constraints.
 - Function execution is revoked from `PUBLIC` and granted to `service_role`.
 
 #### `public.close_inactive_wolf_rooms(...)`
@@ -301,4 +313,6 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 Supabase Management API project linking remains unavailable from this workspace due token privileges, but direct session pooler execution worked for `202606120001_wolf_extra_roles.sql` and `202606120002_wolf_action_third_center_target.sql`.
 
 On 2026-08-17, remote apply for `202608170001_wolf_avatar_key_all_assets.sql` was attempted from this workspace. Management API database query returned 403, the direct database host could not be used by Supabase CLI from this network, and the tested `ap-southeast-1` session pooler returned tenant/user not found. Apply the remaining pending SQL manually in Supabase SQL Editor unless a working migration execution path is provided.
+
+On 2026-08-26, `202608260002_rename_shared_game_tables.sql` (the `wolf_*` → shared-name table rename above) hit the same blocker again: the Supabase MCP tool connected in this workspace belongs to an unrelated Supabase project/account (a project named "Map Buddy"), not this app's project (`tvwofffcpjgfyxxbvpsi`, see `documents/project-config.md`) — `list_tables`/`apply_migration` against it would touch the wrong database entirely, so it was not used. The migration must be pasted into this app's own Supabase SQL Editor manually, same as every other pending migration in this file. **Run it before deploying the matching app code** (or accept a short window of query errors) — table renames apply instantly but old deployed code still expects the old table names until the new code ships.
 

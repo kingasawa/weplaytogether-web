@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const { data: room } = await supabase
-    .from("wolf_rooms")
+    .from("rooms")
     .select("id")
     .eq("code", roomCode)
     .maybeSingle();
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const { data: player } = await supabase
-    .from("wolf_room_players")
+    .from("room_players")
     .select("id, name")
     .eq("session_id", sessionId)
     .eq("room_id", room.id)

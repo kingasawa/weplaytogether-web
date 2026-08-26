@@ -229,6 +229,21 @@ Purpose:
 - Keep winner text, vote counts, all player role summaries, and night movement logs available even if players leave the room and their live membership/gameplay rows are later deleted.
 - Add a check constraint requiring the snapshot to be null or a JSON object.
 
+## 202608130001_avalon_game_state.sql
+
+Status: created locally, pending manual remote apply. Missing from this document until 2026-08-26 — found while researching the shared-table rename below.
+
+Path:
+
+- `supabase/migrations/202608130001_avalon_game_state.sql`
+
+Purpose:
+
+- Create `public.avalon_game_states` keyed by `game_id`, storing Avalon role assignments, quest team proposals/votes, quest results, and winner state as JSON (mirrors `classic_wolf_game_states`'s role for Ma Sói nhiều đêm).
+- Enable RLS with no policy statements — same "server actions only, via service role" access pattern as `classic_wolf_game_states`.
+- Redefine `public.close_inactive_wolf_rooms(...)` to also factor Avalon state activity (`avalon_state.updated_at`) into the "is this playing room actually inactive" calculation, so an Avalon game with recent activity isn't wrongly closed for inactivity.
+- This migration depends on `202606030002_wolf_gameplay.sql`; apply base gameplay migrations first on a fresh database.
+
 ## 202608170001_wolf_avatar_key_all_assets.sql
 
 Status: created locally, pending manual remote apply.
@@ -313,6 +328,23 @@ Purpose:
 - Create function `public.purchase_shop_item(p_item_id)` (`security definer`, chỉ `authenticated` gọi được) — trừ Xu + insert vào kho trong 1 transaction, chống gian lận/race từ client.
 - Dùng cho trang `/shop` (mua/trang bị vật phẩm) và `/admin/items`, `/admin/users` (CRUD vật phẩm, xem/sửa Xu người dùng). Code có fallback graceful khi bảng chưa tồn tại (`isMissingTableError` trong `src/lib/supabase/errors.ts`): trang shop hiển thị thông báo "chưa sẵn sàng" thay vì lỗi.
 
+## 202608260002_rename_shared_game_tables.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608260002_rename_shared_game_tables.sql`
+
+Purpose:
+
+- User feedback: the Supabase table list showed `wolf_game_actions`, `wolf_game_cards`, `wolf_game_phase_confirmations`, `wolf_game_sessions`, `wolf_game_votes`, `wolf_room_players`, `wolf_rooms` — all with a `wolf_` prefix even though these 7 tables are shared by all 3 games (wolf, wolf-classic, avalon), not just Ma Sói Một Đêm. Rename to drop the misleading prefix: `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, `wolf_game_phase_confirmations` → `game_phase_confirmations`.
+- Deliberately does NOT rename `classic_wolf_game_states` or `avalon_game_states` — those two are genuinely per-game JSON state, not shared, so their names were already accurate.
+- `alter table ... rename to ...` is a metadata-only operation; indexes, constraints, triggers, RLS policies, foreign keys, and `supabase_realtime` publication membership all follow automatically since Postgres tracks them by OID, not by name. Index/constraint/trigger/policy *names* (e.g. `wolf_rooms_code_idx`) were intentionally left as-is — renaming them added no functional value.
+- Redefines `public.cleanup_old_wolf_rooms(...)` and `public.close_inactive_wolf_rooms(...)` with the new table names — these two are the only functions whose plpgsql bodies reference the renamed tables by name; `maintain_wolf_rooms(...)` and `award_wolf_game_points(...)` don't reference them directly and needed no changes. Function *names* were left unchanged (out of scope — the user only flagged table names).
+- Same change also updated every `.from("wolf_...")` call site across `src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, and the (unused-but-kept-accurate) `Database` type shape in `src/lib/supabase/types.ts` — done via a scripted word-boundary find/replace, then verified with `npx tsc --noEmit` (0 errors) and `npx eslint` (0 errors) on every touched file.
+- **Sequencing on deploy**: run this SQL in the Supabase SQL Editor *before* (or immediately alongside) deploying the updated app code — old deployed code queries the old table names and new code queries the new names, so there's a brief window of query errors if the two are out of sync. No app data is lost either way (rename preserves all rows); it's purely a query-shape mismatch during the gap.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -338,7 +370,8 @@ Remote execution update on 2026-08-17:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, and `202608260001_shop_items.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`) in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, and `202608260002_rename_shared_game_tables.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`; apply `202608260002` last, and deploy the matching app code right away since it renames tables the running app already queries) in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 - On 2026-08-26, `202608260001_shop_items.sql` (shop feature) was created for this same reason: this workspace could not `supabase link`/`db push` (blocked by the sandbox's auto-mode classifier before even reaching the network) or reach the Supabase Management API/session pooler directly. The migration is written to be self-sufficient (creates `public.users` + points/coins columns if missing) so it can be pasted into the SQL Editor regardless of which earlier pending migrations were already applied.
+- On 2026-08-26 (same day, separate task), `202608260002_rename_shared_game_tables.sql` hit the same blocker: the Supabase MCP tool connected in this workspace belongs to an unrelated project ("Map Buddy", not this app's `tvwofffcpjgfyxxbvpsi`). Paste it into the SQL Editor manually like the rest.
 

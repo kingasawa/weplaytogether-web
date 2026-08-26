@@ -83,7 +83,7 @@ export async function getEquippedFrameUrlsByUserId(
 // Tra map user_id -> hồ sơ "live" (tên, avatar, khung) đọc thẳng từ public.users, dùng service
 // role nên bỏ qua RLS. Dùng ở lobby/spectator của cả 3 game (wolf, wolf-classic, avalon) để tên
 // và avatar trong phòng luôn đúng theo tài khoản hiện tại — thay vì tin vào bản snapshot lưu ở
-// wolf_room_players.name/avatar_key lúc join (bản snapshot chỉ còn ý nghĩa cho guest, những
+// room_players.name/avatar_key lúc join (bản snapshot chỉ còn ý nghĩa cho guest, những
 // người không có hàng nào trong users để tham chiếu). Trả về Map rỗng nếu lỗi (bảng/cột chưa
 // tồn tại, user_id null...) để lobby tự fallback về cột snapshot, không bị vỡ.
 export async function getLivePlayerProfilesByUserId(
