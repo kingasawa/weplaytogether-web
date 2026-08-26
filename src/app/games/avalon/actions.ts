@@ -1384,7 +1384,8 @@ export async function createAvalonRoom(
   playerName?: string,
   avatarKey?: string,
   isPublic = true,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<AvalonActionResult> {
   const sessionId = await getOrCreatePlayerSessionId();
   const supabase = createSupabaseAdminClient();
@@ -1432,6 +1433,7 @@ export async function createAvalonRoom(
       name: normalizedName,
       avatar_key: normalizedAvatarKey,
       avatar_object_key: playerAvatarObjectKey,
+      user_id: userId,
       is_host: true,
       is_ready: true,
     });

@@ -77,10 +77,20 @@ export default function ClassicWolfGameScreen() {
   const [publicRooms, setPublicRooms] = useState<ClassicWolfPublicRoomSummary[]>([]);
   const [publicRoomsError, setPublicRoomsError] = useState("");
 
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const normalizedRoomCode = useMemo(
     () => normalizeRoomCodeInput(roomCode),
     [roomCode]
   );
+
+  // Đọc session trực tiếp ngay lúc gọi thay vì dùng state (state cập nhật qua effect async nên
+  // có thể chưa kịp set nếu user bấm tạo/tham gia phòng ngay khi vừa vào trang — dẫn tới gửi
+  // userId rỗng dù đã đăng nhập, làm khung/điểm không gắn được vào tài khoản).
+  async function getFreshAccountUserId() {
+    const { data } = await supabase.auth.getSession();
+    return isAllowedGmailSession(data.session) ? data.session?.user.id ?? null : null;
+  }
 
   const loadPublicRooms = useCallback(() => {
     setPublicRoomsError("");
@@ -98,8 +108,6 @@ export default function ClassicWolfGameScreen() {
   }, [startRoomListTransition]);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
@@ -131,7 +139,7 @@ export default function ClassicWolfGameScreen() {
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
@@ -171,7 +179,8 @@ export default function ClassicWolfGameScreen() {
   ) {
     setActionError("");
     startTransition(async () => {
-      const result = await createClassicWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await createClassicWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey, freshUserId);
 
       if (!result.ok) {
         setActionError(result.error);
@@ -197,7 +206,8 @@ export default function ClassicWolfGameScreen() {
 
     setRoomCodeError("");
     startTransition(async () => {
-      const result = await joinClassicWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await joinClassicWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey, freshUserId);
 
       if (!result.ok) {
         setRoomCodeError(result.error);

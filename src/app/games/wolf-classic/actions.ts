@@ -2037,7 +2037,8 @@ export async function createClassicWolfRoom(
   playerName?: string,
   avatarKey?: string,
   isPublic = true,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<ClassicWolfActionResult> {
   const supabase = createSupabaseAdminClient();
   const sessionId = await getOrCreatePlayerSessionId();
@@ -2074,6 +2075,7 @@ export async function createClassicWolfRoom(
       name,
       avatar_key: playerAvatarKey,
       avatar_object_key: playerAvatarObjectKey,
+      user_id: userId,
       is_host: true,
       is_ready: true,
     });

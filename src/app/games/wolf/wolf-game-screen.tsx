@@ -62,7 +62,6 @@ export default function WolfGameScreen() {
   const [isIdentityOpen, setIsIdentityOpen] = useState(false);
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
@@ -79,10 +78,20 @@ export default function WolfGameScreen() {
   const [publicRooms, setPublicRooms] = useState<WolfPublicRoomSummary[]>([]);
   const [publicRoomsError, setPublicRoomsError] = useState("");
 
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const normalizedRoomCode = useMemo(
     () => normalizeRoomCodeInput(roomCode),
     [roomCode]
   );
+
+  // Đọc session trực tiếp ngay lúc gọi thay vì dùng state accountUserId (state cập nhật qua
+  // effect async nên có thể chưa kịp set nếu user bấm tạo/tham gia phòng ngay khi vừa vào
+  // trang — dẫn tới gửi userId rỗng dù đã đăng nhập, làm khung/điểm không gắn được vào tài khoản).
+  async function getFreshAccountUserId() {
+    const { data } = await supabase.auth.getSession();
+    return isAllowedGmailSession(data.session) ? data.session?.user.id ?? null : null;
+  }
 
   const loadPublicRooms = useCallback(() => {
     setPublicRoomsError("");
@@ -100,8 +109,6 @@ export default function WolfGameScreen() {
   }, [startRoomListTransition]);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
@@ -115,7 +122,6 @@ export default function WolfGameScreen() {
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
-      setAccountUserId(hasSession ? data.session?.user.id ?? null : null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -125,7 +131,6 @@ export default function WolfGameScreen() {
       const hasSession = isAllowedGmailSession(session);
 
       setIsLoggedIn(hasSession);
-      setAccountUserId(hasSession ? session?.user.id ?? null : null);
       setGuestName(savedGuestName);
       setGuestNameInput(savedGuestName);
       setGuestAvatarKey(savedGuestAvatarKey);
@@ -137,7 +142,7 @@ export default function WolfGameScreen() {
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
@@ -185,7 +190,8 @@ export default function WolfGameScreen() {
   ) {
     setActionError("");
     startTransition(async () => {
-      const result = await createWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey, accountUserId);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await createWolfRoom(playerName, avatarKey, isPublic, avatarObjectKey, freshUserId);
 
       if (!result.ok) {
         setActionError(result.error);
@@ -211,7 +217,8 @@ export default function WolfGameScreen() {
 
     setRoomCodeError("");
     startTransition(async () => {
-      const result = await joinWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey, accountUserId);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await joinWolfRoom(codeToJoin, playerName, avatarKey, avatarObjectKey, freshUserId);
 
       if (!result.ok) {
         setRoomCodeError(result.error);
