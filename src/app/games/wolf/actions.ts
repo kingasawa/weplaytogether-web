@@ -8,7 +8,7 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
-import { getEquippedFrameUrlsByUserId, type EquippedFrameUrls } from "@/lib/player-avatar-frames";
+import { getLivePlayerProfilesByUserId, type LivePlayerProfile } from "@/lib/player-avatar-frames";
 import {
   isMissingAvatarKeyColumnError,
   isMissingAvatarObjectKeyColumnError,
@@ -797,19 +797,23 @@ async function updateWolfRoomPlayerIdentity(
 
 function mapLobbyPlayer(
   player: PlayerRow,
-  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+  liveProfilesByUserId?: Map<string, LivePlayerProfile>
 ): WolfLobbyPlayer {
-  const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
-  const frames = player.user_id ? frameUrlsByUserId?.get(player.user_id) : undefined;
+  // Người chơi đã đăng nhập: ưu tiên tên/avatar "live" từ public.users thay vì bản snapshot
+  // đã lưu ở wolf_room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
+  // mọi phòng, không cần vào lại phòng để "cập nhật" thủ công. Guest (không có user_id) luôn
+  // dùng bản snapshot vì không có hàng nào trong users để tham chiếu.
+  const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
+  const avatarObjectKey = normalizePlayerAvatarObjectKey(liveProfile?.avatarObjectKey ?? player.avatar_object_key);
 
   return {
     id: player.id,
-    name: player.name,
-    avatarKey: normalizePlayerAvatarKey(player.avatar_key),
+    name: liveProfile?.displayName || player.name,
+    avatarKey: normalizePlayerAvatarKey(liveProfile?.avatarKey ?? player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
-    avatarFrameUrl: frames?.avatarFrameUrl ?? null,
-    profileFrameUrl: frames?.profileFrameUrl ?? null,
+    avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
+    profileFrameUrl: liveProfile?.profileFrameUrl ?? null,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -3659,7 +3663,7 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
   }
 
   const players = await getActivePlayers(supabase, room);
-  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
+  const liveProfilesByUserId = await getLivePlayerProfilesByUserId(supabase, players.map((player) => player.user_id));
 
   return {
     room: {
@@ -3669,7 +3673,7 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id ?? null,
     },
-    players: players.map((player) => mapLobbyPlayer(player, frameUrlByUserId)),
+    players: players.map((player) => mapLobbyPlayer(player, liveProfilesByUserId)),
     currentPlayerId: players.find((player) => player.session_id === sessionId)?.id ?? null,
   };
 }
@@ -3729,7 +3733,7 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
     }
   }
 
-  const spectatorFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+  const spectatorLiveProfilesByUserId = await getLivePlayerProfilesByUserId(
     supabase,
     players.map((player) => player.user_id)
   );
@@ -3742,7 +3746,7 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id ?? null,
     },
-    players: players.map((player) => mapLobbyPlayer(player, spectatorFrameUrlByUserId)),
+    players: players.map((player) => mapLobbyPlayer(player, spectatorLiveProfilesByUserId)),
     game: game
       ? {
           phase: game.phase,
@@ -4072,7 +4076,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     revealedCenterIndexes.add(myAction.target_center_index as number);
   }
 
-  const playFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+  const playLiveProfilesByUserId = await getLivePlayerProfilesByUserId(
     supabase,
     players.map((player) => player.user_id)
   );
@@ -4092,7 +4096,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       discussionEndsAt: game.discussion_ends_at,
     },
     players: players.map((player) => ({
-      ...mapLobbyPlayer(player, playFrameUrlByUserId),
+      ...mapLobbyPlayer(player, playLiveProfilesByUserId),
       role: shouldRevealAll ? playerCardsById.get(player.id)?.current_role ?? null : null,
       voteTargetPlayerId: shouldRevealVotes ? voteByVoterId.get(player.id) ?? null : null,
       hasSkippedVote: shouldRevealVotes ? skippedVotePlayerIds.has(player.id) : false,

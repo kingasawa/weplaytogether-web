@@ -29,7 +29,12 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
-import { getEquippedFrameUrlsByUserId, type EquippedFrameUrls } from "@/lib/player-avatar-frames";
+import {
+  getEquippedFrameUrlsByUserId,
+  getLivePlayerProfilesByUserId,
+  type EquippedFrameUrls,
+  type LivePlayerProfile,
+} from "@/lib/player-avatar-frames";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import {
   isMissingAvatarKeyColumnError,
@@ -674,19 +679,23 @@ function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, se
 
 function mapLobbyPlayer(
   player: PlayerRow,
-  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+  liveProfilesByUserId?: Map<string, LivePlayerProfile>
 ): AvalonLobbyPlayer {
-  const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
-  const frames = player.user_id ? frameUrlsByUserId?.get(player.user_id) : undefined;
+  // Người chơi đã đăng nhập: ưu tiên tên/avatar "live" từ public.users thay vì bản snapshot
+  // đã lưu ở wolf_room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
+  // mọi phòng, không cần vào lại phòng để "cập nhật" thủ công. Guest (không có user_id) luôn
+  // dùng bản snapshot vì không có hàng nào trong users để tham chiếu.
+  const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
+  const avatarObjectKey = normalizePlayerAvatarObjectKey(liveProfile?.avatarObjectKey ?? player.avatar_object_key);
 
   return {
     id: player.id,
-    name: player.name,
-    avatarKey: normalizePlayerAvatarKey(player.avatar_key),
+    name: liveProfile?.displayName || player.name,
+    avatarKey: normalizePlayerAvatarKey(liveProfile?.avatarKey ?? player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
-    avatarFrameUrl: frames?.avatarFrameUrl ?? null,
-    profileFrameUrl: frames?.profileFrameUrl ?? null,
+    avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
+    profileFrameUrl: liveProfile?.profileFrameUrl ?? null,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -1662,7 +1671,7 @@ export async function getAvalonLobbyState(roomCode: string): Promise<AvalonLobby
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
-  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
+  const liveProfilesByUserId = await getLivePlayerProfilesByUserId(supabase, players.map((player) => player.user_id));
 
   return {
     room: {
@@ -1672,7 +1681,7 @@ export async function getAvalonLobbyState(roomCode: string): Promise<AvalonLobby
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id,
     },
-    players: players.map((player) => mapLobbyPlayer(player, frameUrlByUserId)),
+    players: players.map((player) => mapLobbyPlayer(player, liveProfilesByUserId)),
     currentPlayerId: currentPlayer?.id ?? null,
   };
 }
@@ -1700,7 +1709,7 @@ export async function getAvalonSpectatorState(roomCode: string): Promise<AvalonS
     }
   }
 
-  const spectatorFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+  const spectatorLiveProfilesByUserId = await getLivePlayerProfilesByUserId(
     supabase,
     players.map((player) => player.user_id)
   );
@@ -1713,7 +1722,7 @@ export async function getAvalonSpectatorState(roomCode: string): Promise<AvalonS
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id,
     },
-    players: players.map((player) => mapLobbyPlayer(player, spectatorFrameUrlByUserId)),
+    players: players.map((player) => mapLobbyPlayer(player, spectatorLiveProfilesByUserId)),
     game,
     result,
   };
