@@ -12,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
+import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
