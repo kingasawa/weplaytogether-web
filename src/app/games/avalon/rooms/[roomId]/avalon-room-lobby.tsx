@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Copy,
   Crown,
   Link as LinkIcon,
   LogOut,
@@ -10,7 +9,6 @@ import {
   Play,
   Plus,
   Settings2,
-  UserPlus,
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
@@ -172,6 +170,16 @@ export default function AvalonRoomLobby({
       router.push(`/games/avalon/rooms/${lobbyState.room.code}/play`);
     }
   }, [currentPlayer, lobbyState.room.code, lobbyState.room.currentGameId, lobbyState.room.status, router]);
+
+  // Toast copy tự ẩn sau vài giây, không cần bấm tắt.
+  useEffect(() => {
+    if (!copyFeedback) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopyFeedback(""), 2400);
+    return () => window.clearTimeout(timeoutId);
+  }, [copyFeedback]);
 
   const refreshLobby = useCallback(async () => {
     const nextLobbyState = await getAvalonLobbyState(lobbyState.room.code);
@@ -643,29 +651,33 @@ export default function AvalonRoomLobby({
           </div>
         ) : (
           <>
-            <div className={styles.roomCodeCard} aria-label="Mã phòng">
-              <strong>{lobbyState.room.code}</strong>
-            </div>
-
-            <div className={styles.roomShareActions} aria-label="Chia sẻ phòng">
+            <header className={styles.roomHeaderBar}>
+              <div className={styles.roomHeaderIdentity}>
+                <strong className={styles.roomHeaderCode}>{lobbyState.room.code}</strong>
+                <button
+                  className={styles.roomHeaderIconButton}
+                  type="button"
+                  aria-label="Copy URL phòng"
+                  onClick={() => copyToClipboard(window.location.href, "URL phòng")}
+                >
+                  <LinkIcon aria-hidden="true" />
+                </button>
+                {copyFeedback && (
+                  <p className={styles.copyFeedback} aria-live="polite">
+                    {copyFeedback}
+                  </p>
+                )}
+              </div>
               <button
-                className={styles.smallButton}
+                className={`${styles.roomHeaderIconButton} ${styles.roomHeaderExitButton}`}
                 type="button"
-                onClick={() => copyToClipboard(lobbyState.room.code, "mã phòng")}
+                aria-label="Thoát phòng"
+                disabled={isPending}
+                onClick={requestLeaveRoom}
               >
-                <Copy aria-hidden="true" />
-                Copy mã
+                <LogOut aria-hidden="true" />
               </button>
-              <button
-                className={styles.smallButton}
-                type="button"
-                onClick={() => copyToClipboard(window.location.href, "URL phòng")}
-              >
-                <LinkIcon aria-hidden="true" />
-                Copy URL
-              </button>
-            </div>
-            {copyFeedback && <p className={styles.copyFeedback}>{copyFeedback}</p>}
+            </header>
 
             <div className={styles.playerListHeader}>
               <span>Danh sách</span>
@@ -744,7 +756,6 @@ export default function AvalonRoomLobby({
 
               {!currentPlayer && (
                 <button className={styles.primaryButton} type="button" disabled={isPending} onClick={joinCurrentRoom}>
-                  <UserPlus aria-hidden="true" />
                   Tham gia phòng
                 </button>
               )}
@@ -762,15 +773,9 @@ export default function AvalonRoomLobby({
                   disabled={!allPlayersReady || isPending}
                   onClick={openSetup}
                 >
-                  <Play aria-hidden="true" />
                   {allPlayersReady ? "Thiết lập ván" : "Chờ đủ người"}
                 </button>
               )}
-
-              <button className={styles.exitButton} type="button" disabled={isPending} onClick={requestLeaveRoom}>
-                <LogOut aria-hidden="true" />
-                Thoát
-              </button>
             </div>
           </>
         )}

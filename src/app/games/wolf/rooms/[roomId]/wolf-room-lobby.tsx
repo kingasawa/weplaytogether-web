@@ -1,14 +1,12 @@
 ﻿"use client";
 
 import {
-  Copy,
   Crown,
   Link as LinkIcon,
   LogOut,
   Minus,
   Pencil,
   Play,
-  UserPlus,
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
@@ -210,6 +208,16 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       router.push(`/games/wolf/rooms/${lobbyState.room.code}/play`);
     }
   }, [currentPlayer, lobbyState.room.code, lobbyState.room.currentGameId, lobbyState.room.status, router]);
+
+  // Toast copy tự ẩn sau vài giây, không cần bấm tắt.
+  useEffect(() => {
+    if (!copyFeedback) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopyFeedback(""), 2400);
+    return () => window.clearTimeout(timeoutId);
+  }, [copyFeedback]);
 
   const refreshLobby = useCallback(async () => {
     const nextLobbyState = await getWolfLobbyState(lobbyState.room.code);
@@ -607,10 +615,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     }
   }
 
-  function copyRoomCode() {
-    void copyToClipboard(lobbyState.room.code, "mã phòng");
-  }
-
   function copyRoomUrl() {
     void copyToClipboard(window.location.href, "URL phòng");
   }
@@ -726,25 +730,33 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
           </div>
         ) : (
           <>
-        <div className={styles.roomCodeCard} aria-label="Mã phòng">
-          <strong>{lobbyState.room.code}</strong>
-        </div>
-
-        <div className={styles.roomShareActions} aria-label="Chia sẻ phòng">
-          <button className={styles.smallButton} type="button" onClick={copyRoomCode}>
-            <Copy aria-hidden="true" />
-            Copy mã
+        <header className={styles.roomHeaderBar}>
+          <div className={styles.roomHeaderIdentity}>
+            <strong className={styles.roomHeaderCode}>{lobbyState.room.code}</strong>
+            <button
+              className={styles.roomHeaderIconButton}
+              type="button"
+              aria-label="Copy URL phòng"
+              onClick={copyRoomUrl}
+            >
+              <LinkIcon aria-hidden="true" />
+            </button>
+            {copyFeedback && (
+              <p className={styles.copyFeedback} aria-live="polite">
+                {copyFeedback}
+              </p>
+            )}
+          </div>
+          <button
+            className={`${styles.roomHeaderIconButton} ${styles.roomHeaderExitButton}`}
+            type="button"
+            aria-label="Thoát phòng"
+            disabled={isPending}
+            onClick={requestLeaveRoom}
+          >
+            <LogOut aria-hidden="true" />
           </button>
-          <button className={styles.smallButton} type="button" onClick={copyRoomUrl}>
-            <LinkIcon aria-hidden="true" />
-            Copy URL
-          </button>
-        </div>
-        {copyFeedback && (
-          <p className={styles.copyFeedback} aria-live="polite">
-            {copyFeedback}
-          </p>
-        )}
+        </header>
 
         <div className={styles.playerListHeader}>
           <span>Danh sách</span>
@@ -828,7 +840,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               disabled={isPending}
               onClick={joinCurrentRoom}
             >
-              <UserPlus aria-hidden="true" />
               Tham gia phòng
             </button>
           )}
@@ -851,20 +862,9 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               disabled={!allPlayersReady || isPending}
               onClick={openRoleSetup}
             >
-              <Play aria-hidden="true" />
               {allPlayersReady ? "Bắt đầu" : "Chờ đủ người"}
             </button>
           )}
-
-          <button
-            className={styles.exitButton}
-            type="button"
-            disabled={isPending}
-            onClick={requestLeaveRoom}
-          >
-            <LogOut aria-hidden="true" />
-            Thoát
-          </button>
         </div>
           </>
         )}

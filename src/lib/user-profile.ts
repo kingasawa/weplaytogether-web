@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { getAuthDisplayName } from "@/lib/supabase/auth-client";
+import { getAuthDisplayName, getGmailAvatarUrl } from "@/lib/supabase/auth-client";
 import { MAX_GUEST_PLAYER_NAME_LENGTH } from "@/lib/guest-player";
 import {
   DEFAULT_PLAYER_AVATAR_KEY,
@@ -135,6 +135,9 @@ export async function ensureMyProfile(session: Session): Promise<UserProfile | n
     return persistProfile(mapProfile(existing as UserRow));
   }
 
+  // Lần đầu tạo hồ sơ: dùng luôn ảnh đại diện Google làm avatar mặc định (nếu có), thay vì
+  // avatar0 trắng trơn — trước đây avatar Google chỉ được tính tạm ở FE để hiển thị, không
+  // lưu vào users nên các nơi đọc thẳng từ DB (vd. trang admin) không thấy được.
   const { data, error } = await supabase
     .from("users")
     .insert({
@@ -142,6 +145,7 @@ export async function ensureMyProfile(session: Session): Promise<UserProfile | n
       email: session.user.email ?? null,
       display_name: normalizeDisplayName(getAuthDisplayName(session)),
       avatar_key: DEFAULT_PLAYER_AVATAR_KEY,
+      avatar_object_key: getGmailAvatarUrl(session),
     })
     .select(USERS_COLUMNS)
     .single();

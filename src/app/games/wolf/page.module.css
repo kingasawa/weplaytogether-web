@@ -1708,11 +1708,112 @@
   font-size: 0.78rem;
 }
 
+/* Toast tự ẩn khi copy — position: absolute neo vào .roomHeaderIdentity (ngay dưới nút Copy
+   URL trong header) nên không đẩy layout xuống và không hiện tận đáy màn hình. */
 .copyFeedback {
-  margin-top: var(--spacing-sm);
-  color: var(--success);
-  font-size: 0.85rem;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: var(--z-toast);
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 30%, var(--bg-primary));
+  color: var(--text);
+  font-size: 0.7rem;
   font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0.25rem 0.6rem rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: copyFeedbackToast 2.4s ease forwards;
+}
+
+@keyframes copyFeedbackToast {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.3rem);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.3rem);
+  }
+}
+
+/* Header 1 hàng của phòng chờ: mã phòng + copy URL bên trái, nút Thoát icon bên phải */
+.roomHeaderBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.roomHeaderIdentity {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.roomHeaderCode {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.05rem, 5vw, 1.4rem);
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.roomHeaderIconButton {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(1deg, color-mix(in srgb, var(--bg-secondary) 60%, transparent), color-mix(in srgb, var(--bg-secondary) 90%, transparent));
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 0 rgba(0, 0, 0, 0.25);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.roomHeaderIconButton svg {
+  width: 1.05rem;
+}
+
+.roomHeaderIconButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.roomHeaderIconButton:active {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.roomHeaderExitButton {
+  background: linear-gradient(1deg, color-mix(in srgb, var(--danger) 22%, transparent), color-mix(in srgb, var(--danger) 40%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent),
+    0 4px 0 color-mix(in srgb, var(--danger) 20%, black);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .roomHeaderIconButton:not(:disabled):hover {
+    transform: translateY(-0.1rem);
+  }
 }
 
 .lobbyHeader {
@@ -1749,9 +1850,6 @@
   gap: var(--spacing-sm);
   /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
   margin-top: calc(0.4rem - var(--spacing-md));
-  padding: var(--spacing-sm);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
-  border-radius: 1rem;
 }
 
 /* Dòng "Danh sách … x/10" — nằm NGOÀI box list, ngay phía trên */
@@ -6019,7 +6117,6 @@
 .spectatorResultCard,
 .roomPanel,
 .roomCodeCard,
-.playerRow,
 .playHeader,
 .playPanel,
 .playPlayers,

@@ -16,6 +16,14 @@ import styles from "../admin.module.css";
 
 type FormMode = { mode: "create" } | { mode: "edit"; item: ShopItemRow };
 
+// Spec ảnh khuyến nghị để khung hiển thị đúng khi ghép vào avatar/thanh thông tin người chơi.
+const IMAGE_SPEC_HINTS: Record<ShopItemType, string> = {
+  avatar_frame:
+    "Khuyến nghị: PNG/WebP nền trong suốt, canvas vuông 512×512px, lỗ tròn trong suốt ở giữa ~80% (≈410px) để avatar hiện xuyên qua.",
+  profile_frame:
+    "Khuyến nghị: PNG nền trong suốt, canvas 960×240px (tỉ lệ 4:1, dùng 9-slice), viền trang trí dày ít nhất ~40-50px quanh mép để 4 góc không vỡ khi khung giãn theo tên người chơi.",
+};
+
 const EMPTY_FORM: ShopItemInput = {
   itemType: "avatar_frame",
   name: "",
@@ -294,6 +302,7 @@ export default function AdminItemsScreen() {
                   value={formInput.imageUrl}
                   onChange={(event) => setFormInput((current) => ({ ...current, imageUrl: event.target.value }))}
                 />
+                <p className={styles.formHint}>{IMAGE_SPEC_HINTS[formInput.itemType]}</p>
                 {formInput.imageUrl.trim() && (
                   <span className={styles.previewThumb}>
                     <Image alt="" fill sizes="200px" src={formInput.imageUrl.trim()} unoptimized />
