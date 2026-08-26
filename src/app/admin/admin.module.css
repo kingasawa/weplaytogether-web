@@ -340,7 +340,8 @@
 }
 
 .thumb img {
-  object-fit: cover;
+  /* contain: khung thông tin (profile_frame) là ảnh dài ~3:1, cover sẽ cắt mất 2 góc. */
+  object-fit: contain;
 }
 
 .badge {
@@ -514,6 +515,15 @@
   color: var(--text-secondary);
   font-size: 0.78rem;
   line-height: 1.4;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .formCheckboxRow {

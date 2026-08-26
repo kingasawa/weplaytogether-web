@@ -132,7 +132,31 @@ export async function ensureMyProfile(session: Session): Promise<UserProfile | n
     .maybeSingle();
 
   if (existing) {
-    return persistProfile(mapProfile(existing as UserRow));
+    const existingRow = existing as UserRow;
+
+    // Tự "vá" hồ sơ cũ tạo trước khi có logic lấy avatar Google ở nhánh insert bên dưới:
+    // nếu avatar vẫn còn nguyên mặc định (avatar0 + chưa có avatar_object_key), nghĩa là
+    // user chưa từng tự chọn avatar nào — điền avatar Google vào ngay lần đăng nhập này thay
+    // vì bắt user phải tự vào Hồ sơ chọn lại. Nếu user đã chọn preset khác hoặc ảnh khác thì
+    // giữ nguyên, không ghi đè lựa chọn của họ.
+    if (!existingRow.avatar_object_key && existingRow.avatar_key === DEFAULT_PLAYER_AVATAR_KEY) {
+      const gmailAvatarUrl = getGmailAvatarUrl(session);
+
+      if (gmailAvatarUrl) {
+        const { data: patched } = await supabase
+          .from("users")
+          .update({ avatar_object_key: gmailAvatarUrl })
+          .eq("id", session.user.id)
+          .select(USERS_COLUMNS)
+          .maybeSingle();
+
+        if (patched) {
+          return persistProfile(mapProfile(patched as UserRow));
+        }
+      }
+    }
+
+    return persistProfile(mapProfile(existingRow));
   }
 
   // Lần đầu tạo hồ sơ: dùng luôn ảnh đại diện Google làm avatar mặc định (nếu có), thay vì

@@ -23,6 +23,9 @@ async function getAvatarBucket() {
   return (env as AvatarCloudflareEnv).AVATAR_BUCKET ?? null;
 }
 
+// Tên hàm giữ nguyên "Avatar" vì đây là chỗ đầu tiên dùng bucket này (folder "avatar/"), nhưng
+// hàm hoàn toàn generic (chỉ put/delete theo key) nên cũng được dùng cho ảnh vật phẩm shop
+// (folder "shop/", xem src/app/api/admin/shop-items/image/route.ts) — cùng 1 bucket R2 duy nhất.
 export async function putAvatarObject(key: string, file: File, contentType: string) {
   const bucket = await getAvatarBucket();
 

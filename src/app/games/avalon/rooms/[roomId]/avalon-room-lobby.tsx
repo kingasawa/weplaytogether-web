@@ -210,7 +210,8 @@ export default function AvalonRoomLobby({
       setGuestAvatarInput(savedGuestAvatarKey);
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
-      setIsLoggedIn(isAllowedGmailSession(data.session));
+      const hasSession = isAllowedGmailSession(data.session);
+      setIsLoggedIn(hasSession);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -224,7 +225,8 @@ export default function AvalonRoomLobby({
       setGuestAvatarInput(savedGuestAvatarKey);
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
-      setIsLoggedIn(isAllowedGmailSession(session));
+      const hasSession = isAllowedGmailSession(session);
+      setIsLoggedIn(hasSession);
     });
 
     return () => {
@@ -266,6 +268,15 @@ export default function AvalonRoomLobby({
     );
   }
 
+  // Đọc session trực tiếp ngay lúc gọi thay vì dùng state accountUserId (state cập nhật
+  // qua effect async nên có thể chưa kịp set nếu user bấm tham gia/lưu ngay khi vừa vào
+  // trang — dẫn tới gửi userId rỗng dù đã đăng nhập, làm khung/điểm không gắn được vào tài
+  // khoản).
+  async function getFreshAccountUserId() {
+    const { data } = await supabase.auth.getSession();
+    return isAllowedGmailSession(data.session) ? data.session?.user.id ?? null : null;
+  }
+
   function getCurrentPlayerName() {
     if (isLoggedIn) {
       return readStoredAccountProfile()?.displayName.trim() || undefined;
@@ -299,7 +310,14 @@ export default function AvalonRoomLobby({
   function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await joinAvalonRoom(lobbyState.room.code, playerName, avatarKey, avatarObjectKey);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await joinAvalonRoom(
+        lobbyState.room.code,
+        playerName,
+        avatarKey,
+        avatarObjectKey,
+        freshUserId
+      );
 
       if (!result.ok) {
         setErrorMessage(result.error);
@@ -380,11 +398,13 @@ export default function AvalonRoomLobby({
   ) {
     setErrorMessage("");
     startTransition(async () => {
+      const freshUserId = await getFreshAccountUserId();
       const result = await updateAvalonPlayerProfile(
         lobbyState.room.code,
         name,
         avatarKey,
-        avatarObjectKey
+        avatarObjectKey,
+        freshUserId
       );
 
       if (!result.ok) {
@@ -685,16 +705,48 @@ export default function AvalonRoomLobby({
             </div>
             <div className={styles.playerList} aria-label="Danh sách người chơi">
               {lobbyState.players.map((player) => (
-                <article className={styles.playerRow} key={player.id}>
-                  <div className={styles.playerIdentity}>
-                    <Image
-                      alt=""
+                <article
+                  className={
+                    player.profileFrameUrl
+                      ? `${styles.playerRow} ${styles.playerRowFramed}`
+                      : styles.playerRow
+                  }
+                  key={player.id}
+                >
+                  {player.profileFrameUrl && (
+                    <span
                       aria-hidden="true"
-                      className={styles.playerAvatar}
-                      width={48}
-                      height={48}
-                      src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
+                      className={styles.playerRowFrameOverlay}
+                      style={{ borderImageSource: `url(${player.profileFrameUrl})` }}
                     />
+                  )}
+                  <div className={styles.playerIdentity}>
+                    <span className={styles.playerAvatarFrameWrap}>
+                      <PlayerAvatarImage
+                        alt=""
+                        aria-hidden="true"
+                        className={
+                          player.avatarFrameUrl
+                            ? `${styles.playerAvatar} ${styles.playerAvatarFramed}`
+                            : styles.playerAvatar
+                        }
+                        width={48}
+                        height={48}
+                        src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
+                        avatarKey={player.avatarKey}
+                      />
+                      {player.avatarFrameUrl && (
+                        <Image
+                          alt=""
+                          aria-hidden="true"
+                          className={styles.playerAvatarFrameImg}
+                          width={64}
+                          height={64}
+                          src={player.avatarFrameUrl}
+                          unoptimized
+                        />
+                      )}
+                    </span>
                     <div>
                       <div className={styles.playerNameLine}>
                         <span className={styles.playerNameActions}>

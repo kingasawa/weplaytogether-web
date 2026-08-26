@@ -360,6 +360,8 @@ export function buildDebugAvalonState({ phase, playerId, role, view, votes }: Bu
         avatarKey: player.avatarKey,
         avatarObjectKey: null,
         avatarUrl: null,
+        avatarFrameUrl: null,
+        profileFrameUrl: null,
         isHost: player.id === "p1",
         isReady: true,
         joinedAt: "",

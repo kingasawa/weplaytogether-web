@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { optimizeShopItemImage, SHOP_ITEM_IMAGE_SOURCE_MAX_BYTES } from "@/lib/shop-item-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import type { ShopItemRow, ShopItemType } from "@/lib/supabase/types";
@@ -28,6 +29,50 @@ export type ShopItemInput = {
   isActive: boolean;
   sortOrder: number;
 };
+
+// Nén ảnh ngay ở trình duyệt (bất kể định dạng gốc) rồi upload lên Cloudflare R2 qua route
+// /api/admin/shop-items/image (route đó tự kiểm tra lại quyền admin bằng access token, vì
+// đây là request tới API route chứ không phải Supabase nên không tự có RLS bảo vệ).
+export async function uploadShopItemImage(itemType: ShopItemType, file: File): Promise<AdminResult<string>> {
+  if (file.size > SHOP_ITEM_IMAGE_SOURCE_MAX_BYTES) {
+    return { data: null, error: "Ảnh gốc quá lớn (tối đa 20MB)." };
+  }
+
+  const optimized = await optimizeShopItemImage(file, itemType);
+
+  const supabase = client();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { data: null, error: "Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang." };
+  }
+
+  const formData = new FormData();
+  formData.append("file", optimized);
+  formData.append("itemType", itemType);
+
+  let response: Response;
+
+  try {
+    response = await fetch("/api/admin/shop-items/image", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: formData,
+    });
+  } catch {
+    return { data: null, error: "Không thể kết nối máy chủ. Vui lòng thử lại." };
+  }
+
+  const body = (await response.json().catch(() => null)) as { imageUrl?: string; error?: string } | null;
+
+  if (!response.ok || !body?.imageUrl) {
+    return { data: null, error: body?.error ?? "Tải ảnh lên thất bại." };
+  }
+
+  return { data: body.imageUrl, error: null };
+}
 
 export async function listAllShopItems(): Promise<AdminResult<ShopItemRow[]>> {
   const { data, error } = await client()

@@ -29,10 +29,12 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
+import { getEquippedFrameUrlsByUserId, type EquippedFrameUrls } from "@/lib/player-avatar-frames";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import {
   isMissingAvatarKeyColumnError,
   isMissingAvatarObjectKeyColumnError,
+  isMissingUserIdColumnError,
 } from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRoomStatus } from "@/lib/supabase/types";
@@ -57,6 +59,7 @@ type PlayerRow = {
   name: string;
   avatar_key?: string | null;
   avatar_object_key?: string | null;
+  user_id?: string | null;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -163,6 +166,8 @@ export type AvalonLobbyPlayer = {
   avatarKey: string;
   avatarObjectKey: string | null;
   avatarUrl: string | null;
+  avatarFrameUrl: string | null;
+  profileFrameUrl: string | null;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -453,6 +458,42 @@ async function getRoomByCode(roomCode: string) {
 async function getActivePlayers(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow
+): Promise<PlayerRow[]> {
+  const { data: players, error } = await supabase
+    .from("wolf_room_players")
+    .select(
+      "id, room_id, session_id, name, avatar_key, avatar_object_key, user_id, is_host, is_ready, joined_at"
+    )
+    .eq("room_id", room.id)
+    .order("joined_at", { ascending: true });
+
+  if (!error) {
+    return (players ?? []) as PlayerRow[];
+  }
+
+  if (isMissingUserIdColumnError(error)) {
+    const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+    return legacyPlayers.map((player) => ({ ...player, user_id: null }));
+  }
+
+  const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+  const { data: userIdRows } = await supabase
+    .from("wolf_room_players")
+    .select("id, user_id")
+    .eq("room_id", room.id);
+  const userIdByPlayerId = new Map(
+    (userIdRows ?? []).map((row) => [row.id as string, (row as { user_id: string | null }).user_id])
+  );
+
+  return legacyPlayers.map((player) => ({
+    ...player,
+    user_id: userIdByPlayerId.get(player.id) ?? null,
+  }));
+}
+
+async function getActivePlayersWithoutUserId(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  room: RoomRow
 ) {
   const { data: players, error } = await supabase
     .from("wolf_room_players")
@@ -512,6 +553,7 @@ async function insertRoomPlayer(
     name: string;
     avatar_key: string;
     avatar_object_key?: string | null;
+    user_id?: string | null;
     is_host?: boolean;
     is_ready?: boolean;
   }
@@ -524,8 +566,13 @@ async function insertRoomPlayer(
     is_host: values.is_host,
     is_ready: values.is_ready,
     ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
+    ...(values.user_id ? { user_id: values.user_id } : {}),
   };
   const { data, error } = await supabase.from("wolf_room_players").insert(insertValues).select("id").single();
+
+  if (values.user_id && isMissingUserIdColumnError(error)) {
+    return insertRoomPlayer(supabase, { ...values, user_id: undefined });
+  }
 
   if (values.avatar_object_key && isMissingAvatarObjectKeyColumnError(error)) {
     return { data, error };
@@ -551,17 +598,23 @@ async function updateRoomPlayerIdentity(
   playerId: string,
   name: string,
   avatarKey: string,
-  avatarObjectKey: string | null
+  avatarObjectKey: string | null,
+  userId?: string | null
 ) {
   const updateValues = {
     name,
     avatar_key: avatarKey,
     avatar_object_key: avatarObjectKey,
+    ...(userId ? { user_id: userId } : {}),
   };
   const { error } = await supabase
     .from("wolf_room_players")
     .update(updateValues)
     .eq("id", playerId);
+
+  if (userId && isMissingUserIdColumnError(error)) {
+    return updateRoomPlayerIdentity(supabase, playerId, name, avatarKey, avatarObjectKey, null);
+  }
 
   if (avatarObjectKey && isMissingAvatarObjectKeyColumnError(error)) {
     return error;
@@ -619,8 +672,12 @@ function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, se
   return normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
 }
 
-function mapLobbyPlayer(player: PlayerRow): AvalonLobbyPlayer {
+function mapLobbyPlayer(
+  player: PlayerRow,
+  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+): AvalonLobbyPlayer {
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
+  const frames = player.user_id ? frameUrlsByUserId?.get(player.user_id) : undefined;
 
   return {
     id: player.id,
@@ -628,6 +685,8 @@ function mapLobbyPlayer(player: PlayerRow): AvalonLobbyPlayer {
     avatarKey: normalizePlayerAvatarKey(player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
+    avatarFrameUrl: frames?.avatarFrameUrl ?? null,
+    profileFrameUrl: frames?.profileFrameUrl ?? null,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -1147,7 +1206,8 @@ function buildQuestResultSummary(state: AvalonGameState): AvalonQuestResultSumma
 function buildAvalonPlayPlayers(
   state: AvalonGameState,
   livePlayers: PlayerRow[],
-  currentPlayer: PlayerRow | null
+  currentPlayer: PlayerRow | null,
+  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
 ): AvalonPlayPlayer[] {
   const confirmedRolePlayerIds = new Set(state.phaseConfirmations.role_reveal ?? []);
   const shouldRevealAllRoles = state.phase === "result";
@@ -1160,6 +1220,7 @@ function buildAvalonPlayPlayers(
     const avatarObjectKey = normalizePlayerAvatarObjectKey(
       livePlayer?.avatar_object_key ?? state.playerAvatarObjectKeyByPlayerId[playerId]
     );
+    const frames = livePlayer?.user_id ? frameUrlsByUserId?.get(livePlayer.user_id) : undefined;
 
     return {
       id: playerId,
@@ -1167,6 +1228,8 @@ function buildAvalonPlayPlayers(
       avatarKey: normalizePlayerAvatarKey(livePlayer?.avatar_key ?? state.playerAvatarKeyByPlayerId[playerId]),
       avatarObjectKey,
       avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
+      avatarFrameUrl: frames?.avatarFrameUrl ?? null,
+      profileFrameUrl: frames?.profileFrameUrl ?? null,
       isHost: Boolean(livePlayer?.is_host),
       isReady: Boolean(livePlayer?.is_ready),
       joinedAt: livePlayer?.joined_at ?? "",
@@ -1394,7 +1457,8 @@ export async function joinAvalonRoom(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<AvalonActionResult> {
   const normalizedRoomCode = normalizeRoomCode(roomCode);
 
@@ -1441,7 +1505,8 @@ export async function joinAvalonRoom(
       existingPlayer.id,
       normalizedName,
       normalizedAvatarKey,
-      playerAvatarObjectKey
+      playerAvatarObjectKey,
+      userId
     );
 
     if (updateError) {
@@ -1479,6 +1544,7 @@ export async function joinAvalonRoom(
     name: normalizedName,
     avatar_key: normalizedAvatarKey,
     avatar_object_key: playerAvatarObjectKey,
+    user_id: userId,
     is_host: shouldBecomeHost,
     is_ready: shouldBecomeHost,
   });
@@ -1514,7 +1580,8 @@ export async function updateAvalonPlayerProfile(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<AvalonActionResult> {
   const normalizedRoomCode = normalizeRoomCode(roomCode);
 
@@ -1560,7 +1627,8 @@ export async function updateAvalonPlayerProfile(
     player.id,
     normalizedName,
     normalizedAvatarKey,
-    playerAvatarObjectKey
+    playerAvatarObjectKey,
+    userId
   );
 
   if (updateError) {
@@ -1594,6 +1662,7 @@ export async function getAvalonLobbyState(roomCode: string): Promise<AvalonLobby
 
   const players = await getActivePlayers(supabase, room);
   const currentPlayer = getCurrentPlayer(players, sessionId);
+  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
 
   return {
     room: {
@@ -1603,7 +1672,7 @@ export async function getAvalonLobbyState(roomCode: string): Promise<AvalonLobby
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id,
     },
-    players: players.map(mapLobbyPlayer),
+    players: players.map((player) => mapLobbyPlayer(player, frameUrlByUserId)),
     currentPlayerId: currentPlayer?.id ?? null,
   };
 }
@@ -1631,6 +1700,11 @@ export async function getAvalonSpectatorState(roomCode: string): Promise<AvalonS
     }
   }
 
+  const spectatorFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+    supabase,
+    players.map((player) => player.user_id)
+  );
+
   return {
     room: {
       id: room.id,
@@ -1639,7 +1713,7 @@ export async function getAvalonSpectatorState(roomCode: string): Promise<AvalonS
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id,
     },
-    players: players.map(mapLobbyPlayer),
+    players: players.map((player) => mapLobbyPlayer(player, spectatorFrameUrlByUserId)),
     game,
     result,
   };
@@ -1894,6 +1968,7 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
     return null;
   }
 
+  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
   const myRole = currentPlayer ? state.roleByPlayerId[currentPlayer.id] ?? null : null;
   const myLoyalty = myRole ? getAvalonRoleTeam(myRole) : null;
   const questCounts = getQuestCounts(state);
@@ -1924,7 +1999,7 @@ export async function getAvalonPlayState(roomCode: string): Promise<AvalonPlaySt
       proposedQuestIndex: state.phase === "team_proposal" ? currentQuestIndex : state.proposedQuestIndex,
       proposalAttempt: state.proposalAttempt,
     },
-    players: buildAvalonPlayPlayers(state, players, currentPlayer),
+    players: buildAvalonPlayPlayers(state, players, currentPlayer, frameUrlByUserId),
     currentPlayerId: currentPlayer?.id ?? null,
     isCurrentPlayerHost: isHost(currentPlayer, room),
     leaderPlayerId,

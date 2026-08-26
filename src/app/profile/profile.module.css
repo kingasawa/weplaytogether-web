@@ -118,6 +118,29 @@
   object-fit: cover;
 }
 
+/* Khi trang bị khung shop, khung tự làm viền trang trí rồi — bỏ border/nền/shadow mặc định
+   của avatarPreview để tránh hiện thêm 1 vòng viền + khoảng trống thừa giữa avatar và khung. */
+.avatarPreviewFramed {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Khung avatar (vật phẩm shop) đè lên avatar, kích thước 145% — test trực quan composite
+   trên nhiều ảnh khung là khít nhất, không che avatar. Ghi đè kích thước/border-radius
+   chung của "avatarPreview img". */
+.avatarPreview img.avatarPreviewFrame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10.15rem;
+  height: 10.15rem;
+  border-radius: 0;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .identityCopy {
   position: relative;
   display: grid;
@@ -337,6 +360,120 @@
 
 .profileAvatarPicker {
   padding-top: 0.1rem;
+}
+
+.frameGroupsWrap {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0.1rem;
+}
+
+.frameTypeGroup {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.frameTypeTitle {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.frameEmptyState {
+  padding: 0.75rem;
+  border: 1px dashed color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.frameEmptyState a {
+  color: var(--primary-light);
+  font-weight: 700;
+}
+
+.frameTileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.75rem, 1fr));
+  gap: 0.6rem;
+}
+
+.frameTile {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+.frameTile span:last-child {
+  overflow: hidden;
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frameTile:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.frameTileActive {
+  border-color: color-mix(in srgb, var(--primary-light) 60%, transparent);
+  background: color-mix(in srgb, var(--primary) 16%, var(--bg-card));
+  color: var(--text);
+}
+
+.frameTileThumb,
+.frameTileEmpty {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-primary));
+}
+
+.frameTileThumb img {
+  /* contain: khung thông tin (profile_frame) là ảnh dài ~3:1, cover sẽ cắt mất 2 góc. */
+  object-fit: contain;
+}
+
+.frameTileEmpty {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.frameTileEmpty svg {
+  width: 1.3rem;
+}
+
+.frameTileLoading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-primary) 55%, transparent);
+  color: var(--text);
+}
+
+.frameTileLoading svg {
+  width: 1.2rem;
+  animation: profileSpin 0.9s linear infinite;
 }
 
 .errorText,

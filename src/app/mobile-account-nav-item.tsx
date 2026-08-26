@@ -2,9 +2,9 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerName,
@@ -18,11 +18,7 @@ import {
   signInWithGmail,
   signOutFromSupabase,
 } from "@/lib/supabase/auth-client";
-import {
-  getPlayerAvatarSrc,
-  getUploadedPlayerAvatarUrl,
-  isRemotePlayerAvatarSrc,
-} from "@/lib/player-avatars";
+import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile, type StoredAccountProfile } from "@/lib/user-profile";
 import styles from "./page.module.css";
@@ -207,14 +203,14 @@ export default function MobileAccountNavItem() {
         }}
       >
         {accountAvatarSrc ? (
-          <Image
+          <PlayerAvatarImage
             alt=""
             aria-hidden="true"
             className={styles.mobileAccountAvatar}
             width={44}
             height={44}
             src={accountAvatarSrc}
-            unoptimized={isRemotePlayerAvatarSrc(accountAvatarSrc)}
+            avatarKey={accountProfile?.avatarKey}
           />
         ) : (
           <CircleUserRound aria-hidden="true" />

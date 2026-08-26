@@ -170,7 +170,9 @@
 }
 
 .itemImage img {
-  object-fit: cover;
+  /* contain (không phải cover): khung thông tin (profile_frame) là ảnh dài ~3:1, cover sẽ
+     cắt mất 2 góc trong box vuông. Khung avatar vuông sẵn nên contain/cover nhìn như nhau. */
+  object-fit: contain;
 }
 
 .itemEquippedBadge {
@@ -342,7 +344,8 @@
 }
 
 .previewImage img {
-  object-fit: cover;
+  /* contain: khung thông tin (profile_frame) là ảnh dài ~3:1, cover sẽ cắt mất 2 góc. */
+  object-fit: contain;
 }
 
 .previewBody {

@@ -2,8 +2,10 @@
 
 import {
   ArrowLeft,
+  Ban,
   Check,
   ChevronDown,
+  Frame as FrameIcon,
   IdCard,
   LoaderCircle,
   LogIn,
@@ -14,13 +16,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import { buildAuthPath } from "@/lib/auth-redirect";
 import { MAX_GUEST_PLAYER_NAME_LENGTH } from "@/lib/guest-player";
 import {
   DEFAULT_PLAYER_AVATAR_KEY,
   getPlayerAvatarSrc,
   getUploadedPlayerAvatarUrl,
-  isRemotePlayerAvatarSrc,
   type PlayerAvatarKey,
 } from "@/lib/player-avatars";
 import {
@@ -29,6 +31,14 @@ import {
   isAllowedGmailSession,
 } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  equipShopItem,
+  getMyShopProfile,
+  listMyOwnedShopItems,
+  SHOP_ITEM_TYPE_LABELS,
+  type MyOwnedShopItem,
+} from "@/lib/shop";
+import type { ShopItemType } from "@/lib/supabase/types";
 import { ensureMyProfile, getMyProfile, updateMyProfile } from "@/lib/user-profile";
 import { PlayerAvatarPicker } from "../games/wolf/player-avatar-picker";
 import styles from "./profile.module.css";
@@ -37,6 +47,7 @@ type ProfileStatus = "loading" | "guest" | "ready";
 
 export default function ProfileScreen() {
   const [status, setStatus] = useState<ProfileStatus>("loading");
+  const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [gmailAvatarUrl, setGmailAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -48,6 +59,18 @@ export default function ProfileScreen() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const nicknameInputRef = useRef<HTMLInputElement>(null);
+
+  const [isFrameExpanded, setIsFrameExpanded] = useState(false);
+  const [ownedFrames, setOwnedFrames] = useState<MyOwnedShopItem[]>([]);
+  const [equippedAvatarFrameId, setEquippedAvatarFrameId] = useState<string | null>(null);
+  const [equippedProfileFrameId, setEquippedProfileFrameId] = useState<string | null>(null);
+  const [equippingItemId, setEquippingItemId] = useState<string | null>(null);
+  const [frameError, setFrameError] = useState("");
+
+  const avatarFrameUrl =
+    ownedFrames.find((item) => item.itemId === equippedAvatarFrameId)?.imageUrl ?? null;
+  const ownedAvatarFrames = ownedFrames.filter((item) => item.itemType === "avatar_frame");
+  const ownedProfileFrames = ownedFrames.filter((item) => item.itemType === "profile_frame");
 
   useEffect(() => {
     let isMounted = true;
@@ -65,6 +88,7 @@ export default function ProfileScreen() {
         return;
       }
 
+      setUserId(data.session.user.id);
       setEmail(data.session.user.email ?? null);
       setGmailAvatarUrl(getGmailAvatarUrl(data.session));
 
@@ -83,6 +107,23 @@ export default function ProfileScreen() {
       }
 
       setStatus("ready");
+
+      void Promise.all([getMyShopProfile(), listMyOwnedShopItems()]).then(
+        ([shopProfileResult, ownedItemsResult]) => {
+          if (!isMounted) {
+            return;
+          }
+
+          if (shopProfileResult.data) {
+            setEquippedAvatarFrameId(shopProfileResult.data.equippedAvatarFrameId);
+            setEquippedProfileFrameId(shopProfileResult.data.equippedProfileFrameId);
+          }
+
+          if (ownedItemsResult.data) {
+            setOwnedFrames(ownedItemsResult.data);
+          }
+        }
+      );
     });
 
     return () => {
@@ -128,6 +169,31 @@ export default function ProfileScreen() {
     setMessage("Đã lưu hồ sơ.");
   }
 
+  // Trang bị/gỡ khung áp dụng ngay (không cần bấm "Lưu hồ sơ"), giống hành vi ở trang Shop.
+  async function equipFrame(itemType: ShopItemType, itemId: string | null) {
+    if (!userId) {
+      return;
+    }
+
+    setEquippingItemId(itemId ?? `unequip-${itemType}`);
+    setFrameError("");
+
+    const { error: equipError } = await equipShopItem(itemType, itemId, userId);
+
+    setEquippingItemId(null);
+
+    if (equipError) {
+      setFrameError(equipError);
+      return;
+    }
+
+    if (itemType === "avatar_frame") {
+      setEquippedAvatarFrameId(itemId);
+    } else {
+      setEquippedProfileFrameId(itemId);
+    }
+  }
+
   const avatarPreviewSrc = getPlayerAvatarSrc(
     avatarKey,
     getUploadedPlayerAvatarUrl(avatarObjectKey)
@@ -170,15 +236,28 @@ export default function ProfileScreen() {
         {status === "ready" && (
           <form className={styles.form} onSubmit={saveProfile}>
             <section className={styles.identityPanel} aria-label="Người chơi hiện tại">
-              <div className={styles.avatarPreview}>
-                <Image
+              <div
+                className={`${styles.avatarPreview} ${avatarFrameUrl ? styles.avatarPreviewFramed : ""}`}
+              >
+                <PlayerAvatarImage
                   alt=""
                   aria-hidden="true"
                   width={112}
                   height={112}
                   src={avatarPreviewSrc}
-                  unoptimized={isRemotePlayerAvatarSrc(avatarPreviewSrc)}
+                  avatarKey={avatarKey}
                 />
+                {avatarFrameUrl && (
+                  <Image
+                    alt=""
+                    aria-hidden="true"
+                    className={styles.avatarPreviewFrame}
+                    width={160}
+                    height={160}
+                    src={avatarFrameUrl}
+                    unoptimized
+                  />
+                )}
               </div>
               <div className={styles.identityCopy}>
                 <div className={styles.identityNameRow}>
@@ -276,6 +355,100 @@ export default function ProfileScreen() {
                       setMessage("");
                     }}
                   />
+                </div>
+              )}
+            </section>
+
+            <section className={styles.avatarGroup} aria-label="Khung">
+              <button
+                className={styles.avatarToggle}
+                type="button"
+                aria-expanded={isFrameExpanded}
+                aria-controls="profile-frame-picker"
+                onClick={() => setIsFrameExpanded((current) => !current)}
+              >
+                <span className={styles.rowIcon}>
+                  <FrameIcon aria-hidden="true" />
+                </span>
+                <span className={styles.avatarToggleText}>
+                  <h2>Khung</h2>
+                  <p>Khung avatar &amp; khung thông tin đã sở hữu.</p>
+                </span>
+                <span className={isFrameExpanded ? styles.avatarToggleIconOpen : styles.avatarToggleIcon}>
+                  <ChevronDown aria-hidden="true" />
+                </span>
+              </button>
+
+              {isFrameExpanded && (
+                <div id="profile-frame-picker" className={styles.frameGroupsWrap}>
+                  {(["avatar_frame", "profile_frame"] as ShopItemType[]).map((itemType) => {
+                    const items = itemType === "avatar_frame" ? ownedAvatarFrames : ownedProfileFrames;
+                    const equippedId =
+                      itemType === "avatar_frame" ? equippedAvatarFrameId : equippedProfileFrameId;
+                    const unequipKey = `unequip-${itemType}`;
+
+                    return (
+                      <div className={styles.frameTypeGroup} key={itemType}>
+                        <h3 className={styles.frameTypeTitle}>{SHOP_ITEM_TYPE_LABELS[itemType]}</h3>
+
+                        {items.length === 0 ? (
+                          <p className={styles.frameEmptyState}>
+                            Bạn chưa sở hữu {SHOP_ITEM_TYPE_LABELS[itemType].toLowerCase()} nào.{" "}
+                            <Link href="/shop">Mua ở Cửa hàng</Link>
+                          </p>
+                        ) : (
+                          <div className={styles.frameTileGrid}>
+                            <button
+                              className={`${styles.frameTile} ${!equippedId ? styles.frameTileActive : ""}`}
+                              type="button"
+                              disabled={equippingItemId === unequipKey}
+                              onClick={() => equipFrame(itemType, null)}
+                            >
+                              <span className={styles.frameTileEmpty}>
+                                {equippingItemId === unequipKey ? (
+                                  <LoaderCircle aria-hidden="true" />
+                                ) : (
+                                  <Ban aria-hidden="true" />
+                                )}
+                              </span>
+                              <span>Không dùng</span>
+                            </button>
+
+                            {items.map((item) => (
+                              <button
+                                className={`${styles.frameTile} ${
+                                  equippedId === item.itemId ? styles.frameTileActive : ""
+                                }`}
+                                type="button"
+                                key={item.itemId}
+                                disabled={equippingItemId === item.itemId}
+                                onClick={() => equipFrame(itemType, item.itemId)}
+                              >
+                                <span className={styles.frameTileThumb}>
+                                  <Image
+                                    alt=""
+                                    aria-hidden="true"
+                                    fill
+                                    sizes="72px"
+                                    src={item.imageUrl}
+                                    unoptimized
+                                  />
+                                  {equippingItemId === item.itemId && (
+                                    <span className={styles.frameTileLoading}>
+                                      <LoaderCircle aria-hidden="true" />
+                                    </span>
+                                  )}
+                                </span>
+                                <span>{item.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {frameError && <p className={styles.errorText}>{frameError}</p>}
                 </div>
               )}
             </section>

@@ -106,16 +106,47 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
 
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {spectatorState.players.map((player) => (
-            <article className={styles.playerRow} key={player.id}>
-              <div className={styles.playerIdentity}>
-                <Image
-                  alt=""
+            <article
+              className={
+                player.profileFrameUrl
+                  ? `${styles.playerRow} ${styles.playerRowFramed}`
+                  : styles.playerRow
+              }
+              key={player.id}
+            >
+              {player.profileFrameUrl && (
+                <span
                   aria-hidden="true"
-                  className={styles.playerAvatar}
-                  height={48}
-                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
-                  width={48}
+                  className={styles.playerRowFrameOverlay}
+                  style={{ borderImageSource: `url(${player.profileFrameUrl})` }}
                 />
+              )}
+              <div className={styles.playerIdentity}>
+                <span className={styles.playerAvatarFrameWrap}>
+                  <Image
+                    alt=""
+                    aria-hidden="true"
+                    className={
+                      player.avatarFrameUrl
+                        ? `${styles.playerAvatar} ${styles.playerAvatarFramed}`
+                        : styles.playerAvatar
+                    }
+                    height={48}
+                    src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
+                    width={48}
+                  />
+                  {player.avatarFrameUrl && (
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className={styles.playerAvatarFrameImg}
+                      width={64}
+                      height={64}
+                      src={player.avatarFrameUrl}
+                      unoptimized
+                    />
+                  )}
+                </span>
                 <div>
                   <div className={styles.playerNameLine}>
                     <strong>{player.name}</strong>

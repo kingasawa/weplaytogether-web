@@ -66,6 +66,47 @@ export async function listMyShopItemIds(): Promise<ShopResult<Set<string>>> {
   };
 }
 
+export type MyOwnedShopItem = {
+  itemId: string;
+  itemType: ShopItemType;
+  name: string;
+  imageUrl: string;
+};
+
+// Vật phẩm user hiện tại đã sở hữu, kèm chi tiết (tên/ảnh/loại) — dùng cho box "Khung" ở
+// trang Hồ sơ. Join qua quan hệ FK user_shop_items.item_id -> shop_items.id nên trả về được
+// cả vật phẩm admin đã ẩn khỏi shop (is_active=false) miễn user đã sở hữu từ trước.
+export async function listMyOwnedShopItems(): Promise<ShopResult<MyOwnedShopItem[]>> {
+  const { data, error } = await client()
+    .from("user_shop_items")
+    .select("item_id, shop_items(id, item_type, name, image_url)")
+    .order("purchased_at", { ascending: true });
+
+  if (error) {
+    if (isMissingTableError(error, "user_shop_items")) {
+      return { data: [], error: null };
+    }
+
+    return { data: null, error: error.message };
+  }
+
+  type OwnedRow = {
+    item_id: string;
+    shop_items: { id: string; item_type: ShopItemType; name: string; image_url: string } | null;
+  };
+
+  const items = ((data ?? []) as unknown as OwnedRow[])
+    .filter((row) => row.shop_items)
+    .map((row) => ({
+      itemId: row.shop_items!.id,
+      itemType: row.shop_items!.item_type,
+      name: row.shop_items!.name,
+      imageUrl: row.shop_items!.image_url,
+    }));
+
+  return { data: items, error: null };
+}
+
 export type MyShopProfile = {
   userId: string;
   totalCoins: number;

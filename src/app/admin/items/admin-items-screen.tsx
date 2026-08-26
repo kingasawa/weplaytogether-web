@@ -1,15 +1,17 @@
 "use client";
 
-import { Frame, IdCard, LoaderCircle, Package, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Frame, IdCard, LoaderCircle, Package, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   createShopItem,
   deleteShopItem,
   listAllShopItems,
   updateShopItem,
+  uploadShopItemImage,
   type ShopItemInput,
 } from "@/lib/admin-shop";
+import { SHOP_ITEM_IMAGE_ACCEPT } from "@/lib/shop-item-image";
 import { SHOP_ITEM_TYPE_LABELS } from "@/lib/shop";
 import type { ShopItemRow, ShopItemType } from "@/lib/supabase/types";
 import styles from "../admin.module.css";
@@ -17,11 +19,13 @@ import styles from "../admin.module.css";
 type FormMode = { mode: "create" } | { mode: "edit"; item: ShopItemRow };
 
 // Spec ảnh khuyến nghị để khung hiển thị đúng khi ghép vào avatar/thanh thông tin người chơi.
+// Ảnh tải lên sẽ TỰ ĐỘNG được nén + chuyển sang WebP ngay ở trình duyệt (bất kể định dạng/
+// kích thước gốc) trước khi lưu lên Cloudflare R2 — không cần tự resize trước.
 const IMAGE_SPEC_HINTS: Record<ShopItemType, string> = {
   avatar_frame:
-    "Khuyến nghị: PNG/WebP nền trong suốt, canvas vuông 512×512px, lỗ tròn trong suốt ở giữa ~80% (≈410px) để avatar hiện xuyên qua.",
+    "Khuyến nghị: nền trong suốt, ảnh vuông, lỗ tròn trong suốt ở giữa ~60-65% canvas để không che avatar. Tự động nén còn tối đa 512×512px.",
   profile_frame:
-    "Khuyến nghị: PNG nền trong suốt, canvas 960×240px (tỉ lệ 4:1, dùng 9-slice), viền trang trí dày ít nhất ~40-50px quanh mép để 4 góc không vỡ khi khung giãn theo tên người chơi.",
+    "Khuyến nghị: nền trong suốt, ảnh dạng chữ nhật dài (~3:1), phần giữa để trống cho tên/avatar hiện xuyên qua. Tự động nén còn tối đa cạnh dài 960px.",
 };
 
 const EMPTY_FORM: ShopItemInput = {
@@ -43,6 +47,8 @@ export default function AdminItemsScreen() {
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     setIsLoading(true);
@@ -85,6 +91,29 @@ export default function AdminItemsScreen() {
   function closeForm() {
     setFormMode(null);
     setFormError("");
+  }
+
+  async function handleImageFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // cho phép chọn lại đúng file cũ lần sau
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setFormError("");
+
+    const { data: imageUrl, error } = await uploadShopItemImage(formInput.itemType, file);
+
+    setIsUploadingImage(false);
+
+    if (error || !imageUrl) {
+      setFormError(error ?? "Tải ảnh lên thất bại.");
+      return;
+    }
+
+    setFormInput((current) => ({ ...current, imageUrl }));
   }
 
   async function submitForm(event: FormEvent<HTMLFormElement>) {
@@ -294,10 +323,26 @@ export default function AdminItemsScreen() {
               </div>
 
               <div className={styles.formField}>
-                <label htmlFor="item-image-url">URL ảnh</label>
+                <label htmlFor="item-image-url">Ảnh vật phẩm</label>
+                <input
+                  ref={fileInputRef}
+                  accept={SHOP_ITEM_IMAGE_ACCEPT}
+                  className={styles.hiddenFileInput}
+                  type="file"
+                  onChange={handleImageFileSelected}
+                />
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  disabled={isUploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingImage ? <LoaderCircle aria-hidden="true" /> : <Upload aria-hidden="true" />}
+                  {isUploadingImage ? "Đang tải lên..." : "Tải ảnh lên"}
+                </button>
                 <input
                   id="item-image-url"
-                  placeholder="https://..."
+                  placeholder="hoặc dán URL ảnh có sẵn"
                   type="text"
                   value={formInput.imageUrl}
                   onChange={(event) => setFormInput((current) => ({ ...current, imageUrl: event.target.value }))}

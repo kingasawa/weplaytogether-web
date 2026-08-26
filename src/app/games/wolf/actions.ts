@@ -8,6 +8,7 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
+import { getEquippedFrameUrlsByUserId, type EquippedFrameUrls } from "@/lib/player-avatar-frames";
 import {
   isMissingAvatarKeyColumnError,
   isMissingAvatarObjectKeyColumnError,
@@ -201,6 +202,8 @@ export type WolfLobbyPlayer = {
   avatarKey: string;
   avatarObjectKey: string | null;
   avatarUrl: string | null;
+  avatarFrameUrl: string | null;
+  profileFrameUrl: string | null;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -792,8 +795,12 @@ async function updateWolfRoomPlayerIdentity(
   return fallbackError;
 }
 
-function mapLobbyPlayer(player: PlayerRow): WolfLobbyPlayer {
+function mapLobbyPlayer(
+  player: PlayerRow,
+  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+): WolfLobbyPlayer {
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
+  const frames = player.user_id ? frameUrlsByUserId?.get(player.user_id) : undefined;
 
   return {
     id: player.id,
@@ -801,6 +808,8 @@ function mapLobbyPlayer(player: PlayerRow): WolfLobbyPlayer {
     avatarKey: normalizePlayerAvatarKey(player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
+    avatarFrameUrl: frames?.avatarFrameUrl ?? null,
+    profileFrameUrl: frames?.profileFrameUrl ?? null,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -3353,7 +3362,8 @@ export async function updateWolfPlayerProfile(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<WolfActionResult> {
   const code = normalizeRoomCode(roomCode);
 
@@ -3410,7 +3420,8 @@ export async function updateWolfPlayerProfile(
     player.id,
     name,
     playerAvatarKey,
-    playerAvatarObjectKey
+    playerAvatarObjectKey,
+    userId
   );
 
   if (updateError) {
@@ -3648,6 +3659,7 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
   }
 
   const players = await getActivePlayers(supabase, room);
+  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
 
   return {
     room: {
@@ -3657,7 +3669,7 @@ export async function getWolfLobbyState(roomCode: string): Promise<WolfLobbyStat
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id ?? null,
     },
-    players: players.map(mapLobbyPlayer),
+    players: players.map((player) => mapLobbyPlayer(player, frameUrlByUserId)),
     currentPlayerId: players.find((player) => player.session_id === sessionId)?.id ?? null,
   };
 }
@@ -3717,6 +3729,11 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
     }
   }
 
+  const spectatorFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+    supabase,
+    players.map((player) => player.user_id)
+  );
+
   return {
     room: {
       id: room.id,
@@ -3725,7 +3742,7 @@ export async function getWolfSpectatorState(roomCode: string): Promise<WolfSpect
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id ?? null,
     },
-    players: players.map(mapLobbyPlayer),
+    players: players.map((player) => mapLobbyPlayer(player, spectatorFrameUrlByUserId)),
     game: game
       ? {
           phase: game.phase,
@@ -4055,6 +4072,11 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     revealedCenterIndexes.add(myAction.target_center_index as number);
   }
 
+  const playFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+    supabase,
+    players.map((player) => player.user_id)
+  );
+
   return {
     room: {
       id: room.id,
@@ -4070,7 +4092,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       discussionEndsAt: game.discussion_ends_at,
     },
     players: players.map((player) => ({
-      ...mapLobbyPlayer(player),
+      ...mapLobbyPlayer(player, playFrameUrlByUserId),
       role: shouldRevealAll ? playerCardsById.get(player.id)?.current_role ?? null : null,
       voteTargetPlayerId: shouldRevealVotes ? voteByVoterId.get(player.id) ?? null : null,
       hasSkippedVote: shouldRevealVotes ? skippedVotePlayerIds.has(player.id) : false,

@@ -1864,6 +1864,7 @@
 }
 
 .playerRow {
+  position: relative;
   display: flex;
   min-height: 4.25rem;
   align-items: center;
@@ -1873,6 +1874,36 @@
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 1rem;
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+
+/* Khung thông tin (vật phẩm shop, item_type=profile_frame) bao quanh cả thanh người chơi,
+   hiển thị cho mọi người trong phòng thấy. Render bằng 1 lớp phủ position:absolute (không
+   phải border thật trên .playerRow) — nếu border-image nằm trực tiếp trên .playerRow thì
+   border dày sẽ đẩy lệch avatar/tên vào trong so với các hàng không có khung (đã gặp lỗi
+   này). Lớp phủ không tham gia layout nên vị trí nội dung luôn khớp nhau giữa hàng có khung
+   và không có khung. inset: 0 để khung nằm khít theo đúng border của .playerRow, không tràn
+   ra ngoài đè lên header/hàng kế bên (đã gặp lỗi này khi dùng inset âm — khung 20-30px lòi ra
+   ngoài trong khi gap giữa các hàng chỉ 8px). border-width nhỏ hơn padding của .playerRow
+   (var(--spacing-md)) để không che avatar/tên. border-image-source set qua inline style vì
+   mỗi người có thể trang bị ảnh khung khác nhau. Số đo slice chốt bằng mô phỏng trực quan
+   (scripts/sim-border-image.mjs) trên ảnh 960×320: corner giữ nguyên tỉ lệ, viền trên/dưới/
+   trái/phải chỉ giãn phần vạch mảnh.
+*/
+.playerRowFrameOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-style: solid;
+  border-width: 0.75rem 1rem;
+  border-image-slice: 130 220;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+/* Khi hàng có khung info (shop) đè lên, khung tự làm viền trang trí rồi — bỏ border mặc
+   định của .playerRow để tránh hiện 2 lớp viền chồng lên nhau. */
+.playerRowFramed {
+  border-color: transparent;
 }
 
 .playerIdentity {
@@ -1891,6 +1922,37 @@
   border-radius: 999px;
   background: var(--bg-secondary);
   object-fit: cover;
+}
+
+/* Khi có khung shop đè lên, khung tự làm viền trang trí rồi — bỏ border mặc định của avatar
+   để tránh hiện thêm 1 vòng viền + khoảng trống thừa giữa avatar và khung. */
+.playerAvatarFramed {
+  border-color: transparent;
+}
+
+/* Khung avatar (vật phẩm shop) đè lên avatar, hiển thị cho mọi người trong phòng thấy.
+   Kích thước khung = 145% avatar — test trực quan composite trên nhiều ảnh khung: 160%
+   để hở khoảng trống rõ, 125% che mất tóc/mặt, 145% khít nhất mà không che avatar. */
+.playerAvatarFrameWrap {
+  position: relative;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 auto;
+}
+
+.playerAvatarFrameWrap .playerAvatar {
+  position: absolute;
+  inset: 0;
+}
+
+.playerAvatarFrameImg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.48rem;
+  height: 3.48rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .playerIdentity > div {

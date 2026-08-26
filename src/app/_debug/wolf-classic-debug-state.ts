@@ -85,6 +85,8 @@ function buildPlayers(overrides: {
     avatarKey: seed.avatarKey,
     avatarObjectKey: null,
     avatarUrl: null,
+    avatarFrameUrl: null,
+    profileFrameUrl: null,
     isHost: seed.isHost,
     isReady: true,
     joinedAt: "2026-01-01T00:00:00.000Z",

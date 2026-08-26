@@ -7,10 +7,12 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
+import { getEquippedFrameUrlsByUserId, type EquippedFrameUrls } from "@/lib/player-avatar-frames";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import {
   isMissingAvatarKeyColumnError,
   isMissingAvatarObjectKeyColumnError,
+  isMissingUserIdColumnError,
 } from "@/lib/supabase/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRoomStatus } from "@/lib/supabase/types";
@@ -67,6 +69,7 @@ type PlayerRow = {
   name: string;
   avatar_key?: string | null;
   avatar_object_key?: string | null;
+  user_id?: string | null;
   is_host: boolean;
   is_ready: boolean;
   joined_at: string;
@@ -208,6 +211,8 @@ export type ClassicWolfLobbyPlayer = {
   avatarKey: string;
   avatarObjectKey: string | null;
   avatarUrl: string | null;
+  avatarFrameUrl: string | null;
+  profileFrameUrl: string | null;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -490,6 +495,42 @@ async function getRoomByCode(roomCode: string) {
 async function getActivePlayers(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow
+): Promise<PlayerRow[]> {
+  const { data: players, error } = await supabase
+    .from("wolf_room_players")
+    .select(
+      "id, room_id, session_id, name, avatar_key, avatar_object_key, user_id, is_host, is_ready, joined_at"
+    )
+    .eq("room_id", room.id)
+    .order("joined_at", { ascending: true });
+
+  if (!error) {
+    return (players ?? []) as PlayerRow[];
+  }
+
+  if (isMissingUserIdColumnError(error)) {
+    const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+    return legacyPlayers.map((player) => ({ ...player, user_id: null }));
+  }
+
+  const legacyPlayers = await getActivePlayersWithoutUserId(supabase, room);
+  const { data: userIdRows } = await supabase
+    .from("wolf_room_players")
+    .select("id, user_id")
+    .eq("room_id", room.id);
+  const userIdByPlayerId = new Map(
+    (userIdRows ?? []).map((row) => [row.id as string, (row as { user_id: string | null }).user_id])
+  );
+
+  return legacyPlayers.map((player) => ({
+    ...player,
+    user_id: userIdByPlayerId.get(player.id) ?? null,
+  }));
+}
+
+async function getActivePlayersWithoutUserId(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  room: RoomRow
 ) {
   const { data: players, error } = await supabase
     .from("wolf_room_players")
@@ -549,6 +590,7 @@ async function insertWolfRoomPlayer(
     name: string;
     avatar_key: string;
     avatar_object_key?: string | null;
+    user_id?: string | null;
     is_host?: boolean;
     is_ready?: boolean;
   }
@@ -561,12 +603,17 @@ async function insertWolfRoomPlayer(
     is_host: values.is_host,
     is_ready: values.is_ready,
     ...(values.avatar_object_key ? { avatar_object_key: values.avatar_object_key } : {}),
+    ...(values.user_id ? { user_id: values.user_id } : {}),
   };
   const { data, error } = await supabase
     .from("wolf_room_players")
     .insert(insertValues)
     .select("id")
     .single();
+
+  if (values.user_id && isMissingUserIdColumnError(error)) {
+    return insertWolfRoomPlayer(supabase, { ...values, user_id: undefined });
+  }
 
   if (values.avatar_object_key && isMissingAvatarObjectKeyColumnError(error)) {
     return { data, error };
@@ -592,17 +639,23 @@ async function updateWolfRoomPlayerIdentity(
   playerId: string,
   name: string,
   avatarKey: string,
-  avatarObjectKey: string | null
+  avatarObjectKey: string | null,
+  userId?: string | null
 ) {
   const updateValues = {
     name,
     avatar_key: avatarKey,
     avatar_object_key: avatarObjectKey,
+    ...(userId ? { user_id: userId } : {}),
   };
   const { error } = await supabase
     .from("wolf_room_players")
     .update(updateValues)
     .eq("id", playerId);
+
+  if (userId && isMissingUserIdColumnError(error)) {
+    return updateWolfRoomPlayerIdentity(supabase, playerId, name, avatarKey, avatarObjectKey, null);
+  }
 
   if (avatarObjectKey && isMissingAvatarObjectKeyColumnError(error)) {
     return error;
@@ -629,8 +682,12 @@ async function updateWolfRoomPlayerIdentity(
   return fallbackError;
 }
 
-function mapLobbyPlayer(player: PlayerRow): ClassicWolfLobbyPlayer {
+function mapLobbyPlayer(
+  player: PlayerRow,
+  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+): ClassicWolfLobbyPlayer {
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
+  const frames = player.user_id ? frameUrlsByUserId?.get(player.user_id) : undefined;
 
   return {
     id: player.id,
@@ -638,6 +695,8 @@ function mapLobbyPlayer(player: PlayerRow): ClassicWolfLobbyPlayer {
     avatarKey: normalizePlayerAvatarKey(player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
+    avatarFrameUrl: frames?.avatarFrameUrl ?? null,
+    profileFrameUrl: frames?.profileFrameUrl ?? null,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -2046,7 +2105,8 @@ export async function joinClassicWolfRoom(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<ClassicWolfActionResult> {
   const code = normalizeRoomCode(roomCode);
 
@@ -2087,7 +2147,8 @@ export async function joinClassicWolfRoom(
       existingPlayer.id,
       name,
       playerAvatarKey,
-      playerAvatarObjectKey
+      playerAvatarObjectKey,
+      userId
     );
 
     if (updateError) {
@@ -2125,6 +2186,7 @@ export async function joinClassicWolfRoom(
     name,
     avatar_key: playerAvatarKey,
     avatar_object_key: playerAvatarObjectKey,
+    user_id: userId,
     is_host: shouldBecomeHost,
     is_ready: shouldBecomeHost,
   });
@@ -2160,7 +2222,8 @@ export async function updateClassicWolfPlayerProfile(
   roomCode: string,
   playerName?: string,
   avatarKey?: string,
-  avatarObjectKey?: string | null
+  avatarObjectKey?: string | null,
+  userId?: string | null
 ): Promise<ClassicWolfActionResult> {
   const code = normalizeRoomCode(roomCode);
 
@@ -2213,7 +2276,8 @@ export async function updateClassicWolfPlayerProfile(
     player.id,
     name,
     playerAvatarKey,
-    playerAvatarObjectKey
+    playerAvatarObjectKey,
+    userId
   );
 
   if (updateError) {
@@ -2253,6 +2317,7 @@ export async function getClassicWolfLobbyState(roomCode: string): Promise<Classi
   }
 
   const players = await getActivePlayers(supabase, room);
+  const frameUrlByUserId = await getEquippedFrameUrlsByUserId(supabase, players.map((player) => player.user_id));
 
   return {
     room: {
@@ -2262,7 +2327,7 @@ export async function getClassicWolfLobbyState(roomCode: string): Promise<Classi
       hostPlayerId: room.host_player_id,
       currentGameId: room.current_game_id ?? null,
     },
-    players: players.map(mapLobbyPlayer),
+    players: players.map((player) => mapLobbyPlayer(player, frameUrlByUserId)),
     currentPlayerId: players.find((player) => player.session_id === sessionId)?.id ?? null,
   };
 }
@@ -2517,6 +2582,11 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
       ? state.lastSeerRevealByPlayerId[currentPlayer.id]
       : null;
 
+  const playFrameUrlByUserId = await getEquippedFrameUrlsByUserId(
+    supabase,
+    players.map((player) => player.user_id)
+  );
+
   return {
     room: {
       id: room.id,
@@ -2533,7 +2603,7 @@ export async function getClassicWolfPlayState(roomCode: string): Promise<Classic
       votingEndsAt: gameData.phase === "voting" ? gameData.discussion_ends_at : null,
     },
     players: players.map((player) => ({
-      ...mapLobbyPlayer(player),
+      ...mapLobbyPlayer(player, playFrameUrlByUserId),
       role:
         shouldRevealRoles || player.id === currentPlayer?.id
           ? state.roleByPlayerId[player.id] ?? null

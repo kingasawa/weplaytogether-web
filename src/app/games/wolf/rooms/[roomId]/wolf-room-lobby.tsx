@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import RoomJoinScreen from "@/app/games/room-join-screen";
@@ -175,7 +176,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [isGuestFormOpen, setIsGuestFormOpen] = useState(false);
   const [isLeaveWarningOpen, setIsLeaveWarningOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestNameInput, setGuestNameInput] = useState("");
   const [guestAvatarKey, setGuestAvatarKey] = useState<PlayerAvatarKey>(DEFAULT_PLAYER_AVATAR_KEY);
@@ -294,7 +294,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
-      setAccountUserId(hasSession ? data.session?.user.id ?? null : null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -310,13 +309,21 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
       setGuestAvatarObjectKey(savedGuestAvatarObjectKey);
       setGuestAvatarObjectKeyInput(savedGuestAvatarObjectKey);
       setIsLoggedIn(hasSession);
-      setAccountUserId(hasSession ? session?.user.id ?? null : null);
     });
 
     return () => {
       listener.subscription.unsubscribe();
     };
   }, [supabase]);
+
+  // Đọc session trực tiếp ngay lúc gọi thay vì dùng state accountUserId (state cập nhật
+  // qua effect async nên có thể chưa kịp set nếu user bấm tham gia/lưu ngay khi vừa vào
+  // trang — dẫn tới gửi userId rỗng dù đã đăng nhập, làm khung/điểm không gắn được vào tài
+  // khoản).
+  async function getFreshAccountUserId() {
+    const { data } = await supabase.auth.getSession();
+    return isAllowedGmailSession(data.session) ? data.session?.user.id ?? null : null;
+  }
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
@@ -359,12 +366,13 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   function runJoinCurrentRoom(playerName?: string, avatarKey?: string, avatarObjectKey?: string | null) {
     setErrorMessage("");
     startTransition(async () => {
+      const freshUserId = await getFreshAccountUserId();
       const result = await joinWolfRoom(
         lobbyState.room.code,
         playerName,
         avatarKey,
         avatarObjectKey,
-        accountUserId
+        freshUserId
       );
 
       if (!result.ok) {
@@ -394,6 +402,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 avatarKey: result.playerAvatarKey,
                 avatarObjectKey: result.playerAvatarObjectKey,
                 avatarUrl: result.playerAvatarUrl,
+                avatarFrameUrl: null,
+                profileFrameUrl: null,
                 isHost: false,
                 isReady: false,
                 joinedAt: new Date().toISOString(),
@@ -480,11 +490,13 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   ) {
     setErrorMessage("");
     startTransition(async () => {
+      const freshUserId = await getFreshAccountUserId();
       const result = await updateWolfPlayerProfile(
         lobbyState.room.code,
         name,
         avatarKey,
-        avatarObjectKey
+        avatarObjectKey,
+        freshUserId
       );
 
       if (!result.ok) {
@@ -764,16 +776,48 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         </div>
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {lobbyState.players.map((player) => (
-            <article className={styles.playerRow} key={player.id}>
-              <div className={styles.playerIdentity}>
-                <Image
-                  alt=""
+            <article
+              className={
+                player.profileFrameUrl
+                  ? `${styles.playerRow} ${styles.playerRowFramed}`
+                  : styles.playerRow
+              }
+              key={player.id}
+            >
+              {player.profileFrameUrl && (
+                <span
                   aria-hidden="true"
-                  className={styles.playerAvatar}
-                  width={48}
-                  height={48}
-                  src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
+                  className={styles.playerRowFrameOverlay}
+                  style={{ borderImageSource: `url(${player.profileFrameUrl})` }}
                 />
+              )}
+              <div className={styles.playerIdentity}>
+                <span className={styles.playerAvatarFrameWrap}>
+                  <PlayerAvatarImage
+                    alt=""
+                    aria-hidden="true"
+                    className={
+                      player.avatarFrameUrl
+                        ? `${styles.playerAvatar} ${styles.playerAvatarFramed}`
+                        : styles.playerAvatar
+                    }
+                    width={48}
+                    height={48}
+                    src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
+                    avatarKey={player.avatarKey}
+                  />
+                  {player.avatarFrameUrl && (
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className={styles.playerAvatarFrameImg}
+                      width={64}
+                      height={64}
+                      src={player.avatarFrameUrl}
+                      unoptimized
+                    />
+                  )}
+                </span>
                 <div>
                   <div className={styles.playerNameLine}>
                     <span className={styles.playerNameActions}>
