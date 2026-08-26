@@ -1,6 +1,6 @@
 "use client";
 
-import { HelpCircle, Menu, Settings, Trophy } from "lucide-react";
+import { HelpCircle, Menu, Settings, ShoppingBag, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import styles from "./page.module.css";
@@ -12,6 +12,7 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
+  { label: "Cửa hàng", icon: ShoppingBag, href: "/shop" },
   { label: "Cài đặt", icon: Settings },
   { label: "Bảng xếp hạng", icon: Trophy, href: "/board" },
   { label: "Hướng dẫn chơi", icon: HelpCircle },

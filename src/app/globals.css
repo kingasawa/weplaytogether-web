@@ -42,6 +42,15 @@ body {
   }
 }
 
+/* Trang /admin dùng giao diện desktop riêng (yêu cầu của người quản trị), nên thoát khung
+   mobile mặc định của app. Class "admin-app-root" là literal (không phải CSS module) để
+   selector global này khớp được ở runtime — xem src/app/admin/admin-shell.tsx. */
+body:has(.admin-app-root) {
+  max-width: none;
+  margin: 0;
+  box-shadow: none;
+}
+
 h1, h2, h3 {
   font-family: var(--font-heading);
 }

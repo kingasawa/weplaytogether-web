@@ -37,3 +37,16 @@ export function isMissingAvatarObjectKeyColumnError(error: SupabaseErrorLike) {
 export function isMissingUserIdColumnError(error: SupabaseErrorLike) {
   return isMissingColumnError(error, "user_id");
 }
+
+// PGRST205: bảng chưa tồn tại trên remote (migration chưa được apply thủ công).
+export function isMissingTableError(error: SupabaseErrorLike, tableName: string) {
+  if (!error) {
+    return false;
+  }
+
+  const errorText = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""} ${
+    error.hint ?? ""
+  }`.toLowerCase();
+
+  return error.code === "PGRST205" && errorText.includes(tableName.toLowerCase());
+}

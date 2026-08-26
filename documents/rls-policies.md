@@ -1,16 +1,33 @@
-﻿<!-- Last updated: 2026-08-25 -->
+﻿<!-- Last updated: 2026-08-26 -->
 
 # RLS Policies
 
-## `public.users` (202608180002_user_profiles.sql — pending apply)
+## `public.users` (202608180002_user_profiles.sql — pending apply; policies replaced by 202608260001_shop_items.sql — pending apply)
 
-RLS bật. Mỗi user chỉ thao tác hàng của chính mình (client dùng JWT gọi trực tiếp):
+RLS bật. Mỗi user thao tác hàng của chính mình, **hoặc** admin (`is_shop_admin()`) thao tác được mọi hàng:
 
-- `users_select_own`: `for select using (auth.uid() = id)`
+- `users_select_own`: `for select using (auth.uid() = id or public.is_shop_admin())`
 - `users_insert_own`: `for insert with check (auth.uid() = id)`
-- `users_update_own`: `for update using (auth.uid() = id) with check (auth.uid() = id)`
+- `users_update_own`: `for update using (auth.uid() = id or public.is_shop_admin()) with check (auth.uid() = id or public.is_shop_admin())`
 
-Không có policy delete (không cho xóa hồ sơ từ client).
+Không có policy delete (không cho xóa hồ sơ từ client). Trigger `trg_enforce_equipped_shop_items` (`enforce_equipped_shop_items()`, security definer) chạy trước mọi update, chặn set `equipped_avatar_frame_id`/`equipped_profile_frame_id` sang vật phẩm sai loại hoặc user chưa sở hữu trong `user_shop_items`.
+
+## `public.shop_items` (202608260001_shop_items.sql — pending apply)
+
+RLS bật:
+
+- `shop_items_select_active_or_admin`: `for select using (is_active = true or public.is_shop_admin())`
+- `shop_items_admin_write`: `for all using (public.is_shop_admin()) with check (public.is_shop_admin())` — cho phép admin insert/update/delete.
+
+User thường chỉ đọc được vật phẩm `is_active = true`, không ghi được. Admin (theo whitelist email trong `is_shop_admin()`) đọc/ghi mọi vật phẩm trực tiếp bằng JWT của chính họ (không cần service role) — trang `/admin/items`.
+
+## `public.user_shop_items` (202608260001_shop_items.sql — pending apply)
+
+RLS bật:
+
+- `user_shop_items_select_own_or_admin`: `for select using (auth.uid() = user_id or public.is_shop_admin())`
+
+Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(p_item_id)` (`security definer`, chỉ `authenticated` gọi được), để không cho client tự thêm vật phẩm vào kho hoặc gian lận Xu.
 
 ## `public.player_score_events` (202608250001_wolf_scoring_currency.sql — pending apply)
 
@@ -78,4 +95,10 @@ Client writes are intentionally not granted. Room creation, lobby mutation, game
 ## Remote Apply Blocker
 
 The `wolf_game_phase_confirmations` policy remains pending until `202606030003_wolf_phase_confirmations.sql` is applied manually. Automated migration execution from this workspace remains unavailable with the current credentials/connectivity.
+
+On 2026-08-26, `202608260001_shop_items.sql` (shop RLS policies above) hit the same blocker: the Supabase MCP tool available in this workspace is connected to a different Supabase account/project, and `supabase link`/`db push` was blocked by the sandbox's auto-mode classifier before it could even attempt the network call. The migration must be pasted into the Supabase SQL Editor manually, same as the other pending migrations.
+
+## Admin Whitelist (is_shop_admin())
+
+`public.is_shop_admin()` (defined in `202608260001_shop_items.sql`) grants elevated RLS access by comparing `auth.jwt() ->> 'email'` against a hardcoded array, currently `['trancatkhanh@gmail.com']`. This is a deliberate choice (the user asked for an email whitelist instead of an `is_admin` column) mirrored client-side in `ADMIN_EMAILS` in `src/lib/admin.ts` for hiding/showing the `/admin` UI. **The two lists must be kept in sync by hand** — adding an admin means editing both the SQL function (new migration + re-apply) and the TS constant.
 

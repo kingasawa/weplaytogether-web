@@ -119,6 +119,29 @@ export type WolfGamePhaseConfirmationRow = {
   created_at: string;
 };
 
+export type ShopItemType = "avatar_frame" | "profile_frame";
+
+export type ShopItemRow = {
+  id: string;
+  item_type: ShopItemType;
+  name: string;
+  description: string | null;
+  price_coins: number;
+  image_url: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserShopItemRow = {
+  id: string;
+  user_id: string;
+  item_id: string;
+  price_paid_coins: number;
+  purchased_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -147,6 +170,10 @@ export type Database = {
           display_name: string | null;
           avatar_key: string;
           avatar_object_key: string | null;
+          total_points: number;
+          total_coins: number;
+          equipped_avatar_frame_id: string | null;
+          equipped_profile_frame_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -156,6 +183,10 @@ export type Database = {
           display_name?: string | null;
           avatar_key?: string;
           avatar_object_key?: string | null;
+          total_points?: number;
+          total_coins?: number;
+          equipped_avatar_frame_id?: string | null;
+          equipped_profile_frame_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -164,8 +195,24 @@ export type Database = {
           display_name?: string | null;
           avatar_key?: string;
           avatar_object_key?: string | null;
+          total_points?: number;
+          total_coins?: number;
+          equipped_avatar_frame_id?: string | null;
+          equipped_profile_frame_id?: string | null;
           updated_at?: string;
         };
+      };
+      shop_items: {
+        Row: ShopItemRow;
+        Insert: Partial<Pick<ShopItemRow, "id" | "description" | "price_coins" | "is_active" | "sort_order" | "created_at" | "updated_at">> &
+          Pick<ShopItemRow, "item_type" | "name" | "image_url">;
+        Update: Partial<Omit<ShopItemRow, "id" | "created_at">>;
+      };
+      user_shop_items: {
+        Row: UserShopItemRow;
+        Insert: Partial<Pick<UserShopItemRow, "id" | "price_paid_coins" | "purchased_at">> &
+          Pick<UserShopItemRow, "user_id" | "item_id">;
+        Update: Partial<Omit<UserShopItemRow, "id" | "user_id" | "item_id">>;
       };
       wolf_room_players: {
         Row: WolfRoomPlayerRow;
@@ -252,6 +299,7 @@ export type Database = {
       wolf_room_status: WolfRoomStatus;
       wolf_game_phase: WolfGamePhase;
       wolf_role: WolfRole;
+      shop_item_type: ShopItemType;
     };
   };
 };

@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-25 -->
+﻿<!-- Last updated: 2026-08-26 -->
 
 # Database Schema
 
@@ -28,6 +28,8 @@ On 2026-08-17, local migration `202608170001_wolf_avatar_key_all_assets.sql` was
 
 On 2026-08-25, local migration `202608250001_wolf_scoring_currency.sql` was created to add a scoring (điểm) and currency (Xu) system for Ma Sói Một Đêm. Adds `wolf_room_players.user_id`, `users.total_points`/`users.total_coins`, the `player_score_events` ledger table, the public `leaderboard` view, and the `award_wolf_game_points(...)` function. Only logged-in users (rows with a non-null `wolf_room_players.user_id`) earn points/coins; guests are unaffected.
 
+On 2026-08-26, local migration `202608260001_shop_items.sql` was created to add a shop feature: users spend `total_coins` (Xu) to buy decorative avatar frames and profile-info frames. Adds enum `shop_item_type`, tables `shop_items` and `user_shop_items`, `users.equipped_avatar_frame_id`/`users.equipped_profile_frame_id`, function `is_shop_admin()` (email-whitelist based, no `is_admin` column), and function `purchase_shop_item(...)` (security definer, atomic coin deduction + inventory insert). The migration is self-sufficient — it (re)creates `public.users` and the points/coins columns if the earlier pending migrations were never applied — so it can be run standalone in the SQL Editor.
+
 ## Current Remote State
 
 Expected remote state after the user-applied SQL includes the lobby/gameplay schema from `202606030001_wolf_multiplayer_lobby.sql`, `202606030002_wolf_gameplay.sql`, and `202606030003_wolf_phase_confirmations.sql`, plus the applied extra role enum values from `202606120001_wolf_extra_roles.sql` and the third center target column from `202606120002_wolf_action_third_center_target.sql`.
@@ -50,6 +52,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608180001_wolf_player_avatar_objects.sql`
 - `supabase/migrations/202608180002_user_profiles.sql`
 - `supabase/migrations/202608250001_wolf_scoring_currency.sql`
+- `supabase/migrations/202608260001_shop_items.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -58,6 +61,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `public.wolf_room_status`: `waiting`, `playing`, `finished`
 - `public.wolf_game_phase`: `card_reveal`, `night`, `night_review`, `discussion`, `voting`, `result`
 - `public.wolf_role`: `werewolf`, `werewolf_seer`, `villager`, `seer`, `robber`, `troublemaker`, `witch`, `drunk`, `insomniac`, `doppelganger`, `copycat`
+- `public.shop_item_type`: `avatar_frame`, `profile_frame`. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 
 ### Tables
 
@@ -72,9 +76,39 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `avatar_object_key text null` — object key avatar upload lên R2 hoặc URL ảnh đại diện Google đã validate (nếu có)
 - `total_points integer not null default 0` — tổng điểm xếp hạng, cộng dồn qua `award_wolf_game_points(...)`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
 - `total_coins integer not null default 0` — tổng Xu (tiền tệ trong app), cộng dồn cùng lúc với điểm. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
+- `equipped_avatar_frame_id uuid null references public.shop_items(id) on delete set null` — khung avatar đang trang bị. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+- `equipped_profile_frame_id uuid null references public.shop_items(id) on delete set null` — khung thông tin người chơi đang trang bị. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()` (trigger `set_users_updated_at`)
-- RLS bật; mỗi user chỉ select/insert/update hàng của mình (`auth.uid() = id`). Client đọc/ghi trực tiếp bằng JWT.
+- RLS bật; mỗi user tự select/insert/update hàng của mình (`auth.uid() = id`), **hoặc** admin (`is_shop_admin()`) đọc/sửa được mọi hàng — mở rộng bởi `202608260001_shop_items.sql` cho trang `/admin/users`. Client đọc/ghi trực tiếp bằng JWT. Trigger `enforce_equipped_shop_items` (từ cùng migration) chặn set `equipped_avatar_frame_id`/`equipped_profile_frame_id` sang vật phẩm sai loại hoặc chưa sở hữu.
+
+#### `public.shop_items`
+
+Vật phẩm bán trong shop (khung avatar, khung thông tin người chơi). **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+
+- `id uuid primary key default gen_random_uuid()`
+- `item_type public.shop_item_type not null`
+- `name text not null`, độ dài 1-60
+- `description text null`, tối đa 200 ký tự
+- `price_coins integer not null default 0`, giá bán bằng Xu, `>= 0`
+- `image_url text not null` — URL ảnh (admin nhập tay, ví dụ URL public trên Cloudflare R2)
+- `is_active boolean not null default true` — chỉ vật phẩm `true` hiện trên shop cho user thường
+- `sort_order integer not null default 0`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()` (trigger `set_shop_items_updated_at`)
+- RLS bật; select cho phép `is_active = true` hoặc admin (`is_shop_admin()`); insert/update/delete chỉ admin.
+
+#### `public.user_shop_items`
+
+Kho vật phẩm đã mua của user. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+
+- `id uuid primary key default gen_random_uuid()`
+- `user_id uuid not null references public.users(id) on delete cascade`
+- `item_id uuid not null references public.shop_items(id) on delete cascade`
+- `price_paid_coins integer not null default 0` — snapshot giá tại thời điểm mua (phòng khi admin đổi giá sau)
+- `purchased_at timestamptz not null default now()`
+- Unique `(user_id, item_id)` — mỗi vật phẩm chỉ mua một lần
+- RLS bật; select cho `auth.uid() = user_id` hoặc admin. Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(...)`.
 
 #### `public.wolf_rooms`
 
@@ -208,6 +242,20 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 - Result snapshot consistency: `wolf_game_sessions.result_snapshot` must be null or a JSON object
 
 ### Functions And Scheduled Jobs
+
+#### `public.is_shop_admin()`
+
+- **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+- `language sql stable`, so sánh `auth.jwt() ->> 'email'` với whitelist hardcode (hiện chỉ `trancatkhanh@gmail.com`).
+- Dùng làm điều kiện trong RLS policy của `shop_items`, `user_shop_items`, và mở rộng của `users` — thay cho cột `is_admin` riêng (theo yêu cầu người dùng).
+- Đồng bộ tay với `ADMIN_EMAILS` trong `src/lib/admin.ts` (dùng để ẩn/hiện UI `/admin`, không phải lớp bảo mật chính — `is_shop_admin()` ở Postgres mới là lớp chặn ghi thật sự).
+
+#### `public.purchase_shop_item(p_item_id)`
+
+- **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+- `security definer`, chỉ `authenticated` gọi được (revoke khỏi `public`).
+- Trong 1 transaction: khóa hàng `shop_items`/`users` (`for update`), kiểm tra vật phẩm `is_active`, chưa sở hữu, đủ Xu, rồi trừ `users.total_coins` và insert vào `user_shop_items`. Raise exception (`insufficient_coins`, `item_already_owned`, `item_not_available`, `not_authenticated`) khi thất bại — chặn gian lận/race từ client vì client không có quyền tự ghi trực tiếp hai bảng này.
+- Gọi từ `src/lib/shop.ts` (`purchaseShopItem`) bằng JWT của chính user mua hàng.
 
 #### `public.award_wolf_game_points(p_game_id, p_room_code, p_game_key, p_awards)`
 

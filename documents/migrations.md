@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-25 -->
+﻿<!-- Last updated: 2026-08-26 -->
 
 # Migrations
 
@@ -292,6 +292,27 @@ Purpose:
 - Gọi từ `setWolfGameResultPhase(...)` trong `src/app/games/wolf/actions.ts` ngay khi ván vào phase `result` lần đầu, và từ nhánh fallback trong `leaveWolfRoom(...)` nếu snapshot chưa từng được lưu.
 - Code có fallback graceful khi cột/bảng/view/function này chưa tồn tại trên remote (xem `isMissingUserIdColumnError` trong `src/lib/supabase/errors.ts`): tạo/vào phòng vẫn hoạt động bình thường, chỉ là chưa cộng điểm/Xu, trang `/board` hiển thị trạng thái rỗng thay vì lỗi.
 
+## 202608260001_shop_items.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202608260001_shop_items.sql`
+
+Purpose:
+
+- Add shop feature: mua vật phẩm trang trí (khung avatar, khung thông tin người chơi) bằng Xu (`users.total_coins`).
+- File TỰ ĐỦ (self-contained): cũng tạo lại `public.users` + cột `total_points`/`total_coins` nếu `202608180002_user_profiles.sql`/`202608250001_wolf_scoring_currency.sql` chưa được apply, để không phụ thuộc thứ tự chạy migration thủ công.
+- Create enum `public.shop_item_type` (`avatar_frame`, `profile_frame`).
+- Create `public.shop_items` (tên, mô tả, giá Xu, `image_url`, `is_active`, `sort_order`). Client thường chỉ đọc được `is_active = true`; admin đọc/ghi mọi vật phẩm.
+- Create `public.user_shop_items` (kho vật phẩm đã mua), unique `(user_id, item_id)`. Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(...)`.
+- Add `users.equipped_avatar_frame_id` và `users.equipped_profile_frame_id` (nullable, ref `shop_items`). Trigger `enforce_equipped_shop_items` chặn trang bị vật phẩm sai loại hoặc chưa sở hữu.
+- Create function `public.is_shop_admin()` — kiểm tra `auth.jwt() ->> 'email'` so với whitelist hardcode (hiện chỉ `trancatkhanh@gmail.com`, đồng bộ tay với `ADMIN_EMAILS` trong `src/lib/admin.ts`). Dùng làm điều kiện RLS cho các bảng/chức năng quản trị — không tạo cột `is_admin` riêng theo yêu cầu người dùng.
+- Mở rộng policy `users_select_own`/`users_update_own` cho phép admin đọc/sửa mọi user (trang `/admin/users`).
+- Create function `public.purchase_shop_item(p_item_id)` (`security definer`, chỉ `authenticated` gọi được) — trừ Xu + insert vào kho trong 1 transaction, chống gian lận/race từ client.
+- Dùng cho trang `/shop` (mua/trang bị vật phẩm) và `/admin/items`, `/admin/users` (CRUD vật phẩm, xem/sửa Xu người dùng). Code có fallback graceful khi bảng chưa tồn tại (`isMissingTableError` trong `src/lib/supabase/errors.ts`): trang shop hiển thị thông báo "chưa sẵn sàng" thay vì lỗi.
+
 ## Remote Execution Status
 
 Remote execution attempts on 2026-06-03 from this workspace were blocked:
@@ -317,6 +338,7 @@ Remote execution update on 2026-08-17:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, and `202608250001_wolf_scoring_currency.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`) in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, and `202608260001_shop_items.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`) in Supabase SQL Editor.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
+- On 2026-08-26, `202608260001_shop_items.sql` (shop feature) was created for this same reason: this workspace could not `supabase link`/`db push` (blocked by the sandbox's auto-mode classifier before even reaching the network) or reach the Supabase Management API/session pooler directly. The migration is written to be self-sufficient (creates `public.users` + points/coins columns if missing) so it can be pasted into the SQL Editor regardless of which earlier pending migrations were already applied.
 
