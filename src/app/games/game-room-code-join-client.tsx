@@ -63,7 +63,8 @@ type GameRoomCodeJoinClientProps = {
     roomCode: string,
     playerName?: string,
     avatarKey?: string,
-    avatarObjectKey?: string | null
+    avatarObjectKey?: string | null,
+    userId?: string | null
   ) => Promise<JoinRoomResult>;
 };
 
@@ -102,7 +103,17 @@ export default function GameRoomCodeJoinClient({
   const [publicRooms, setPublicRooms] = useState<PublicRoomSummary[]>([]);
   const [publicRoomsError, setPublicRoomsError] = useState("");
 
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const normalizedRoomCode = useMemo(() => normalizeRoomCodeInput(roomCode), [roomCode]);
+
+  // Đọc session trực tiếp ngay lúc gọi thay vì dùng state (state cập nhật qua effect async nên
+  // có thể chưa kịp set nếu user bấm tham gia ngay khi vừa vào trang — dẫn tới gửi userId rỗng
+  // dù đã đăng nhập, làm khung/điểm không gắn được vào tài khoản).
+  async function getFreshAccountUserId() {
+    const { data } = await supabase.auth.getSession();
+    return isAllowedGmailSession(data.session) ? data.session?.user.id ?? null : null;
+  }
 
   const applyPublicRoomsResult = useCallback((result: PublicRoomsResult) => {
     if (!result.ok) {
@@ -152,8 +163,6 @@ export default function GameRoomCodeJoinClient({
   });
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-
     void supabase.auth.getSession().then(({ data }) => {
       const savedGuestName = readStoredGuestPlayerName();
       const savedGuestAvatarKey = readStoredGuestPlayerAvatarKey();
@@ -185,7 +194,7 @@ export default function GameRoomCodeJoinClient({
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   function getCurrentPlayerName() {
     if (isLoggedIn) {
@@ -236,7 +245,8 @@ export default function GameRoomCodeJoinClient({
     setRoomCodeError("");
     isJoiningRef.current = true;
     startTransition(async () => {
-      const result = await joinRoom(codeToJoin, playerName, avatarKey, avatarObjectKey);
+      const freshUserId = await getFreshAccountUserId();
+      const result = await joinRoom(codeToJoin, playerName, avatarKey, avatarObjectKey, freshUserId);
 
       if (!result.ok) {
         isJoiningRef.current = false;
