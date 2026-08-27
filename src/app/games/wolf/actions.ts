@@ -1947,6 +1947,116 @@ async function getWolfGameRowById(
   return (fallbackData ?? null) as GameRow | null;
 }
 
+// Độ trễ ngẫu nhiên giữa lượt ban đêm của người này với người tiếp theo, và trước khi kết thúc đêm
+// (dài hơn một chút vì đây là khoảnh khắc quan trọng hơn — chuyển sang thảo luận).
+const NIGHT_TURN_DELAY_MIN_MS = 5000;
+const NIGHT_TURN_DELAY_MAX_MS = 10000;
+const NIGHT_END_DELAY_MIN_MS = 5000;
+const NIGHT_END_DELAY_MAX_MS = 15000;
+
+function randomDelayMs(minMs: number, maxMs: number) {
+  return minMs + Math.random() * (maxMs - minMs);
+}
+
+function isMissingNightTurnRevealAtColumnError(error?: DatabaseMutationError | null) {
+  if (!error) {
+    return false;
+  }
+
+  const message = [error.code, error.message, error.details, error.hint].filter(Boolean).join(" ");
+
+  return message.includes("night_turn_reveal_at");
+}
+
+async function getNightTurnRevealAt(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("game_sessions")
+    .select("night_turn_reveal_at")
+    .eq("id", gameId)
+    .maybeSingle();
+
+  // Lỗi (kể cả do migration chưa được apply) -> coi như không có độ trễ nào đang chờ, không chặn
+  // luồng chính của game.
+  if (error || !data) {
+    return null;
+  }
+
+  return (data as { night_turn_reveal_at: string | null }).night_turn_reveal_at ?? null;
+}
+
+function isNightTurnRevealPending(nightTurnRevealAt: string | null) {
+  return Boolean(nightTurnRevealAt && nightTurnRevealAt > new Date().toISOString());
+}
+
+// Đặt mốc "được phép lộ lượt tiếp theo" — chỉ ghi nếu chưa có độ trễ nào đang chờ (so khớp đúng giá
+// trị vừa đọc được, kiểu compare-and-swap) để nhiều request submit gần nhau không giẫm lên nhau.
+async function armNightTurnDelay(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  currentRevealAt: string | null,
+  delayMs: number
+) {
+  if (isNightTurnRevealPending(currentRevealAt)) {
+    return;
+  }
+
+  const revealAt = new Date(Date.now() + delayMs).toISOString();
+  const query = supabase
+    .from("game_sessions")
+    .update({ night_turn_reveal_at: revealAt })
+    .eq("id", gameId)
+    .eq("phase", "night");
+
+  const { error } = currentRevealAt
+    ? await query.eq("night_turn_reveal_at", currentRevealAt)
+    : await query.is("night_turn_reveal_at", null);
+
+  if (error && !isMissingNightTurnRevealAtColumnError(error)) {
+    console.error("[wolf] Không thể đặt độ trễ lượt đêm:", error);
+  }
+}
+
+// Lượt ban đêm THỰC SỰ nên hiển thị cho client ngay bây giờ: null nếu đang trong thời gian hoãn.
+// Khi hết hạn hoãn và không còn ai để chờ, đêm coi như đã xong — thực sự chuyển sang "discussion"
+// (CAS như mọi điểm chuyển phase khác trong maybeAutoAdvancePhase) ngay tại đây, vì đây là nơi DUY
+// NHẤT còn được gọi lại sau khi người chơi cuối cùng đã hành động xong (không ai submit gì thêm để
+// kích hoạt maybeAutoAdvancePhase nữa).
+async function settleNightTurnDelay(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  nightTurnRevealAt: string | null,
+  players: PlayerRow[],
+  cards: CardRow[],
+  actions: ActionRow[],
+  confirmedNightPlayerIds: NightTurnConfirmationSet
+) {
+  if (isNightTurnRevealPending(nightTurnRevealAt)) {
+    return null;
+  }
+
+  const activeTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+
+  if (activeTurn) {
+    return activeTurn;
+  }
+
+  const { data: claimedRows } = await supabase
+    .from("game_sessions")
+    .update({ phase: "discussion", discussion_ends_at: null })
+    .eq("id", gameId)
+    .eq("phase", "night")
+    .select("id");
+
+  if (claimedRows && claimedRows.length > 0) {
+    await resolveNightActions(gameId);
+  }
+
+  return null;
+}
+
 async function maybeAutoAdvancePhase(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow,
@@ -1998,25 +2108,18 @@ async function maybeAutoAdvancePhase(
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
     const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
 
-    if (!getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds)) {
-      // Giành quyền chuyển phase TRƯỚC, chỉ request thắng mới chạy resolveNightActions (khá nặng:
-      // tính toán lại toàn bộ đêm rồi ghi current_role cho từng lá bài).
-      const { data: claimedRows } = await supabase
-        .from("game_sessions")
-        .update({
-          phase: "discussion",
-          discussion_ends_at: null,
-        })
-        .eq("id", room.current_game_id)
-        .eq("phase", "night")
-        .select("id");
-
-      if (claimedRows && claimedRows.length > 0) {
-        await resolveNightActions(room.current_game_id);
-      }
-
-      return "discussion";
-    }
+    // KHÔNG chuyển phase/lộ lượt tiếp theo ngay ở đây nữa — chỉ đặt mốc "được phép lộ" sau một
+    // khoảng trễ ngẫu nhiên (5-10s giữa 2 người chơi, 5-15s trước khi kết thúc đêm), để tạo nhịp
+    // game tự nhiên và tránh nhiều client dồn request ngay khoảnh khắc chuyển lượt. Việc lộ
+    // lượt/thực sự chuyển sang "discussion" diễn ra ở settleNightTurnDelay, gọi từ getWolfPlayState
+    // mỗi lần client fetch lại — đây là nơi duy nhất còn được gọi sau khi người chơi cuối cùng đã
+    // hành động xong (không còn ai submit gì thêm để kích hoạt hàm này nữa).
+    const rawActiveTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+    const delayMs = rawActiveTurn
+      ? randomDelayMs(NIGHT_TURN_DELAY_MIN_MS, NIGHT_TURN_DELAY_MAX_MS)
+      : randomDelayMs(NIGHT_END_DELAY_MIN_MS, NIGHT_END_DELAY_MAX_MS);
+    const currentNightTurnRevealAt = await getNightTurnRevealAt(supabase, room.current_game_id);
+    await armNightTurnDelay(supabase, room.current_game_id, currentNightTurnRevealAt, delayMs);
 
     return phase;
   }
@@ -4027,8 +4130,22 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
   const votePlayerIds = new Set(votes.map((vote) => vote.voter_player_id));
   const phaseReadyPlayerIds = phaseConfirmations.map((confirmation) => confirmation.player_id);
   const phaseReadyPlayerIdSet = new Set(phaseReadyPlayerIds);
+  // Lượt đêm có thể đang bị hoãn lộ (xem armNightTurnDelay/settleNightTurnDelay) — settle sẽ tự
+  // thực sự chuyển sang "discussion" nếu hết hạn hoãn và không còn ai để chờ, vì đây là lần fetch
+  // đầu tiên sau khi hết hạn (không có action nào khác kích hoạt việc này).
+  const nightTurnRevealAt = game.phase === "night" ? await getNightTurnRevealAt(supabase, game.id) : null;
   const activeNightTurn =
-    game.phase === "night" ? getActiveNightTurn(players, cards, actions, phaseReadyPlayerIdSet) : null;
+    game.phase === "night"
+      ? await settleNightTurnDelay(
+          supabase,
+          game.id,
+          nightTurnRevealAt,
+          players,
+          cards,
+          actions,
+          phaseReadyPlayerIdSet
+        )
+      : null;
   const playerCardsById = new Map(
     cards
       .filter((card) => card.player_id)
@@ -4457,6 +4574,14 @@ export async function submitWolfNightAction(
 
   if (state.game.phase !== "night") {
     return { ok: false, error: "Không còn ở giai đoạn ban đêm." };
+  }
+
+  // state.activeNightTurn đã đi qua settleNightTurnDelay (trong getWolfPlayState ở trên) — null ở
+  // đây nghĩa là đang trong thời gian hoãn giữa 2 lượt, KHÔNG được submit sớm hơn thời gian đó dù
+  // có gọi thẳng server action (không qua UI). Kiểm tra chi tiết hơn (đúng vai trò, đúng người) vẫn
+  // được tính lại độc lập bên dưới như cũ.
+  if (!state.activeNightTurn) {
+    return { ok: false, error: "Chưa tới lượt của bạn." };
   }
 
   const { supabase, room } = await getRoomByCode(roomCode);
@@ -4976,6 +5101,15 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
 
   if (!game || game.phase !== "night") {
     return { ok: false, error: "Không còn ở giai đoạn ban đêm." };
+  }
+
+  // Đề phòng có độ trễ đang chờ (xem armNightTurnDelay) — bình thường không xảy ra vì người chơi
+  // chỉ thấy được lượt của mình sau khi hoãn đã hết hạn, nhưng vẫn chặn để nhất quán với
+  // submitWolfNightAction.
+  const nightTurnRevealAt = await getNightTurnRevealAt(supabase, room.current_game_id);
+
+  if (isNightTurnRevealPending(nightTurnRevealAt)) {
+    return { ok: false, error: "Chưa tới lượt xác nhận của bạn." };
   }
 
   const players = await getActivePlayers(supabase, room);

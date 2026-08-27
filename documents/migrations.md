@@ -1,6 +1,27 @@
-﻿<!-- Last updated: 2026-08-26 -->
+﻿<!-- Last updated: 2026-08-27 -->
 
 # Migrations
+
+## 202608270001_wolf_night_turn_delay.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202608270001_wolf_night_turn_delay.sql`
+
+Purpose:
+
+- Adds `game_sessions.night_turn_reveal_at timestamptz null` for Ma Sói Một Đêm's night-phase pacing
+  feature: a random 5-10s delay between one player's night turn and the next being revealed, and a
+  random 5-15s delay after the last player's turn before the game actually transitions out of
+  "night" (to "discussion"). When set and still in the future, the server withholds the next active
+  turn / defers the phase transition; app code (`src/app/games/wolf/actions.ts`:
+  `armNightTurnDelay`, `settleNightTurnDelay`, `getNightTurnRevealAt`) already tolerates this column
+  being absent (falls back to the old instant-transition behavior), so applying this migration is
+  optional for the app to keep working, but required for the delay feature itself to activate.
+- Same Supabase MCP misconfiguration as `202608260002` below (wrong project, "Map Buddy") — could
+  not apply this remotely from this workspace either. Paste the file into the SQL Editor manually.
 
 ## 202606030001_wolf_multiplayer_lobby.sql
 
