@@ -26,6 +26,12 @@ const RECOVERY_CHECK_INTERVAL_MS = 3000;
 const MIN_AUTO_RELOAD_GAP_MS = 90000;
 const AUTO_RELOAD_STORAGE_KEY = "wpt:last-auto-reload-at";
 
+// Rải ngẫu nhiên thời điểm mỗi client gọi lại server action sau một broadcast, để tránh
+// tất cả người chơi cùng gọi getWolfPlayState trong cùng một khoảnh khắc (ví dụ lúc bỏ phiếu
+// gần cuối ván, nhiều người vote dồn dập) — nguyên nhân chính gây lỗi Cloudflare 1102 do
+// quá nhiều request đồng thời dồn vào cùng một isolate.
+const REALTIME_EVENT_JITTER_MS = 700;
+
 type PresenceMember = {
   id: string;
 };
@@ -109,6 +115,8 @@ export function useWolfRoomPresence({
   // Khởi tạo 0 và set trong effect: Date.now() không được gọi lúc render.
   const lastSyncedAtRef = useRef(0);
   const isSoftRecoveringRef = useRef(false);
+  // Timer đang chờ để gọi refetchState sau một broadcast (xem REALTIME_EVENT_JITTER_MS).
+  const pendingEventRefetchTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     onRoomUpdateRef.current = onRoomUpdate;
@@ -129,6 +137,19 @@ export function useWolfRoomPresence({
       return false;
     }
   }, []);
+
+  // Gộp nhiều broadcast liên tiếp (nhiều người cùng vote/thao tác) thành một lần refetch,
+  // và rải thời điểm gọi ra trong REALTIME_EVENT_JITTER_MS để không dồn request đồng thời.
+  const scheduleRefetchFromEvent = useCallback(() => {
+    if (pendingEventRefetchTimerRef.current != null) {
+      return;
+    }
+
+    pendingEventRefetchTimerRef.current = window.setTimeout(() => {
+      pendingEventRefetchTimerRef.current = null;
+      void refetchState();
+    }, Math.random() * REALTIME_EVENT_JITTER_MS);
+  }, [refetchState]);
 
   // --- Subscribe realtime ---
   useEffect(() => {
@@ -213,10 +234,10 @@ export function useWolfRoomPresence({
         setOnlinePlayerIds((current) => current.filter((memberId) => memberId !== nextMember.id));
       });
       channel.bind(WOLF_ROOM_UPDATED_EVENT, () => {
-        void refetchState();
+        scheduleRefetchFromEvent();
       });
       channel.bind(WOLF_PLAY_UPDATED_EVENT, () => {
-        void refetchState();
+        scheduleRefetchFromEvent();
       });
     }
 
@@ -232,6 +253,11 @@ export function useWolfRoomPresence({
     return () => {
       isCancelled = true;
 
+      if (pendingEventRefetchTimerRef.current != null) {
+        window.clearTimeout(pendingEventRefetchTimerRef.current);
+        pendingEventRefetchTimerRef.current = null;
+      }
+
       if (boundConnection) {
         boundConnection.unbind("state_change", handleConnectionStateChange);
         boundConnection = null;
@@ -245,7 +271,7 @@ export function useWolfRoomPresence({
         });
       }
     };
-  }, [enabled, mode, roomCode, refetchState]);
+  }, [enabled, mode, roomCode, refetchState, scheduleRefetchFromEvent]);
 
   // --- Poll dự phòng ---
   // Luôn chạy khi còn đang chờ state đổi. Đây là lưới an toàn cho trường hợp iOS PWA
