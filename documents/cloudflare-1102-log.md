@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-27 (entry #6) -->
+<!-- Last updated: 2026-08-27 (entry #9) -->
 
 # Nhật ký lỗi Cloudflare 1102 (Worker exceeded resource limits)
 
@@ -15,36 +15,42 @@ user" mà là vấn đề kiến trúc/hiệu năng: có chỗ nào đó trong c
 trên mỗi request, hoặc pattern gọi request đang tạo ra tải dồn (burst) không cần thiết. Nếu không
 xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng thêm người chơi.
 
-## Tình trạng hiện tại (cập nhật 2026-08-27, entry #6)
+## Tình trạng hiện tại (cập nhật 2026-08-27, entry #9)
 
-- **QUAN TRỌNG:** Entry #6 xác nhận lỗi 1102 vẫn xảy ra ở **phòng chờ (lobby)**, không chỉ lúc chơi
-  — 4 người bấm "Sẵn sàng" gần nhau là đủ gây lỗi. Đây KHÔNG PHẢI bug mới — cùng cơ chế thundering
-  herd đã tìm ra ở Entry #3 (broadcast `WOLF_ROOM_UPDATED_EVENT` lúc toggle ready cũng đi qua đúng
-  `scheduleRefetchFromEvent` chưa được deploy). Vì 3 fix trước giờ vẫn CHƯA DEPLOY nên lỗi tiếp tục
-  xảy ra ở bất kỳ đâu có nhiều người thao tác gần nhau — không riêng lúc vote. **Việc cần làm ngay là
-  deploy, không phải viết thêm code mới.**
+- **Đã tăng cường fix #3 thành throttle thật sự (Entry #9) — CHƯA DEPLOY.** Đổi
+  `use-wolf-room-presence.ts`: từ debounce 700ms (chỉ gộp khi đang có 1 lần đang chờ) sang throttle
+  2500ms tính theo `lastSyncedAtRef` (mốc lần fetch THỰC SỰ CHẠY gần nhất, bất kể do broadcast/poll/
+  foreground) + jitter 500ms rải thêm. Xem chi tiết ở Entry #9.
+- **Mốc đối chiếu MỚI: fix throttle này chỉ có hiệu lực sau khi deploy lần tiếp theo (chưa có mốc
+  thời gian — hỏi lại user đã deploy chưa trước khi coi fix này là đang chạy).**
 
-- **3 fix đã làm, liên quan tới việc nhiều người thao tác gần nhau (ban đầu thấy ở bước vote gần
-  cuối ván, giờ Entry #6 xác nhận CŨNG xảy ra ở phòng chờ khi nhiều người bấm sẵn sàng — tức là cơ
-  chế lỗi áp dụng cho MỌI broadcast realtime, không riêng lúc chơi):**
-  1. **Thundering herd đọc (Entry #3):** mỗi broadcast khiến TẤT CẢ client gọi lại full-state cùng
-     lúc. Fix: jitter/gộp refetch phía client (`use-wolf-room-presence.ts`).
-  2. **Race condition ghi + tính toán trùng lặp (Entry #4):** logic tự động chuyển phase
-     (`maybeAutoAdvancePhase`, `advanceWolfPhase`) không có khoá — nhiều request gần như đồng thời
-     có thể CÙNG thấy "đủ điều kiện chuyển phase" và CÙNG chạy tác vụ nặng song song. Fix:
-     compare-and-swap (`.eq("phase", <cũ>)`) ở mọi điểm chuyển phase.
-  3. **Payload Pusher mang theo `phase` + bỏ qua fetch khi phase không đổi (Entry #5):** trước đây
-     MỌI broadcast đều khiến client full-fetch dù chỉ để cập nhật 1 con số đếm. Fix: payload giờ có
-     `phase`, client so với phase đang render, bỏ qua fetch nếu giống nhau (trừ phase "night" — luôn
-     fetch vì lượt hành động đổi liên tục trong cùng phase đó).
-- **Đã fix, CẢ 3 ĐỀU VẪN CHƯA DEPLOY** lên production — xem Entry #3, #4, #5. Production tính đến
-  entry #6 vẫn chạy code CŨ, chưa có fix nào — Entry #6 chính là bằng chứng thực tế cho việc chưa
-  deploy thì lỗi vẫn tái diễn đều đặn. Nếu user báo lỗi 1102 mới mà chưa xác nhận đã deploy, đây LUÔN
-  là việc đầu tiên cần hỏi lại, không cần điều tra thêm nếu triệu chứng khớp mẫu "nhiều người thao
-  tác gần nhau" đã biết.
-- **Chưa xác nhận được** lỗi 1102 hôm 2026-08-27 là do hết CPU time hay hết bộ nhớ (128MB/isolate)
-  — hai cơ chế khác nhau, cách khắc phục khác nhau (xem phần "CPU vs Memory" bên dưới). Cần dữ
-  liệu của lần lỗi TIẾP THEO (sau khi deploy cả 3 fix) để so sánh và kết luận rõ hơn.
+> ⚠️ **Entry #7 bên dưới SAI một phần — xem Entry #8 để biết bản đã sửa.** Giữ nguyên Entry #7
+> trong Timeline (không xoá) để thấy rõ đã sai ở đâu và sửa thế nào, nhưng đừng dựa vào mốc thời gian
+> nêu ở Entry #7 nữa.
+
+- **CẢ 3 FIX (#3, #4, #5) ĐÃ LIVE TỪ 2026-08-27T07:58:40Z** — xác nhận bằng cách đọc THẲNG nội dung
+  code đã deploy (`git show <commit>:<file> | grep ...`), không chỉ suy luận từ thời điểm lỗi như
+  Entry #7 đã làm sai. Commit `d6d4a45` (PR #85, GitHub Actions run 33051881968, deploy lúc
+  07:58:40Z) đã chứa đủ cả jitter (#3), compare-and-swap (#4), và payload `phase` (#5).
+- **Bài học (đã ghi vào memory để không lặp lại):** KHÔNG được suy luận "code X đã có trong bản
+  deploy Y hay chưa" chỉ từ mốc thời gian lỗi xảy ra trước/sau lúc deploy — phải kiểm tra TRỰC TIẾP
+  nội dung commit đã deploy (`git show <commit>:<file>`, hoặc hỏi commit SHA nào tương ứng deploy
+  nào). Entry #7 đã suy luận sai theo kiểu này và kết luận nhầm.
+- **Hệ quả quan trọng: lỗi Entry #6 (18+8=26 lỗi lúc 08:15–08:20Z) xảy ra SAU KHI cả 3 fix đã live
+  được 17-22 phút.** Tức là 3 fix **chưa đủ** để ngăn lỗi ở kịch bản phòng chờ bấm sẵn sàng — đây là
+  kết luận khác hẳn Entry #7 (Entry #7 tưởng nhầm là 3 fix chưa deploy nên lỗi vẫn còn "hợp lý").
+- Deploy lúc 08:30:12Z (commit `d15f295`) **KHÔNG liên quan tới 1102** — đó là fix riêng cho bug
+  "user đăng nhập không đổi được tên trong phòng" (`mapLobbyPlayer`), commit message trùng "fix 1102"
+  chỉ là do quy trình commit của user đặt tên lặp lại, không phản ánh nội dung thật.
+- **Giả thuyết đang xem xét cho việc fix #3 (jitter) chưa đủ:** cửa sổ jitter 700ms có thể chưa đủ
+  dài để dàn trải hết N client cùng phản ứng 1 broadcast — với 4 mẫu ngẫu nhiên trong 700ms, xác suất
+  2-3 client rơi vào cùng một khoảng vài chục ms vẫn khá cao (hiệu ứng "birthday paradox"). Ngoài ra
+  cơ chế hiện tại chỉ "gộp nếu đang có timer chờ" — nếu các broadcast cách nhau HƠN 700ms (rất dễ xảy
+  ra với các hành động người thật cách nhau vài giây: vào phòng, đổi avatar, bấm sẵn sàng...), mỗi
+  broadcast vẫn tạo một đợt fetch đồng thời riêng, không được gộp giữa các đợt với nhau. **Chưa có
+  code fix mới cho việc này — đang chờ quyết định hướng đi (xem hội thoại).**
+- **Chưa xác nhận được** lỗi 1102 là do hết CPU time hay hết bộ nhớ (128MB/isolate) — vẫn mở, xem
+  phần "CPU vs Memory" bên dưới.
 - Lỗi 1101 (Worker throw exception, KHÁC 1102) user báo "hôm qua" (trước 2026-08-27) **chưa điều
   tra được** — không có Ray ID/thời điểm cụ thể, không có Sentry. Vẫn đang mở.
 
@@ -292,26 +298,136 @@ mới, không phát hiện gì cần code thêm.
 2 lần lỗi đã ghi nhận (vote + phòng chờ). Sau khi deploy, nếu vẫn còn lỗi ở quy mô tương tự (4-10
 người) thì mới cần điều tra sâu hơn (giảm tải tính toán mỗi request — xem mục "Việc cần làm tiếp" #4).
 
+---
+
+### 2026-08-27 — Entry #7: Xác nhận đã deploy
+
+**User báo:** "tôi vừa deploy xong, tôi tưởng phần fix đó đã được deploy trước đó rồi."
+
+**Điều tra:** gọi API `GET /accounts/{id}/workers/scripts/weplaytogether-web/deployments` để xác
+minh (không chỉ tin lời user, vì log này cần chính xác) — thấy deployment mới nhất lúc
+**2026-08-27T08:30:12Z** (cách thời điểm gọi API chỉ ~4 giây, khớp "vừa deploy xong"). Deployment
+TRƯỚC đó là 07:58:40Z — đối chiếu với thời điểm lỗi Entry #6 (08:15–08:20Z, tức là SAU 07:58Z), suy
+ra bản 07:58Z **không hề chứa 3 fix** — đây chính xác là điều user "tưởng nhầm". Có thể bản 07:58Z là
+một deploy khác không liên quan (hoặc deploy trước khi code fix được viết xong trong hội thoại).
+
+**Kết luận:** đến giờ (2026-08-27T08:30:12Z), 3 fix Entry #3/#4/#5 mới thực sự lên production lần
+đầu tiên. Chưa có ván chơi đông người nào sau mốc này để kiểm chứng hiệu quả.
+
+**Không có file code nào thay đổi ở entry này** — thuần xác minh trạng thái deploy qua API, không
+dựa vào lời kể để tránh ghi sai vào nhật ký.
+
+> ⚠️ **Kết luận ở Entry #7 này SAI — xem Entry #8 ngay bên dưới.** Lỗi nằm ở chỗ: suy luận "bản
+> 07:58:40Z không có fix" chỉ từ việc lỗi Entry #6 xảy ra SAU mốc đó, mà không kiểm tra nội dung
+> code thật sự đã deploy. Khi user gửi link GitHub Actions run của chính bản 07:58:40Z và hỏi lại,
+> kiểm tra trực tiếp bằng `git show <commit>:<file>` mới phát hiện bản đó ĐÃ CÓ đủ cả 3 fix.
+
+---
+
+### 2026-08-27 — Entry #8: Sửa lại Entry #7 — 3 fix đã live từ trước, vẫn còn lỗi
+
+**User hỏi lại:** gửi link GitHub Actions run
+(https://github.com/kingasawa/weplaytogether-web/actions/runs/33051881968) và hỏi "ý bạn là bản này
+chưa fix ah" — nghi ngờ đúng chỗ kết luận sai ở Entry #7.
+
+**Điều tra lại (lần này kiểm tra code thật, không suy luận từ thời gian):**
+- `WebFetch` link Actions run → run này chạy lúc 07:57, mất 1m34s, deploy commit `d6d4a45` (nhánh
+  `main`, tác giả khanhtranicd), gắn với PR #85 "fix 1102". Repo public nên xem được không cần token.
+- Repo chính đã có sẵn các commit này (user tự commit sau mỗi lần tôi sửa xong): `git log` cho thấy
+  4 commit "fix 1102" liên tiếp (`71f258e`, `e12fc40`, `d6d4a45`, `d15f295` — mới nhất).
+- `git show d6d4a45:src/lib/pusher/use-wolf-room-presence.ts | grep -c "REALTIME_EVENT_JITTER_MS"` →
+  **8 lần xuất hiện** — fix #3 (jitter) đã có trong commit này.
+- `git show d6d4a45:src/app/games/wolf/actions.ts | grep -c '.eq("phase", "...")'` → **11 lần** — fix
+  #4 (compare-and-swap) cũng đã có.
+- Diff riêng của `d6d4a45` (so với `e12fc40` trước đó) đúng là 6 file của fix #5 (payload `phase`).
+- → **Kết luận đúng: cả 3 fix #3+#4+#5 đã có mặt đầy đủ trong commit `d6d4a45`, deploy lúc
+  07:58:40Z** — SỚM HƠN nhiều so với 08:30:12Z mà Entry #7 tưởng nhầm.
+- Kiểm tra thêm commit mới nhất `d15f295` (deploy 08:30:12Z, đúng lúc user báo "vừa deploy xong"):
+  diff chỉ động tới `avalon/actions.ts`, `wolf-classic/actions.ts`, `wolf/actions.ts` ở đúng hàm
+  `mapLobbyPlayer` — **đây là fix bug "đổi tên trong phòng" (từ yêu cầu trước đó của user), HOÀN
+  TOÀN KHÔNG LIÊN QUAN tới 1102**, dù message commit cũng ghi "fix 1102" (do quy trình commit lặp lại
+  tên, không phản ánh đúng nội dung).
+
+**Ý nghĩa quan trọng của phát hiện này:** lỗi Entry #6 (26 lỗi lúc 08:15–08:20Z) xảy ra **SAU KHI**
+cả 3 fix đã chạy trên production được 17-22 phút. Điều này đổi hẳn kết luận: KHÔNG PHẢI "chưa deploy
+nên còn lỗi" (như Entry #6/#7 tưởng) mà là **3 fix hiện có CHƯA ĐỦ MẠNH** để chặn hết lỗi ở kịch bản
+phòng chờ đông người bấm sẵn sàng.
+
+**Giả thuyết vì sao fix #3 (jitter) chưa đủ — cần cân nhắc khi sửa tiếp:**
+1. Cửa sổ jitter 700ms có thể quá ngắn: với N client cùng nhận 1 broadcast, dù mỗi client random
+   delay trong [0, 700ms), xác suất vài client rơi gần nhau vẫn cao (hiệu ứng birthday paradox) —
+   chưa chắc đã dàn đều đủ để tránh chồng lấn.
+2. Cơ chế hiện tại (`scheduleRefetchFromEvent`) chỉ gộp các broadcast đến TRONG LÚC đang có 1 timer
+   chờ sẵn. Nếu các hành động người thật cách nhau hơn 700ms (rất dễ xảy ra: vào phòng → đổi avatar →
+   bấm sẵn sàng, mỗi việc cách nhau vài giây) thì mỗi broadcast vẫn tạo một đợt fetch-đồng-thời riêng
+   biệt, không được gộp giữa các đợt.
+3. Có thể còn nguyên nhân khác chưa tìm ra (cần thêm dữ liệu path-level từ Cloudflare — vẫn đang
+   thiếu quyền `Zone Analytics: Read`).
+
+**Chưa quyết định/code fix tiếp theo ở entry này** — cần bàn hướng đi trước (tăng cửa sổ jitter lên
+đáng kể? đổi debounce thành throttle thật sự theo khoảng thời gian cố định thay vì chỉ "gộp nếu đang
+chờ"? xin thêm quyền Cloudflare để tra path cụ thể?).
+
+**Bài học quy trình (đã ghi vào memory):** không suy luận trạng thái deploy từ mốc thời gian lỗi —
+luôn kiểm tra trực tiếp nội dung code đã deploy bằng `git show <commit>:<file>` khi có commit SHA cụ
+thể (từ link GitHub Actions, deployment API, hoặc user cung cấp).
+
+---
+
+### 2026-08-27 — Entry #9: Tăng cường fix #3 thành throttle thật sự
+
+**User chọn hướng đi** (trong 2 hướng đề xuất ở Entry #8): tăng cửa sổ + đổi thành throttle thật sự,
+làm ngay không cần xin thêm quyền Cloudflare trước.
+
+**Fix đã áp dụng** trong `src/lib/pusher/use-wolf-room-presence.ts`:
+- Đổi `REALTIME_EVENT_JITTER_MS = 700` → tách thành 2 hằng số: `REALTIME_EVENT_THROTTLE_MS = 2500`
+  (khoảng throttle chính) + `REALTIME_EVENT_JITTER_MS = 500` (rải thêm ngẫu nhiên lên trên).
+- `scheduleRefetchFromEvent` giờ tính `throttleRemaining` dựa trên
+  `Date.now() - lastSyncedAtRef.current` (mốc lần fetch THỰC SỰ CHẠY gần nhất — **tái dùng biến
+  `lastSyncedAtRef` đã có sẵn** cho cơ chế phát hiện "kẹt phase", vì nó vốn đã được cập nhật cuối mỗi
+  lần `refetchState` thành công bất kể do broadcast/poll/foreground kích hoạt — không cần thêm ref
+  mới). Nếu chưa đủ `REALTIME_EVENT_THROTTLE_MS` kể từ lần fetch gần nhất, đợi nốt phần còn thiếu
+  + jitter rồi mới fetch. Nếu đã đủ (throttle hết hạn), chỉ đợi jitter (để tránh nhiều client cùng
+  "hết hạn throttle" và bắn request cùng lúc sau một khoảng im lặng dài).
+- Guard `pendingEventRefetchTimerRef` giữ nguyên — vẫn gộp mọi broadcast đến trong lúc đang có 1 lần
+  fetch được lên lịch, KHÔNG đặt thêm timer mới đè lên.
+
+**Vì sao đây là throttle thật sự, khác debounce cũ:** debounce cũ chỉ đợi 1 khoảng ngẫu nhiên CỐ ĐỊNH
+kể từ broadcast gần nhất rồi fetch, nên nếu broadcast đến đều đặn cách nhau hơn khoảng đó (rất dễ xảy
+ra với hành động người thật cách nhau vài giây), mỗi broadcast vẫn tạo 1 đợt fetch riêng — không có
+gì đảm bảo khoảng cách TỐI THIỂU giữa 2 lần fetch liên tiếp. Throttle mới đảm bảo dù broadcast đến
+dồn dập cỡ nào trong 2.5 giây, tối đa cũng chỉ có 1 lần fetch thực thi.
+
+**File thay đổi:** `src/lib/pusher/use-wolf-room-presence.ts` (không đổi file nào khác — cơ chế này
+dùng chung cho cả 3 game qua hook `useWolfRoomPresence`).
+
+**Kết quả:** `npx tsc --noEmit` sạch, không lỗi Unicode. Test thủ công 1 người chơi (tạo phòng, vào
+lobby, thoát phòng) qua trình duyệt — không console error, luồng hoạt động bình thường (không test
+được throttle thật sự vì cần nhiều broadcast dồn dập từ nhiều client, không mô phỏng được ở đây).
+**CHƯA DEPLOY** — cần hỏi lại user trước khi deploy, và cần ván chơi đông người tiếp theo (sau khi
+deploy) để lấy số liệu Cloudflare thật xác nhận hiệu quả, so với baseline Entry #6 (26 lỗi/2 đợt,
+lúc vẫn còn debounce 700ms).
+
 ## Việc cần làm tiếp (chưa làm, ghi lại để không quên)
 
-1. **Deploy cả 3 fix (Entry #3, #4, #5) lên production — ĐANG LÀ VIỆC ƯU TIÊN NHẤT**, có bằng chứng
-   thực tế (Entry #6) là lỗi tái diễn đều đặn chỉ vì chưa deploy. Hỏi lại user trước khi deploy (ảnh
-   hưởng người chơi thật), nhưng đừng trì hoãn thêm bằng cách điều tra lại từ đầu nếu user báo thêm
-   một lần lỗi 1102 nữa có cùng đặc điểm "nhiều người thao tác gần nhau" — mẫu này đã được xác nhận
-   2 lần (vote + phòng chờ), khả năng cao là cùng nguyên nhân.
-2. Sau khi deploy và có ván chơi đông người tiếp theo bị lỗi (nếu còn), tra lại
-   `workersInvocationsAdaptive` cùng khung giờ, so sánh số lỗi/`cpuTime`/`wallTime` với baseline
-   Entry #2 (36 lỗi/4 đợt) để đánh giá hiệu quả của CẢ 3 fix cộng lại.
-3. Nếu vẫn còn lỗi: cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để tra được
-   `clientRequestPath` cụ thể (hiện bị từ chối quyền) — sẽ biết chính xác endpoint nào gây lỗi thay
-   vì chỉ biết ở mức Worker chung.
-4. Nếu vẫn còn lỗi: xem xét giảm khối lượng tính toán/bộ nhớ MỖI REQUEST ở server, không chỉ giảm
-   số lượng/tần suất request — trọng tâm nghi ngờ: các hàm tính toán nặng trong
-   `src/app/games/wolf/actions.ts` (`getActiveNightTurn`, `buildNightReviewMessages`,
+1. **[ĐÃ XONG — deploy thật sự lúc 07:58:40Z, KHÔNG PHẢI 08:30:12Z như Entry #7 tưởng nhầm, xem
+   Entry #8]** ~~Deploy cả 3 fix (Entry #3, #4, #5) lên production~~.
+   **[ĐÃ VIẾT CODE, CHƯA DEPLOY — xem Entry #9]** ~~Tăng cường fix #3 thành throttle thật sự
+   (2.5s + jitter 500ms)~~. **Việc ưu tiên nhất bây giờ: deploy fix Entry #9**, rồi chờ ván chơi
+   đông người tiếp theo (SAU khi deploy) và tra lại `workersInvocationsAdaptive`, so với baseline
+   Entry #6 (26 lỗi/2 đợt, lúc còn debounce 700ms) để xác nhận throttle 2.5s có giải quyết được
+   không. Nếu user báo lỗi 1102 mới mà chưa xác nhận đã deploy fix Entry #9, hỏi lại trước khi kết
+   luận thêm.
+2. Cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để tra được `clientRequestPath`
+   cụ thể (hiện bị từ chối quyền) — sẽ biết chính xác endpoint nào gây lỗi thay vì chỉ biết ở mức
+   Worker chung, giúp xác nhận đúng hướng trước khi sửa thêm.
+3. Nếu vẫn còn lỗi sau khi tăng cường fix #3: xem xét giảm khối lượng tính toán/bộ nhớ MỖI REQUEST ở
+   server, không chỉ giảm số lượng/tần suất request — trọng tâm nghi ngờ: các hàm tính toán nặng
+   trong `src/app/games/wolf/actions.ts` (`getActiveNightTurn`, `buildNightReviewMessages`,
    `getRoleByPlayerIdAfterCopycat`, `buildWolfResultSnapshotFromDatabase` — xử lý logic Nhân
    Bản/Copy Cat lồng nhau và build kết quả cuối game khá tốn), và kiểm tra xem `getWolfPlayState` có
    trả về payload quá lớn cho client hay không.
-5. **Avalon (và Wolf Classic nếu có) chưa được audit/tối ưu tương tự:**
+4. **Avalon (và Wolf Classic nếu có) chưa được audit/tối ưu tương tự:**
    - Chưa kiểm tra Avalon có cùng kiểu race condition ở logic chuyển phase như fix #4 không — cần
      xem `src/app/games/avalon/actions.ts` có hàm tương đương `maybeAutoAdvancePhase` thiếu guard
      `.eq("phase", ...)` hay không.
@@ -322,11 +438,11 @@ người) thì mới cần điều tra sâu hơn (giảm tải tính toán mỗi
      `PHASES_ALWAYS_NEEDING_REFETCH`), (b) truyền `phase`/`mapAvalonPhaseToSessionPhase(...)` vào các
      lệnh gọi `safeBroadcastWolfPlayUpdate`, (c) truyền `currentPhase` từ `avalon-play-screen.tsx`
      vào `useWolfRoomPresence`.
-6. **Chưa test được bằng nhiều phiên đồng thời thật** (fix #5) — chỉ verify được 1 người chơi qua
-   trình duyệt + `tsc`. Cần theo dõi kỹ sau khi deploy xem bộ đếm "X/N đã sẵn sàng" có tự cập nhật
-   đúng trong vòng ~8s (qua poll định kỳ) khi có người thao tác hay không, tránh trường hợp bị "kẹt"
-   hiển thị sai do lỗi logic so sánh phase.
-7. Lỗi 1101 ở Entry #1 vẫn còn mở — nếu tái diễn, giờ đã có Worker Name thật nên tra được qua
+5. **Giờ đã deploy — theo dõi thực tế xem bộ đếm "X/N đã sẵn sàng"/"X/N đã vote" có tự cập nhật
+   đúng trong vòng ~8s (qua poll định kỳ) khi có người thao tác hay không**, tránh trường hợp bị
+   "kẹt" hiển thị sai do lỗi logic so sánh phase ở fix #5 (trước đó chỉ verify được 1 người chơi qua
+   trình duyệt + `tsc`, chưa test nhiều phiên đồng thời thật).
+6. Lỗi 1101 ở Entry #1 vẫn còn mở — nếu tái diễn, giờ đã có Worker Name thật nên tra được qua
    `status: "exception"` trên `workersInvocationsAdaptive`.
 
 ## Việc phụ phát hiện được (không phải 1102, nhưng liên quan trong lúc điều tra)

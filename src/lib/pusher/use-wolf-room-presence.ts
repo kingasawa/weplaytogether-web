@@ -28,11 +28,21 @@ const RECOVERY_CHECK_INTERVAL_MS = 3000;
 const MIN_AUTO_RELOAD_GAP_MS = 90000;
 const AUTO_RELOAD_STORAGE_KEY = "wpt:last-auto-reload-at";
 
-// Rải ngẫu nhiên thời điểm mỗi client gọi lại server action sau một broadcast, để tránh
-// tất cả người chơi cùng gọi getWolfPlayState trong cùng một khoảnh khắc (ví dụ lúc bỏ phiếu
-// gần cuối ván, nhiều người vote dồn dập) — nguyên nhân chính gây lỗi Cloudflare 1102 do
-// quá nhiều request đồng thời dồn vào cùng một isolate.
-const REALTIME_EVENT_JITTER_MS = 700;
+// Khoảng cách tối thiểu giữa 2 lần fetch do broadcast kích hoạt, tính từ lần fetch THỰC SỰ CHẠY gần
+// nhất (throttle thật sự — dùng lại lastSyncedAtRef, vốn đã được cập nhật ở CUỐI mỗi lần refetchState
+// thành công, bất kể do broadcast, poll, hay quay lại foreground kích hoạt).
+//
+// Trước đây chỉ "gộp nếu đang có 1 lần đang chờ" (debounce 700ms): nếu các hành động người thật cách
+// nhau HƠN 700ms — vào phòng, đổi avatar, bấm sẵn sàng, mỗi việc cách nhau vài giây là bình thường —
+// mỗi broadcast vẫn tạo một đợt fetch-đồng-thời MỚI, không gộp được giữa các đợt với nhau. Đây chính
+// là lý do lỗi Cloudflare 1102 vẫn xảy ra ở phòng chờ dù đã có debounce (xem
+// documents/cloudflare-1102-log.md, Entry #8). Throttle theo mốc "lần fetch gần nhất" đảm bảo dù có
+// bao nhiêu broadcast dồn dập trong khoảng này, tối đa cũng chỉ 1 đợt fetch được thực thi.
+const REALTIME_EVENT_THROTTLE_MS = 2500;
+// Rải thêm ngẫu nhiên lên trên throttle, để nhiều client không cùng "hết hạn throttle" và bắn request
+// tại đúng cùng một khoảnh khắc (ví dụ tất cả đang rảnh — throttle đã hết từ trước — và cùng nhận 1
+// broadcast sau một khoảng im lặng dài).
+const REALTIME_EVENT_JITTER_MS = 500;
 
 // Phase mà trong CÙNG một phase, lượt hành động vẫn đổi liên tục giữa các người chơi (Sói -> Tiên
 // Tri -> Kẻ Trộm...) — so sánh mỗi phase không đủ để biết "có cần fetch lại không", nên các phase
@@ -142,11 +152,13 @@ export function useWolfRoomPresence({
   // Giữ callback trong ref để việc callback đổi identity không gây re-subscribe.
   const onRoomUpdateRef = useRef(onRoomUpdate);
   const onPlayUpdateRef = useRef(onPlayUpdate);
-  // Mốc đồng bộ thành công gần nhất — cơ sở để phát hiện "kẹt phase".
+  // Mốc đồng bộ thành công gần nhất — cơ sở để phát hiện "kẹt phase", ĐỒNG THỜI cũng là mốc dùng cho
+  // throttle ở scheduleRefetchFromEvent (xem REALTIME_EVENT_THROTTLE_MS) vì được cập nhật cuối mỗi
+  // lần refetchState thành công, bất kể do broadcast, poll, hay quay lại foreground kích hoạt.
   // Khởi tạo 0 và set trong effect: Date.now() không được gọi lúc render.
   const lastSyncedAtRef = useRef(0);
   const isSoftRecoveringRef = useRef(false);
-  // Timer đang chờ để gọi refetchState sau một broadcast (xem REALTIME_EVENT_JITTER_MS).
+  // Timer đang chờ để gọi refetchState sau một broadcast (xem REALTIME_EVENT_THROTTLE_MS).
   const pendingEventRefetchTimerRef = useRef<number | null>(null);
   // Phase mà component đang render thật sự (đồng bộ từ prop currentPhase) — dùng để so sánh với
   // payload broadcast, quyết định bỏ qua fetch hay không. Đọc qua ref (không qua state) vì chỉ
@@ -174,17 +186,23 @@ export function useWolfRoomPresence({
     }
   }, []);
 
-  // Gộp nhiều broadcast liên tiếp (nhiều người cùng vote/thao tác) thành một lần refetch,
-  // và rải thời điểm gọi ra trong REALTIME_EVENT_JITTER_MS để không dồn request đồng thời.
+  // Throttle thật sự: đảm bảo tối thiểu REALTIME_EVENT_THROTTLE_MS giữa 2 lần fetch do broadcast
+  // kích hoạt, tính từ lần fetch THỰC SỰ CHẠY gần nhất (lastSyncedAtRef) — không chỉ từ lần broadcast
+  // gần nhất. Nhiều broadcast liên tiếp trong lúc đang chờ (dù đã hết hạn throttle hay chưa) đều được
+  // gộp vào đúng 1 lần fetch sắp diễn ra, nhờ guard `pendingEventRefetchTimerRef`.
   const scheduleRefetchFromEvent = useCallback(() => {
     if (pendingEventRefetchTimerRef.current != null) {
       return;
     }
 
+    const elapsedSinceLastFetch = Date.now() - lastSyncedAtRef.current;
+    const throttleRemaining = Math.max(0, REALTIME_EVENT_THROTTLE_MS - elapsedSinceLastFetch);
+    const delay = throttleRemaining + Math.random() * REALTIME_EVENT_JITTER_MS;
+
     pendingEventRefetchTimerRef.current = window.setTimeout(() => {
       pendingEventRefetchTimerRef.current = null;
       void refetchState();
-    }, Math.random() * REALTIME_EVENT_JITTER_MS);
+    }, delay);
   }, [refetchState]);
 
   // --- Subscribe realtime ---
