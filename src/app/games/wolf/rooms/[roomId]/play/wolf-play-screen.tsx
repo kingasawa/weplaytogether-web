@@ -276,9 +276,17 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   const usesTroublemakerSelection = effectiveNightActionRole === "troublemaker";
   const usesWitchSelection = effectiveNightActionRole === "witch";
   const playerPickerOptions = usesWitchSelection ? playState.players : otherPlayers;
+  // Nhân Bản copy Ma Sói (trực tiếp hoặc lồng qua Copy Cat copy trúng lá Nhân Bản giữa bàn) luôn
+  // tạo ra >= 2 Ma Sói (người bị copy + Nhân Bản), nên không bao giờ là "sói đơn".
+  // playState.werewolfTeammates chưa kịp cập nhật vì hành động chưa được gửi lên server, nên phải
+  // tự ép true ở đây để ẩn lựa chọn xem lá giữa bàn ngay khi vừa chọn xong.
+  const isDoppelgangerCopyingWerewolfTeam =
+    isActingAsDoppelganger &&
+    (activeDoppelgangerCopiedRole === "werewolf" || activeDoppelgangerCopiedRole === "werewolf_seer");
   const hasWerewolfTeammates =
-    (myRole === "werewolf" || myRole === "werewolf_seer" || myRole === "copycat" || myRole === "doppelganger") &&
-    playState.werewolfTeammates.length > 0;
+    isDoppelgangerCopyingWerewolfTeam ||
+    ((myRole === "werewolf" || myRole === "werewolf_seer" || myRole === "copycat" || myRole === "doppelganger") &&
+      playState.werewolfTeammates.length > 0);
   const copycatWerewolfTeammates =
     myRole === "copycat" &&
     copycatCopiedRole &&
@@ -289,7 +297,11 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     hasWerewolfTeammates ||
     (myRole === "copycat" && copycatCopiedRole && WOLF_ROLE_TEAMS[copycatCopiedRole] === "werewolves");
   const werewolfTeammateNames = hasWerewolfTeammates
-    ? playState.werewolfTeammates.map((player) => player.playerName)
+    ? playState.werewolfTeammates.length > 0
+      ? playState.werewolfTeammates.map((player) => player.playerName)
+      : isDoppelgangerCopyingWerewolfTeam && activeDoppelgangerCopiedPlayerId
+        ? [getPlayerName(playState.players, activeDoppelgangerCopiedPlayerId)]
+        : []
     : copycatWerewolfTeammates.map((player) => player.playerName);
   // Sói Tiên Tri đi hai bước trong cùng một lượt: soi người chơi trước và thấy role ngay,
   // sau đó nếu là sói đơn mới được mở thêm một lá giữa bàn.

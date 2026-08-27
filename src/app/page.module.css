@@ -381,18 +381,11 @@
 .intro {
   display: grid;
   gap: 0.6rem;
-  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
   padding: clamp(0.9rem, 4vw, 1.25rem);
   border: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
   border-radius: 1rem;
   background: color-mix(in srgb, var(--bg-card) 62%, transparent);
-}
-
-.intro h1 {
-  color: var(--text);
-  font-family: var(--font-heading);
-  font-size: clamp(1.35rem, 6vw, 1.75rem);
-  line-height: 1.2;
 }
 
 .intro p {
@@ -401,9 +394,49 @@
   line-height: 1.6;
 }
 
+.intro strong {
+  color: var(--text);
+  font-family: var(--font-heading);
+}
+
 .intro a {
   color: var(--primary-light);
   text-decoration: underline;
+}
+
+.introToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--primary-light);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.introToggleIcon,
+.introToggleIconOpen {
+  display: grid;
+  width: 1.1rem;
+  aspect-ratio: 1;
+  place-items: center;
+  transition: transform var(--transition-base);
+}
+
+.introToggleIconOpen {
+  transform: rotate(180deg);
+}
+
+.introToggleIcon svg,
+.introToggleIconOpen svg {
+  width: 1rem;
+  min-width: 1rem;
 }
 
 .contentShell {

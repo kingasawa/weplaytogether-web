@@ -40,7 +40,9 @@ const ROLE_DECK_ORDER: WolfRole[] = [
   "copycat",
 ];
 
-// Copycat thức dậy trước Nhân Bản theo luật ONUW Daybreak.
+// Theo bảng "Complete Wake Order" chính thức của Bezier Games (Copycat = -8, Doppelganger = -7),
+// Copy Cat thức dậy TRƯỚC Nhân Bản: Copy Cat cần soi lá giữa bàn trước, để nếu lá đó chính là
+// Nhân Bản thì có thể "chờ tới lượt" của Nhân Bản mà không bị lệch thứ tự.
 const ROLE_RESOLUTION_ORDER: WolfRole[] = [
   "copycat",
   "doppelganger",
@@ -4544,7 +4546,13 @@ export async function submitWolfNightAction(
     }
 
     if (copiedRole === "werewolf" || copiedRole === "werewolf_seer") {
-      const werewolfCount = getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).length;
+      // Nhân Bản copy Ma Sói nghĩa là người bị copy vẫn còn đó CỘNG THÊM Nhân Bản, nên
+      // tổng số Ma Sói sau khi copy luôn >= 2. gameActions được lấy trước khi lưu hành động
+      // này nên chưa tính Nhân Bản là Ma Sói — phải cộng thêm 1 cho chính người đang thao tác.
+      const werewolfCount =
+        getWerewolfPlayerIdsAfterCopycat(gameCards, gameActions).filter(
+          (playerId) => playerId !== currentPlayer.id
+        ).length + 1;
       const copiedRoleLabel = WOLF_ROLE_LABELS[copiedRole];
 
       if (werewolfCount > 1 && (input.targetCenterIndex != null || input.targetCenterIndex2 != null)) {
@@ -4719,6 +4727,18 @@ export async function submitWolfNightAction(
 
       if (nestedCopiedRole === "drunk" && !validateCenterIndex(input.targetCenterIndex2)) {
         return { ok: false, error: "Copy Cat copy Nhan Ban copy Say Ruou phai chon mot la giua ban." };
+      }
+
+      if (nestedCopiedRole === "werewolf" || nestedCopiedRole === "werewolf_seer") {
+        // Copy Cat copy trúng lá Nhân Bản giữa bàn, Nhân Bản đó lại copy trúng Sói: người giữ lá
+        // Sói gốc vẫn còn đó CỘNG THÊM Copy Cat (giờ là Nhân Bản → Sói), nên luôn có từ 2 Ma Sói
+        // trở lên — không bao giờ rơi vào trường hợp "sói đơn" được xem thêm lá giữa bàn.
+        if (input.targetCenterIndex2 != null || input.targetCenterIndex3 != null) {
+          return {
+            ok: false,
+            error: `Có từ 2 Ma Sói trở lên nên Copy Cat copy Nhân Bản copy ${WOLF_ROLE_LABELS[nestedCopiedRole]} không được xem lá giữa bàn.`,
+          };
+        }
       }
 
       if (nestedCopiedRole === "copycat") {

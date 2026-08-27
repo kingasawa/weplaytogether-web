@@ -5,8 +5,21 @@ import styles from "./page.module.css";
 
 export const ROOM_CODE_LENGTH = 4;
 
+/**
+ * Bộ gõ tiếng Việt kiểu Telex (Unikey, EVKey...) biến phím "w" thành "ư" ngay cả khi
+ * người dùng chỉ muốn gõ chữ cái Latin. Map ngược lại để không bị mất ký tự này.
+ */
+const TELEX_IME_CHAR_MAP: Record<string, string> = {
+  ư: "w",
+  Ư: "w",
+};
+
 export function sanitizeRoomCode(value: string) {
-  return value.toLowerCase().replace(/[^a-z]/g, "").slice(0, ROOM_CODE_LENGTH);
+  const withoutTelexQuirks = Array.from(value)
+    .map((char) => TELEX_IME_CHAR_MAP[char] ?? char)
+    .join("");
+
+  return withoutTelexQuirks.toLowerCase().replace(/[^a-z]/g, "").slice(0, ROOM_CODE_LENGTH);
 }
 
 /** Ô nhập mã phòng tách 4 ký tự, tự nhảy focus và hỗ trợ paste. */
