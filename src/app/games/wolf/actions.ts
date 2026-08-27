@@ -1957,6 +1957,14 @@ async function maybeAutoAdvancePhase(
     return;
   }
 
+  // Mỗi hàm gọi maybeAutoAdvancePhase (submit action/vote/xác nhận) đều tự kiểm tra "đủ điều kiện
+  // chuyển phase chưa" một cách độc lập. Khi nhiều người bấm gần như cùng lúc (đặc biệt ở bước vote
+  // gần cuối ván), nhiều request có thể CÙNG thấy "đã đủ điều kiện" trước khi request nào kịp ghi
+  // phase mới xuống DB — dẫn tới việc chuyển phase (và các tác vụ nặng đi kèm như build kết quả,
+  // cộng Xu) chạy lặp lại nhiều lần đồng thời, vừa tốn tài nguyên Worker vừa có nguy cơ cộng
+  // thưởng trùng. Dùng `.eq("phase", <phase cũ>)` để UPDATE có tính "compare-and-swap": chỉ request
+  // nào thực sự đổi được phase (rows trả về > 0) mới được coi là "thắng" và tiếp tục làm phần việc
+  // chỉ nên chạy đúng một lần.
   if (phase === "card_reveal") {
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, phase);
 
@@ -1964,7 +1972,8 @@ async function maybeAutoAdvancePhase(
       await supabase
         .from("game_sessions")
         .update({ phase: "night" })
-        .eq("id", room.current_game_id);
+        .eq("id", room.current_game_id)
+        .eq("phase", "card_reveal");
     }
 
     return;
@@ -1985,14 +1994,21 @@ async function maybeAutoAdvancePhase(
     const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
 
     if (!getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds)) {
-      await resolveNightActions(room.current_game_id);
-      await supabase
+      // Giành quyền chuyển phase TRƯỚC, chỉ request thắng mới chạy resolveNightActions (khá nặng:
+      // tính toán lại toàn bộ đêm rồi ghi current_role cho từng lá bài).
+      const { data: claimedRows } = await supabase
         .from("game_sessions")
         .update({
           phase: "discussion",
           discussion_ends_at: null,
         })
-        .eq("id", room.current_game_id);
+        .eq("id", room.current_game_id)
+        .eq("phase", "night")
+        .select("id");
+
+      if (claimedRows && claimedRows.length > 0) {
+        await resolveNightActions(room.current_game_id);
+      }
     }
 
     return;
@@ -2008,7 +2024,8 @@ async function maybeAutoAdvancePhase(
           phase: "discussion",
           discussion_ends_at: null,
         })
-        .eq("id", room.current_game_id);
+        .eq("id", room.current_game_id)
+        .eq("phase", "night_review");
     }
 
     return;
@@ -2021,7 +2038,8 @@ async function maybeAutoAdvancePhase(
       await supabase
         .from("game_sessions")
         .update({ phase: "voting" })
-        .eq("id", room.current_game_id);
+        .eq("id", room.current_game_id)
+        .eq("phase", "discussion");
     }
 
     return;
@@ -3047,23 +3065,41 @@ async function setWolfGameResultPhase(
   roomCode: string,
   players: PlayerRow[]
 ) {
+  // Ai cũng có thể là "người vote cuối cùng" kích hoạt hàm này (xem maybeAutoAdvancePhase +
+  // advanceWolfPhase) — khi nhiều người vote gần như đồng thời, nhiều request có thể cùng chạy vào
+  // đây song song. award_wolf_game_points đã idempotent nhờ unique constraint (game_id, user_id)
+  // nên không lo cộng Xu trùng, nhưng build result snapshot + gọi RPC lặp lại vẫn tốn tài nguyên
+  // Worker vô ích. Dùng `.eq("phase", "voting")` để chỉ request thực sự đổi được phase (rows > 0)
+  // mới tiếp tục trao điểm/Xu — các request "thua" dừng lại ngay sau khi build xong snapshot.
   const resultSnapshot = await buildWolfResultSnapshotFromDatabase(supabase, gameId, players);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("game_sessions")
     .update({
       phase: "result",
       result_snapshot: resultSnapshot,
     })
-    .eq("id", gameId);
+    .eq("id", gameId)
+    .eq("phase", "voting")
+    .select("id");
 
   if (!error) {
-    await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
+    if (data && data.length > 0) {
+      await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
+    }
     return;
   }
 
   if (isMissingResultSnapshotColumnError(error)) {
-    await supabase.from("game_sessions").update({ phase: "result" }).eq("id", gameId);
-    await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
+    const { data: fallbackData } = await supabase
+      .from("game_sessions")
+      .update({ phase: "result" })
+      .eq("id", gameId)
+      .eq("phase", "voting")
+      .select("id");
+
+    if (fallbackData && fallbackData.length > 0) {
+      await awardWolfGameScores(supabase, gameId, roomCode, players, resultSnapshot);
+    }
   }
 }
 
@@ -5048,27 +5084,43 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
     return { ok: false, error: "Không tìm thấy ván đang chơi." };
   }
 
+  // Cùng nguy cơ đua với maybeAutoAdvancePhase (host bấm "chuyển giai đoạn" ngay lúc auto-advance
+  // cũng vừa kích hoạt) — dùng cùng kiểu guard `.eq("phase", <cũ>)` để tránh chạy trùng.
   if (game.phase === "card_reveal") {
-    await supabase.from("game_sessions").update({ phase: "night" }).eq("id", game.id);
+    await supabase
+      .from("game_sessions")
+      .update({ phase: "night" })
+      .eq("id", game.id)
+      .eq("phase", "card_reveal");
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }
 
   if (game.phase === "night") {
-    await resolveNightActions(game.id);
-    await supabase
+    const { data: claimedRows } = await supabase
       .from("game_sessions")
       .update({
         phase: "discussion",
         discussion_ends_at: null,
       })
-      .eq("id", game.id);
+      .eq("id", game.id)
+      .eq("phase", "night")
+      .select("id");
+
+    if (claimedRows && claimedRows.length > 0) {
+      await resolveNightActions(game.id);
+    }
+
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }
 
   if (game.phase === "discussion") {
-    await supabase.from("game_sessions").update({ phase: "voting" }).eq("id", game.id);
+    await supabase
+      .from("game_sessions")
+      .update({ phase: "voting" })
+      .eq("id", game.id)
+      .eq("phase", "discussion");
     await safeBroadcastWolfPlayUpdate(room.code);
     return { ok: true };
   }

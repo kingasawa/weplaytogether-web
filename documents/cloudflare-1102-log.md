@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-27 -->
+<!-- Last updated: 2026-08-27 (entry #4) -->
 
 # Nhật ký lỗi Cloudflare 1102 (Worker exceeded resource limits)
 
@@ -15,22 +15,23 @@ user" mà là vấn đề kiến trúc/hiệu năng: có chỗ nào đó trong c
 trên mỗi request, hoặc pattern gọi request đang tạo ra tải dồn (burst) không cần thiết. Nếu không
 xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng thêm người chơi.
 
-## Tình trạng hiện tại (cập nhật 2026-08-27)
+## Tình trạng hiện tại (cập nhật 2026-08-27, entry #4)
 
-- **Nguyên nhân cơ chế đã xác định khá chắc:** ở bước bỏ phiếu (và nhìn chung là bất kỳ lúc nào
-  nhiều người thao tác gần nhau), mỗi hành động submit sẽ bắn broadcast qua Pusher, và **TẤT CẢ**
-  client khác lập tức gọi lại server action full-state (`getWolfPlayState`/tương đương) cùng lúc —
-  kiểu "thundering herd". Đây là nguyên nhân khớp nhất với triệu chứng "nhiều người vote cùng lúc
-  thì lỗi" mà user quan sát được.
-- **Đã fix (chưa deploy — xem entry 2026-08-27 #3):** thêm jitter + gộp refetch trong
-  `src/lib/pusher/use-wolf-room-presence.ts`. Hook này dùng chung cho cả 3 game (Ma Sói, Ma Sói
-  Nhiều Đêm, Avalon) nên fix áp dụng cho toàn bộ, không riêng game nào.
+- **Có 2 nguyên nhân cơ chế đã tìm ra, CẢ HAI đều liên quan tới việc nhiều người thao tác gần nhau
+  (khớp đúng triệu chứng user báo — bước vote gần cuối ván, và suy rộng ra là MỌI lúc chuyển phase):**
+  1. **Thundering herd đọc:** mỗi broadcast khiến TẤT CẢ client gọi lại full-state cùng lúc (Entry
+     #3). Đã fix bằng jitter/gộp refetch phía client.
+  2. **Race condition ghi + tính toán trùng lặp (Entry #4, nghiêm trọng hơn):** logic tự động chuyển
+     phase (`maybeAutoAdvancePhase`, `advanceWolfPhase`) không có khoá — nhiều request gần như đồng
+     thời có thể CÙNG thấy "đủ điều kiện chuyển phase" và CÙNG chạy các tác vụ nặng (build kết quả
+     cuối game, resolve đêm...) song song, nhân bản tải đúng vào khoảnh khắc đông người thao tác
+     nhất. Đã fix bằng compare-and-swap (`.eq("phase", <cũ>)`) ở mọi điểm chuyển phase.
+- **Đã fix, CẢ HAI ĐỀU CHƯA DEPLOY** lên production — xem Entry #3 và #4. Production tính đến thời
+  điểm cập nhật file này vẫn chạy code CŨ, chưa có fix nào trong 2 fix trên. Nếu user báo lỗi 1102
+  mới mà chưa xác nhận đã deploy, đây là việc đầu tiên cần hỏi lại.
 - **Chưa xác nhận được** lỗi 1102 hôm 2026-08-27 là do hết CPU time hay hết bộ nhớ (128MB/isolate)
   — hai cơ chế khác nhau, cách khắc phục khác nhau (xem phần "CPU vs Memory" bên dưới). Cần dữ
-  liệu của lần lỗi TIẾP THEO (sau khi deploy fix jitter) để so sánh và kết luận rõ hơn.
-- **Chưa deploy** bản fix jitter lên production — nghĩa là tính đến thời điểm cập nhật file này,
-  production vẫn đang chạy code CŨ (chưa có fix). Nếu user báo lỗi 1102 mới mà chưa xác nhận đã
-  deploy, đây là việc đầu tiên cần hỏi lại.
+  liệu của lần lỗi TIẾP THEO (sau khi deploy cả 2 fix) để so sánh và kết luận rõ hơn.
 - Lỗi 1101 (Worker throw exception, KHÁC 1102) user báo "hôm qua" (trước 2026-08-27) **chưa điều
   tra được** — không có Ray ID/thời điểm cụ thể, không có Sentry. Vẫn đang mở.
 
@@ -147,24 +148,74 @@ nhận hiệu quả** (không mô phỏng được nhiều client đồng thời
 deploy, (2) chờ lần chơi đông người tiếp theo, (3) tra lại `workersInvocationsAdaptive` cho khung
 giờ đó, so với baseline 36 lỗi/4 đợt ở Entry #2 để xem có giảm không.
 
+---
+
+### 2026-08-27 — Entry #4: Race condition ở logic tự động chuyển phase
+
+**User đặt câu hỏi đúng trọng tâm:** "mỗi khi chuyển qua 1 phase mới thì có khả năng đó không, vì
+khi nhiều người cùng bấm vào button, thì thường nó sẽ kiểm tra xem ai chưa bấm ở phase cũ" — yêu cầu
+check case này.
+
+**Điều tra:** đọc kỹ `maybeAutoAdvancePhase` (gọi từ `submitWolfVote`, `submitWolfNightAction`,
+`submitWolfPhaseConfirmation` — tức MỌI hành động submit của người chơi) và `advanceWolfPhase` (host
+bấm tay). Phát hiện: hàm này đọc trạng thái (số người đã vote/xác nhận, `getActiveNightTurn`...) rồi
+mới UPDATE phase — **không có khoá/atomic nào giữa bước đọc và bước ghi**. Khi nhiều người submit
+gần như đồng thời (đúng như user mô tả — điển hình nhất là vài người vote cuối cùng gần như cùng
+lúc), NHIỀU request có thể cùng đọc thấy "đã đủ điều kiện" TRƯỚC KHI bất kỳ ai kịp ghi phase mới, nên
+tất cả cùng chạy tiếp phần việc lẽ ra chỉ nên chạy 1 lần:
+
+- **`voting` → `result`** (đúng bước user nghi ngờ nhất): gọi `setWolfGameResultPhase` →
+  `buildWolfResultSnapshotFromDatabase` (tính toán nặng nhất trong game: toàn bộ kết quả, ai thắng
+  thua, di chuyển lá bài...) + RPC `award_wolf_game_points` cộng điểm/Xu. Nếu 3-4 người vote cuối
+  cùng gần như đồng thời → 3-4 lần build snapshot + gọi RPC chạy song song, đúng vào lúc nhiều người
+  đang online nhất.
+- **`night` → `discussion`**: gọi `resolveNightActions` (tính lại `current_role` cho MỌI lá bài rồi
+  bắn tối đa ~13 lệnh UPDATE Supabase đồng thời qua `Promise.all` — bản thân 1 lần gọi đã tạo ra khá
+  nhiều subrequest, chạy trùng vài lần thì nhân lên).
+- Đã kiểm tra: **KHÔNG có bug cộng Xu/điểm trùng** — bảng `player_score_events` đã có
+  `unique (game_id, user_id)` + RPC dùng `on conflict do nothing` (xem
+  `supabase/migrations/202608250001_wolf_scoring_currency.sql`), nên phần thưởng vẫn đúng dù RPC bị
+  gọi trùng. Vấn đề THUẦN TUÝ là lãng phí tài nguyên Worker do tính toán/ghi trùng lặp — không phải
+  lỗi kinh tế game.
+
+**Fix đã áp dụng:** đổi các UPDATE chuyển phase từ `.eq("id", gameId)` đơn thuần sang
+`.eq("id", gameId).eq("phase", "<phase cũ>").select("id")` — kiểu "compare-and-swap": chỉ request
+nào UPDATE thực sự khớp được điều kiện (rows trả về > 0, tức phase vẫn đúng như lúc request đó đọc
+được) mới tiếp tục chạy phần việc nặng phía sau (`resolveNightActions`, `awardWolfGameScores`); các
+request "thua" tự dừng lại ngay, không tính toán/ghi trùng nữa. Áp dụng cho toàn bộ điểm chuyển phase
+trong CẢ `maybeAutoAdvancePhase` lẫn `advanceWolfPhase` (host bấm tay) — kể cả những phase không có
+tác vụ nặng đi kèm cũng được thêm guard cho nhất quán, dù rủi ro ở đó thấp hơn.
+
+**File thay đổi:** `src/app/games/wolf/actions.ts` (hàm `maybeAutoAdvancePhase`,
+`setWolfGameResultPhase`, `advanceWolfPhase`).
+
+**Kết quả:** `npx tsc --noEmit` sạch. **CHƯA DEPLOY, CHƯA có số liệu thực tế xác nhận hiệu quả** —
+giống Entry #3, cần deploy rồi chờ ván chơi đông người tiếp theo để so sánh với baseline Entry #2.
+Đây là fix ở tầng SERVER (ngăn tính toán/ghi trùng), khác và bổ sung cho fix #3 ở tầng CLIENT (giảm
+số lần gọi lại state) — cả hai cùng nhắm vào việc giảm tải dồn khi nhiều người thao tác cùng lúc.
+
 ## Việc cần làm tiếp (chưa làm, ghi lại để không quên)
 
-1. **Deploy fix ở Entry #3 lên production** — hỏi lại user trước khi deploy (ảnh hưởng người chơi
-   thật). Nếu user đã báo lỗi 1102 mới mà chưa deploy fix này, ưu tiên deploy trước rồi mới điều
-   tra thêm.
+1. **Deploy fix ở Entry #3 VÀ #4 lên production** — hỏi lại user trước khi deploy (ảnh hưởng người
+   chơi thật). Nếu user đã báo lỗi 1102 mới mà chưa deploy 2 fix này, ưu tiên deploy trước rồi mới
+   điều tra thêm.
 2. Sau khi deploy và có ván chơi đông người tiếp theo bị lỗi (nếu còn), tra lại
    `workersInvocationsAdaptive` cùng khung giờ, so sánh số lỗi/`cpuTime`/`wallTime` với baseline
-   Entry #2 để đánh giá hiệu quả fix.
-3. Nếu vẫn còn lỗi sau fix #3: cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để
+   Entry #2 (36 lỗi/4 đợt) để đánh giá hiệu quả của CẢ HAI fix cộng lại.
+3. Nếu vẫn còn lỗi sau fix #3+#4: cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để
    tra được `clientRequestPath` cụ thể (hiện bị từ chối quyền) — sẽ biết chính xác endpoint nào gây
    lỗi thay vì chỉ biết ở mức Worker chung.
 4. Nếu vẫn còn lỗi: xem xét giảm khối lượng tính toán/bộ nhớ MỖI REQUEST ở server, không chỉ giảm
-   số lượng request — trọng tâm nghi ngờ: các hàm tính toán nặng trong
+   số lượng/tần suất request — trọng tâm nghi ngờ: các hàm tính toán nặng trong
    `src/app/games/wolf/actions.ts` (`getActiveNightTurn`, `buildNightReviewMessages`,
-   `getRoleByPlayerIdAfterCopycat` — xử lý logic Nhân Bản/Copy Cat lồng nhau khá tốn), và kiểm tra
-   xem `getWolfPlayState` có trả về payload quá lớn cho client hay không.
-5. Avalon dùng chung hook `useWolfRoomPresence` nên được hưởng lợi từ fix #3, nhưng CHƯA kiểm tra
-   riêng xem action state của Avalon có phần tính toán nặng tương tự cần tối ưu hay không.
+   `getRoleByPlayerIdAfterCopycat`, `buildWolfResultSnapshotFromDatabase` — xử lý logic Nhân
+   Bản/Copy Cat lồng nhau và build kết quả cuối game khá tốn), và kiểm tra xem `getWolfPlayState` có
+   trả về payload quá lớn cho client hay không.
+5. Avalon dùng chung hook `useWolfRoomPresence` nên được hưởng lợi từ fix #3, nhưng **CHƯA kiểm tra
+   riêng xem Avalon có cùng kiểu race condition ở logic chuyển phase như fix #4 hay không** — fix #4
+   mới chỉ áp dụng cho `src/app/games/wolf/actions.ts` (Ma Sói). Cần audit
+   `src/app/games/avalon/actions.ts` (và Wolf Classic nếu có action tương tự) xem có hàm
+   `maybeAutoAdvancePhase`/tương đương thiếu guard `.eq("phase", ...)` giống vậy không.
 6. Lỗi 1101 ở Entry #1 vẫn còn mở — nếu tái diễn, giờ đã có Worker Name thật nên tra được qua
    `status: "exception"` trên `workersInvocationsAdaptive`.
 
