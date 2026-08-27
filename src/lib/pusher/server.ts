@@ -1,4 +1,5 @@
 import Pusher from "pusher";
+import type { WolfGamePhase } from "@/lib/supabase/types";
 import {
   getWolfLobbyChannelName,
   getWolfRoomChannelName,
@@ -6,6 +7,7 @@ import {
   WOLF_LOBBY_UPDATED_EVENT,
   WOLF_PLAY_UPDATED_EVENT,
   WOLF_ROOM_UPDATED_EVENT,
+  type WolfPlayUpdatePayload,
 } from "./channels";
 
 // Auth only — uses crypto, works fine in Cloudflare Workers
@@ -111,8 +113,11 @@ export async function broadcastWolfRoomUpdate(roomCode: string) {
   ]);
 }
 
-export async function broadcastWolfPlayUpdate(roomCode: string) {
-  const data = { roomCode: roomCode.toLowerCase() };
+export async function broadcastWolfPlayUpdate(roomCode: string, phase?: WolfGamePhase) {
+  const data: WolfPlayUpdatePayload = {
+    roomCode: roomCode.toLowerCase(),
+    ...(phase ? { phase } : {}),
+  };
 
   await Promise.all([
     triggerPusherEvent(getWolfRoomChannelName(roomCode), WOLF_PLAY_UPDATED_EVENT, data),
@@ -128,9 +133,9 @@ export async function safeBroadcastWolfRoomUpdate(roomCode: string) {
   }
 }
 
-export async function safeBroadcastWolfPlayUpdate(roomCode: string) {
+export async function safeBroadcastWolfPlayUpdate(roomCode: string, phase?: WolfGamePhase) {
   try {
-    await broadcastWolfPlayUpdate(roomCode);
+    await broadcastWolfPlayUpdate(roomCode, phase);
   } catch (error) {
     console.error("Failed to broadcast wolf play update.", error);
   }

@@ -461,6 +461,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     pollingEnabled: playState.game.phase !== "result",
     roomCode: playState.room.code,
     onPlayUpdate: refreshPlayState,
+    currentPhase: playState.game.phase,
   });
 
   function getWaitingPlayers() {

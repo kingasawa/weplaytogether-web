@@ -1,9 +1,18 @@
+import type { WolfGamePhase } from "@/lib/supabase/types";
+
 const DEFAULT_WOLF_ROOM_CHANNEL_PREFIX = "presence-nicecode-websocket-";
 const DEFAULT_WOLF_ROOM_PUBLIC_CHANNEL_PREFIX = "nicecode-websocket-";
 
 export const WOLF_ROOM_UPDATED_EVENT = "wolf-room-updated";
 export const WOLF_PLAY_UPDATED_EVENT = "wolf-play-updated";
 export const WOLF_LOBBY_UPDATED_EVENT = "wolf-lobby-updated";
+
+// `phase` không bắt buộc: khi caller không biết chắc phase mới (ví dụ lúc reset về lobby), cứ bỏ
+// trống — phía client coi payload không có `phase` là tín hiệu "cứ fetch lại đầy đủ cho chắc".
+export type WolfPlayUpdatePayload = {
+  roomCode: string;
+  phase?: WolfGamePhase;
+};
 
 function getWolfRoomChannelPrefix() {
   return process.env.NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX ?? DEFAULT_WOLF_ROOM_CHANNEL_PREFIX;

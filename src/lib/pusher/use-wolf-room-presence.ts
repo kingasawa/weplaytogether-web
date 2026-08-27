@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { WolfGamePhase } from "@/lib/supabase/types";
 import {
   getWolfRoomChannelName,
   getWolfRoomPublicChannelName,
   WOLF_PLAY_UPDATED_EVENT,
   WOLF_ROOM_UPDATED_EVENT,
+  type WolfPlayUpdatePayload,
 } from "./channels";
 import { createPusherBrowserClient, reconnectPusherBrowserClient } from "./client";
 import type { PusherConnectionLike } from "./client";
@@ -31,6 +33,30 @@ const AUTO_RELOAD_STORAGE_KEY = "wpt:last-auto-reload-at";
 // gần cuối ván, nhiều người vote dồn dập) — nguyên nhân chính gây lỗi Cloudflare 1102 do
 // quá nhiều request đồng thời dồn vào cùng một isolate.
 const REALTIME_EVENT_JITTER_MS = 700;
+
+// Phase mà trong CÙNG một phase, lượt hành động vẫn đổi liên tục giữa các người chơi (Sói -> Tiên
+// Tri -> Kẻ Trộm...) — so sánh mỗi phase không đủ để biết "có cần fetch lại không", nên các phase
+// này luôn fetch đầy đủ, bỏ qua tối ưu so-sánh-phase bên dưới. Ma Sói hiện chỉ có "night" thuộc
+// dạng này; nếu sau này Avalon cũng có phase kiểu tương tự thì thêm giá trị của Avalon vào đây.
+const PHASES_ALWAYS_NEEDING_REFETCH = new Set<WolfGamePhase>(["night"]);
+
+// Payload broadcast (nếu server có gửi kèm `phase`) đủ để biết KHÔNG cần fetch lại toàn bộ state —
+// chỉ khi phase thật sự đổi (hoặc đang ở phase "night" luôn cần cập nhật lượt) mới đáng fetch.
+// Không có `phase` trong payload (ví dụ lúc reset về lobby) -> cứ fetch lại cho chắc.
+function shouldRefetchForPhaseChange(
+  incomingPhase: WolfGamePhase | undefined,
+  knownPhase: WolfGamePhase | null
+) {
+  if (!incomingPhase) {
+    return true;
+  }
+
+  if (PHASES_ALWAYS_NEEDING_REFETCH.has(incomingPhase)) {
+    return true;
+  }
+
+  return incomingPhase !== knownPhase;
+}
 
 type PresenceMember = {
   id: string;
@@ -58,6 +84,10 @@ type UseWolfRoomPresenceOptions = {
   onPlayUpdate?: () => void | Promise<void>;
   // Tắt poll + tự khôi phục khi không còn gì để chờ (ví dụ ván đã có kết quả).
   pollingEnabled?: boolean;
+  // Phase hiện tại mà component gọi hook đang render (vd. playState.game.phase) — dùng để so sánh
+  // với `phase` trong payload broadcast, quyết định có cần fetch lại toàn bộ state hay không. Bỏ
+  // trống thì luôn fetch lại như hành vi cũ (an toàn, chỉ là chưa được tối ưu).
+  currentPhase?: WolfGamePhase | null;
 };
 
 function collectMemberIds(members: PresenceMembers) {
@@ -102,6 +132,7 @@ export function useWolfRoomPresence({
   onRoomUpdate,
   onPlayUpdate,
   pollingEnabled = true,
+  currentPhase = null,
 }: UseWolfRoomPresenceOptions) {
   const [connectionStatus, setConnectionStatus] = useState("Đang kết nối Người chơi...");
   const [isPresenceReady, setIsPresenceReady] = useState(false);
@@ -117,10 +148,15 @@ export function useWolfRoomPresence({
   const isSoftRecoveringRef = useRef(false);
   // Timer đang chờ để gọi refetchState sau một broadcast (xem REALTIME_EVENT_JITTER_MS).
   const pendingEventRefetchTimerRef = useRef<number | null>(null);
+  // Phase mà component đang render thật sự (đồng bộ từ prop currentPhase) — dùng để so sánh với
+  // payload broadcast, quyết định bỏ qua fetch hay không. Đọc qua ref (không qua state) vì chỉ
+  // dùng trong callback của event Pusher, không cần trigger re-render.
+  const currentPhaseRef = useRef(currentPhase);
 
   useEffect(() => {
     onRoomUpdateRef.current = onRoomUpdate;
     onPlayUpdateRef.current = onPlayUpdate;
+    currentPhaseRef.current = currentPhase;
   });
 
   // Kéo lại snapshot mới nhất từ server (dùng khi (re)subscribe, reconnect, foreground, poll).
@@ -236,7 +272,13 @@ export function useWolfRoomPresence({
       channel.bind(WOLF_ROOM_UPDATED_EVENT, () => {
         scheduleRefetchFromEvent();
       });
-      channel.bind(WOLF_PLAY_UPDATED_EVENT, () => {
+      channel.bind(WOLF_PLAY_UPDATED_EVENT, (data: unknown) => {
+        const payload = data as Partial<WolfPlayUpdatePayload> | null;
+
+        if (!shouldRefetchForPhaseChange(payload?.phase, currentPhaseRef.current)) {
+          return;
+        }
+
         scheduleRefetchFromEvent();
       });
     }

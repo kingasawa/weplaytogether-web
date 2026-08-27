@@ -1952,9 +1952,9 @@ async function maybeAutoAdvancePhase(
   room: RoomRow,
   players: PlayerRow[],
   phase: WolfGamePhase
-) {
+): Promise<WolfGamePhase> {
   if (!room.current_game_id) {
-    return;
+    return phase;
   }
 
   // Mỗi hàm gọi maybeAutoAdvancePhase (submit action/vote/xác nhận) đều tự kiểm tra "đủ điều kiện
@@ -1964,7 +1964,10 @@ async function maybeAutoAdvancePhase(
   // cộng Xu) chạy lặp lại nhiều lần đồng thời, vừa tốn tài nguyên Worker vừa có nguy cơ cộng
   // thưởng trùng. Dùng `.eq("phase", <phase cũ>)` để UPDATE có tính "compare-and-swap": chỉ request
   // nào thực sự đổi được phase (rows trả về > 0) mới được coi là "thắng" và tiếp tục làm phần việc
-  // chỉ nên chạy đúng một lần.
+  // chỉ nên chạy đúng một lần. Hàm LUÔN trả về phase đúng-thực-tế-sau-khi-gọi (dù request này có
+  // "thắng" cuộc đua hay không — điều kiện đủ để chuyển phase đã đúng thì phase chắc chắn đổi, bất
+  // kể request nào thắng) để caller broadcast đúng phase cho client, phục vụ tối ưu bỏ qua fetch
+  // phía client khi phase không đổi (xem use-wolf-room-presence.ts).
   if (phase === "card_reveal") {
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, phase);
 
@@ -1974,9 +1977,11 @@ async function maybeAutoAdvancePhase(
         .update({ phase: "night" })
         .eq("id", room.current_game_id)
         .eq("phase", "card_reveal");
+
+      return "night";
     }
 
-    return;
+    return phase;
   }
 
   if (phase === "night") {
@@ -2009,9 +2014,11 @@ async function maybeAutoAdvancePhase(
       if (claimedRows && claimedRows.length > 0) {
         await resolveNightActions(room.current_game_id);
       }
+
+      return "discussion";
     }
 
-    return;
+    return phase;
   }
 
   if (phase === "night_review") {
@@ -2026,9 +2033,11 @@ async function maybeAutoAdvancePhase(
         })
         .eq("id", room.current_game_id)
         .eq("phase", "night_review");
+
+      return "discussion";
     }
 
-    return;
+    return phase;
   }
 
   if (phase === "discussion") {
@@ -2040,9 +2049,11 @@ async function maybeAutoAdvancePhase(
         .update({ phase: "voting" })
         .eq("id", room.current_game_id)
         .eq("phase", "discussion");
+
+      return "voting";
     }
 
-    return;
+    return phase;
   }
 
   if (phase === "voting") {
@@ -2054,8 +2065,13 @@ async function maybeAutoAdvancePhase(
 
     if (players.every((player) => votePlayerIds.has(player.id))) {
       await setWolfGameResultPhase(supabase, room.current_game_id, room.code, players);
+      return "result";
     }
+
+    return phase;
   }
+
+  return phase;
 }
 
 function buildGameResult(
@@ -3901,7 +3917,7 @@ export async function startWolfGame(
     .eq("id", room.id);
 
   await safeBroadcastWolfRoomUpdate(room.code);
-  await safeBroadcastWolfPlayUpdate(room.code);
+  await safeBroadcastWolfPlayUpdate(room.code, "card_reveal");
 
   return { ok: true, roomCode: room.code, gameId: game.id };
 }
@@ -4938,8 +4954,8 @@ export async function submitWolfNightAction(
     }
   }
 
-  await maybeAutoAdvancePhase(supabase, room, players, "night");
-  await safeBroadcastWolfPlayUpdate(room.code);
+  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night");
+  await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterNight);
 
   return { ok: true };
 }
@@ -5007,8 +5023,8 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
     return { ok: false, error: "Không thể xác nhận kết quả lượt đêm." };
   }
 
-  await maybeAutoAdvancePhase(supabase, room, players, "night");
-  await safeBroadcastWolfPlayUpdate(room.code);
+  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night");
+  await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterNight);
 
   return { ok: true };
 }
@@ -5053,8 +5069,8 @@ export async function submitWolfPhaseConfirmation(roomCode: string): Promise<Wol
     return { ok: false, error: "Không thể lưu trạng thái hoàn tất." };
   }
 
-  await maybeAutoAdvancePhase(supabase, room, players, game.phase);
-  await safeBroadcastWolfPlayUpdate(room.code);
+  const nextPhaseAfterConfirmation = await maybeAutoAdvancePhase(supabase, room, players, game.phase);
+  await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterConfirmation);
 
   return { ok: true };
 }
@@ -5092,7 +5108,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
       .update({ phase: "night" })
       .eq("id", game.id)
       .eq("phase", "card_reveal");
-    await safeBroadcastWolfPlayUpdate(room.code);
+    await safeBroadcastWolfPlayUpdate(room.code, "night");
     return { ok: true };
   }
 
@@ -5111,7 +5127,7 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
       await resolveNightActions(game.id);
     }
 
-    await safeBroadcastWolfPlayUpdate(room.code);
+    await safeBroadcastWolfPlayUpdate(room.code, "discussion");
     return { ok: true };
   }
 
@@ -5121,13 +5137,13 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
       .update({ phase: "voting" })
       .eq("id", game.id)
       .eq("phase", "discussion");
-    await safeBroadcastWolfPlayUpdate(room.code);
+    await safeBroadcastWolfPlayUpdate(room.code, "voting");
     return { ok: true };
   }
 
   if (game.phase === "voting") {
     await setWolfGameResultPhase(supabase, game.id, room.code, players);
-    await safeBroadcastWolfPlayUpdate(room.code);
+    await safeBroadcastWolfPlayUpdate(room.code, "result");
     return { ok: true };
   }
 
@@ -5182,8 +5198,8 @@ export async function submitWolfVote(
     return { ok: false, error: "Không thể lưu phiếu bầu." };
   }
 
-  await maybeAutoAdvancePhase(supabase, room, players, "voting");
-  await safeBroadcastWolfPlayUpdate(room.code);
+  const nextPhaseAfterVote = await maybeAutoAdvancePhase(supabase, room, players, "voting");
+  await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterVote);
 
   return { ok: true };
 }
