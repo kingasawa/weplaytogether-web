@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-27 (entry #5) -->
+<!-- Last updated: 2026-08-27 (entry #6) -->
 
 # Nhật ký lỗi Cloudflare 1102 (Worker exceeded resource limits)
 
@@ -15,10 +15,18 @@ user" mà là vấn đề kiến trúc/hiệu năng: có chỗ nào đó trong c
 trên mỗi request, hoặc pattern gọi request đang tạo ra tải dồn (burst) không cần thiết. Nếu không
 xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng thêm người chơi.
 
-## Tình trạng hiện tại (cập nhật 2026-08-27, entry #5)
+## Tình trạng hiện tại (cập nhật 2026-08-27, entry #6)
 
-- **3 fix đã làm, liên quan tới việc nhiều người thao tác gần nhau (khớp đúng triệu chứng user báo
-  — bước vote gần cuối ván, và suy rộng ra là MỌI lúc chuyển phase):**
+- **QUAN TRỌNG:** Entry #6 xác nhận lỗi 1102 vẫn xảy ra ở **phòng chờ (lobby)**, không chỉ lúc chơi
+  — 4 người bấm "Sẵn sàng" gần nhau là đủ gây lỗi. Đây KHÔNG PHẢI bug mới — cùng cơ chế thundering
+  herd đã tìm ra ở Entry #3 (broadcast `WOLF_ROOM_UPDATED_EVENT` lúc toggle ready cũng đi qua đúng
+  `scheduleRefetchFromEvent` chưa được deploy). Vì 3 fix trước giờ vẫn CHƯA DEPLOY nên lỗi tiếp tục
+  xảy ra ở bất kỳ đâu có nhiều người thao tác gần nhau — không riêng lúc vote. **Việc cần làm ngay là
+  deploy, không phải viết thêm code mới.**
+
+- **3 fix đã làm, liên quan tới việc nhiều người thao tác gần nhau (ban đầu thấy ở bước vote gần
+  cuối ván, giờ Entry #6 xác nhận CŨNG xảy ra ở phòng chờ khi nhiều người bấm sẵn sàng — tức là cơ
+  chế lỗi áp dụng cho MỌI broadcast realtime, không riêng lúc chơi):**
   1. **Thundering herd đọc (Entry #3):** mỗi broadcast khiến TẤT CẢ client gọi lại full-state cùng
      lúc. Fix: jitter/gộp refetch phía client (`use-wolf-room-presence.ts`).
   2. **Race condition ghi + tính toán trùng lặp (Entry #4):** logic tự động chuyển phase
@@ -29,9 +37,11 @@ xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng th
      MỌI broadcast đều khiến client full-fetch dù chỉ để cập nhật 1 con số đếm. Fix: payload giờ có
      `phase`, client so với phase đang render, bỏ qua fetch nếu giống nhau (trừ phase "night" — luôn
      fetch vì lượt hành động đổi liên tục trong cùng phase đó).
-- **Đã fix, CẢ 3 ĐỀU CHƯA DEPLOY** lên production — xem Entry #3, #4, #5. Production tính đến thời
-  điểm cập nhật file này vẫn chạy code CŨ, chưa có fix nào. Nếu user báo lỗi 1102 mới mà chưa xác
-  nhận đã deploy, đây là việc đầu tiên cần hỏi lại.
+- **Đã fix, CẢ 3 ĐỀU VẪN CHƯA DEPLOY** lên production — xem Entry #3, #4, #5. Production tính đến
+  entry #6 vẫn chạy code CŨ, chưa có fix nào — Entry #6 chính là bằng chứng thực tế cho việc chưa
+  deploy thì lỗi vẫn tái diễn đều đặn. Nếu user báo lỗi 1102 mới mà chưa xác nhận đã deploy, đây LUÔN
+  là việc đầu tiên cần hỏi lại, không cần điều tra thêm nếu triệu chứng khớp mẫu "nhiều người thao
+  tác gần nhau" đã biết.
 - **Chưa xác nhận được** lỗi 1102 hôm 2026-08-27 là do hết CPU time hay hết bộ nhớ (128MB/isolate)
   — hai cơ chế khác nhau, cách khắc phục khác nhau (xem phần "CPU vs Memory" bên dưới). Cần dữ
   liệu của lần lỗi TIẾP THEO (sau khi deploy cả 3 fix) để so sánh và kết luận rõ hơn.
@@ -247,11 +257,48 @@ test được tình huống nhiều người vote đồng thời** (cần nhiề
 phỏng được trong môi trường hiện tại) nên chưa xác nhận hiệu quả giảm tải thực tế — vẫn cần deploy +
 số liệu ván chơi đông người tiếp theo như Entry #3, #4.
 
+---
+
+### 2026-08-27 — Entry #6: Xác nhận lỗi tái diễn ở phòng chờ (chưa deploy)
+
+**User báo:** 4 người vào phòng chờ Ma Sói Một Đêm, bấm "Sẵn sàng" — người thứ 4 vừa bấm xong thì bị
+lỗi 1102.
+
+**Điều tra:** đọc lại toàn bộ file này trước (đúng quy trình đã đặt ra). Tra `workersInvocationsAdaptive`
+khung giờ 07:25–08:25 UTC (14:25–15:25 giờ VN) hôm nay: có **26 lỗi `exceededResources`** dồn vào 2
+mốc 5 phút liên tiếp — 08:15 (18 lỗi) và 08:20 (8 lỗi) UTC, tức 15:15 và 15:20 giờ VN — khớp đúng thời
+điểm user mô tả. `cpuTimeP50` lại đúng bằng 10000 như các lần trước.
+
+Kiểm tra code `toggleWolfReady` (dòng ~3654): hàm này TỰ NÓ rất nhẹ (chỉ 1 update + 1 broadcast,
+không có logic tự-động-bắt-đầu-ván nào — bắt đầu ván vẫn cần chủ phòng bấm tay). Nhưng broadcast của
+nó (`safeBroadcastWolfRoomUpdate`) bắn event `WOLF_ROOM_UPDATED_EVENT`, và event này đi qua ĐÚNG hàm
+`scheduleRefetchFromEvent` đã fix jitter/gộp ở Entry #3 — nghĩa là đây **không phải bug mới**, mà là
+**cùng cơ chế thundering herd ở Entry #3**, chỉ khác là bị kích hoạt qua nhánh phòng chờ (mỗi lần
+toggle sẵn sàng → tất cả client trong phòng lập tức gọi lại `getWolfLobbyState` cùng lúc) thay vì
+nhánh vote. Đã kiểm tra `getWolfLobbyState`/`getLivePlayerProfilesByUserId` — không có gì bất thường
+nặng riêng cho lobby, nên tải dồn (nhiều request cùng lúc) vẫn là nguyên nhân chính, không phải một
+endpoint cụ thể nào quá nặng.
+
+**Kết luận:** đây là bằng chứng thực tế rằng lỗi 1102 KHÔNG giới hạn ở lúc chơi/vote — nó xảy ra ở
+BẤT KỲ đâu có broadcast realtime dồn dập khi nhiều người thao tác gần nhau, kể cả phòng chờ trước khi
+vào game. Fix Entry #3 (đã viết, đã qua `tsc`) vốn đã bao phủ đúng case này (áp dụng chung cho cả
+`WOLF_ROOM_UPDATED_EVENT` lẫn `WOLF_PLAY_UPDATED_EVENT`) — **chỉ là chưa được deploy nên chưa có hiệu
+lực**. Không cần sửa thêm code cho riêng case phòng chờ này.
+
+**Không có file nào thay đổi ở entry này** — thuần điều tra + xác nhận lại chẩn đoán cũ bằng dữ liệu
+mới, không phát hiện gì cần code thêm.
+
+**Việc cần làm:** deploy 3 fix đã có (Entry #3/#4/#5) là bước DUY NHẤT cần làm tiếp để giải quyết cả
+2 lần lỗi đã ghi nhận (vote + phòng chờ). Sau khi deploy, nếu vẫn còn lỗi ở quy mô tương tự (4-10
+người) thì mới cần điều tra sâu hơn (giảm tải tính toán mỗi request — xem mục "Việc cần làm tiếp" #4).
+
 ## Việc cần làm tiếp (chưa làm, ghi lại để không quên)
 
-1. **Deploy cả 3 fix (Entry #3, #4, #5) lên production** — hỏi lại user trước khi deploy (ảnh hưởng
-   người chơi thật). Nếu user đã báo lỗi 1102 mới mà chưa deploy, ưu tiên deploy trước rồi mới điều
-   tra thêm.
+1. **Deploy cả 3 fix (Entry #3, #4, #5) lên production — ĐANG LÀ VIỆC ƯU TIÊN NHẤT**, có bằng chứng
+   thực tế (Entry #6) là lỗi tái diễn đều đặn chỉ vì chưa deploy. Hỏi lại user trước khi deploy (ảnh
+   hưởng người chơi thật), nhưng đừng trì hoãn thêm bằng cách điều tra lại từ đầu nếu user báo thêm
+   một lần lỗi 1102 nữa có cùng đặc điểm "nhiều người thao tác gần nhau" — mẫu này đã được xác nhận
+   2 lần (vote + phòng chờ), khả năng cao là cùng nguyên nhân.
 2. Sau khi deploy và có ván chơi đông người tiếp theo bị lỗi (nếu còn), tra lại
    `workersInvocationsAdaptive` cùng khung giờ, so sánh số lỗi/`cpuTime`/`wallTime` với baseline
    Entry #2 (36 lỗi/4 đợt) để đánh giá hiệu quả của CẢ 3 fix cộng lại.

@@ -681,17 +681,17 @@ function mapLobbyPlayer(
   player: PlayerRow,
   liveProfilesByUserId?: Map<string, LivePlayerProfile>
 ): AvalonLobbyPlayer {
-  // Người chơi đã đăng nhập: ưu tiên tên/avatar "live" từ public.users thay vì bản snapshot
-  // đã lưu ở room_players lúc join — để đổi tên/avatar trong Hồ sơ có hiệu lực ngay ở
-  // mọi phòng, không cần vào lại phòng để "cập nhật" thủ công. Guest (không có user_id) luôn
-  // dùng bản snapshot vì không có hàng nào trong users để tham chiếu.
+  // Tên/avatar hiển thị trong phòng LUÔN lấy từ bản snapshot ở room_players — người chơi (kể cả
+  // đã đăng nhập) đổi tên/avatar qua nút bút chì trong phòng phải thấy hiệu lực ngay, không bị
+  // đè lại bởi hồ sơ tài khoản. Chỉ riêng khung avatar/khung hồ sơ (trang trí mua ở shop, không có
+  // UI đổi tại phòng) mới lấy "live" từ public.users. Guest (không có user_id) không có liveProfile.
   const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
-  const avatarObjectKey = normalizePlayerAvatarObjectKey(liveProfile?.avatarObjectKey ?? player.avatar_object_key);
+  const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
 
   return {
     id: player.id,
-    name: liveProfile?.displayName || player.name,
-    avatarKey: normalizePlayerAvatarKey(liveProfile?.avatarKey ?? player.avatar_key),
+    name: player.name,
+    avatarKey: normalizePlayerAvatarKey(player.avatar_key),
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
