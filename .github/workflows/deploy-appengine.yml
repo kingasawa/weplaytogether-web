@@ -1,0 +1,57 @@
+name: Deploy to Google App Engine
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production-appengine
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # NEXT_PUBLIC_* vars are inlined at build time by Next.js — app.yaml's env_variables are
+          # runtime-only and NOT visible during App Engine's own (disabled, see "gcp-build") build step.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_PUSHER_APP_KEY: "cd4d09709fff28e5e65c"
+          NEXT_PUBLIC_PUSHER_CLUSTER: "ap1"
+          NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX: "presence-nicecode-websocket-"
+          NEXT_PUBLIC_AVATAR_PUBLIC_URL: "https://storage.googleapis.com/weplaytogether-uploads"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/941606085391/locations/global/workloadIdentityPools/github/providers/my-repo
+          service_account: gh-appengine-deployer@we-play-together-505903.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Deploy to App Engine
+        run: gcloud app deploy app.yaml --project=we-play-together-505903 --quiet

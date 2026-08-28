@@ -105,7 +105,7 @@ export default function PrivacyPolicyPage() {
           <p>We do not sell personal information. We may share limited information only as needed to operate WePlayTogether:</p>
           <ul>
             <li>with Supabase for authentication, database, and session services;</li>
-            <li>with Cloudflare R2 or related hosting infrastructure for uploaded avatar storage and delivery;</li>
+            <li>with Google Cloud Storage or related hosting infrastructure for uploaded avatar storage and delivery;</li>
             <li>with real-time infrastructure providers such as Pusher to deliver room and game updates;</li>
             <li>with other players in the same room, limited to gameplay information such as player name, avatar, and actions;</li>
             <li>when required by law, security needs, or to protect the rights and safety of users and the service.</li>

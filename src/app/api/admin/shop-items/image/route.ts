@@ -1,11 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { isAdminEmail } from "@/lib/admin";
-import { putAvatarObject } from "@/lib/cloudflare-r2";
+import { putAvatarObject } from "@/lib/avatar-storage";
 
 export const runtime = "nodejs";
 
 // Ảnh đã được nén + chuyển sang WebP (hoặc PNG fallback) ngay ở trình duyệt trước khi tới
-// đây (xem src/lib/shop-item-image.ts) — route này chỉ xác thực quyền admin rồi lưu vào R2.
+// đây (xem src/lib/shop-item-image.ts) — route này chỉ xác thực quyền admin rồi lưu vào GCS.
 const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
 const ALLOWED_EXTENSION_BY_TYPE = new Map([
   ["image/webp", "webp"],
@@ -78,13 +78,13 @@ export async function POST(request: Request) {
   try {
     await putAvatarObject(objectKey, file, file.type);
   } catch {
-    return Response.json({ error: "Không thể tải ảnh lên R2. Vui lòng thử lại." }, { status: 503 });
+    return Response.json({ error: "Không thể tải ảnh lên. Vui lòng thử lại." }, { status: 503 });
   }
 
-  const publicBaseUrl = process.env.NEXT_PUBLIC_R2_AVATAR_PUBLIC_URL?.trim().replace(/\/+$/, "");
+  const publicBaseUrl = process.env.NEXT_PUBLIC_AVATAR_PUBLIC_URL?.trim().replace(/\/+$/, "");
 
   if (!publicBaseUrl) {
-    return Response.json({ error: "Chưa cấu hình public URL cho R2." }, { status: 503 });
+    return Response.json({ error: "Chưa cấu hình public URL cho ảnh." }, { status: 503 });
   }
 
   const imageUrl = `${publicBaseUrl}/${objectKey

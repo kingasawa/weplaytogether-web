@@ -30,7 +30,7 @@ export type ShopItemInput = {
   sortOrder: number;
 };
 
-// Nén ảnh ngay ở trình duyệt (bất kể định dạng gốc) rồi upload lên Cloudflare R2 qua route
+// Nén ảnh ngay ở trình duyệt (bất kể định dạng gốc) rồi upload lên Google Cloud Storage qua route
 // /api/admin/shop-items/image (route đó tự kiểm tra lại quyền admin bằng access token, vì
 // đây là request tới API route chứ không phải Supabase nên không tự có RLS bảo vệ).
 export async function uploadShopItemImage(itemType: ShopItemType, file: File): Promise<AdminResult<string>> {

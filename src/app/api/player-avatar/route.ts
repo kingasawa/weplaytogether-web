@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { deleteAvatarObject, putAvatarObject } from "@/lib/cloudflare-r2";
+import { deleteAvatarObject, putAvatarObject } from "@/lib/avatar-storage";
 import {
   getUploadedPlayerAvatarUrl,
   normalizeUploadedPlayerAvatarObjectKey,
@@ -61,13 +61,13 @@ export async function POST(request: Request) {
   const avatarUrl = getUploadedPlayerAvatarUrl(objectKey);
 
   if (!avatarUrl) {
-    return Response.json({ error: "Chưa cấu hình public URL cho R2 avatar." }, { status: 503 });
+    return Response.json({ error: "Chưa cấu hình public URL cho avatar." }, { status: 503 });
   }
 
   try {
     await putAvatarObject(objectKey, avatarFile, avatarFile.type);
   } catch {
-    return Response.json({ error: "Không thể tải avatar lên R2." }, { status: 503 });
+    return Response.json({ error: "Không thể tải avatar lên." }, { status: 503 });
   }
 
   // Giữ lại các avatar đã upload trước đó để hiển thị chung trong bộ sưu tập của user.

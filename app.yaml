@@ -1,0 +1,18 @@
+runtime: nodejs22
+
+instance_class: F2
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+  target_cpu_utilization: 0.7
+
+env_variables:
+  NEXT_PUBLIC_SUPABASE_URL: "https://tvwofffcpjgfyxxbvpsi.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d29mZmZjcGpnZnl4eGJ2cHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODAyNjEsImV4cCI6MjA5NTk1NjI2MX0.9RPl9dw40ItI7nRel_mCuIBjA2_8QwAzddFch82W8bI"
+  NEXT_PUBLIC_PUSHER_APP_KEY: "cd4d09709fff28e5e65c"
+  NEXT_PUBLIC_PUSHER_CLUSTER: "ap1"
+  NEXT_PUBLIC_PUSHER_CHANNEL_PREFIX: "presence-nicecode-websocket-"
+  NEXT_PUBLIC_AVATAR_PUBLIC_URL: "https://storage.googleapis.com/weplaytogether-uploads"
+  PUSHER_APP_ID: "2162565"
+  GCS_BUCKET_NAME: "weplaytogether-uploads"

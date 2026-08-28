@@ -6,13 +6,16 @@
     "dev": "next dev",
     "check:encoding": "node scripts/check-text-encoding.mjs",
     "build": "npm run check:encoding && next build --webpack",
-    "start": "next start",
+    "start": "next start -p $PORT",
+    "gcp-build": "",
     "lint": "npm run check:encoding && eslint",
     "cf:build": "npm run check:encoding && opennextjs-cloudflare build",
     "cf:preview": "npm run check:encoding && opennextjs-cloudflare build && wrangler dev",
     "cf:deploy": "npm run check:encoding && opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
+    "@google-cloud/secret-manager": "^7.0.0",
+    "@google-cloud/storage": "^8.0.1",
     "@supabase/supabase-js": "^2.107.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",

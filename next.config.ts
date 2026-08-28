@@ -8,13 +8,13 @@ const nextConfig: NextConfig = {
     // Tắt tối ưu ảnh -> ảnh đi thẳng qua Cloudflare static assets: có CDN cache, Worker không đụng tới.
     // Bù lại, ảnh nguồn phải sẵn sàng để dùng: xem scripts/optimize-images.mjs.
     unoptimized: true,
-    // Cho phép next/image tải avatar người chơi từ Cloudflare R2 custom domain.
+    // Cho phép next/image tải avatar người chơi từ Google Cloud Storage.
     // Giới hạn đúng folder avatar/ để không mở toàn bộ host.
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "uploads.weplaytogether.online",
-        pathname: "/avatar/**",
+        hostname: "storage.googleapis.com",
+        pathname: "/weplaytogether-uploads/avatar/**",
       },
       {
         protocol: "https",

@@ -126,7 +126,7 @@ export function getUploadedPlayerAvatarUrl(avatarObjectKey?: string | null) {
     return googleAvatarUrl;
   }
 
-  const publicBaseUrl = process.env.NEXT_PUBLIC_R2_AVATAR_PUBLIC_URL?.trim().replace(/\/+$/, "");
+  const publicBaseUrl = process.env.NEXT_PUBLIC_AVATAR_PUBLIC_URL?.trim().replace(/\/+$/, "");
 
   if (!publicBaseUrl) {
     return null;
@@ -143,7 +143,7 @@ export function getPlayerAvatarSrc(avatarKey?: string | null, uploadedAvatarUrl?
 }
 
 /**
- * Avatar remote (Google / R2) phải render `unoptimized` để browser tải trực tiếp.
+ * Avatar remote (Google / GCS) phải render `unoptimized` để browser tải trực tiếp.
  * Nếu để next/image tối ưu phía server, Google thường chặn/giới hạn request của
  * optimizer khiến ảnh bị broken. Avatar cục bộ (/images/...) vẫn tối ưu bình thường.
  */

@@ -1,0 +1,16 @@
+# Không dùng #!include:.gitignore — .gitignore loại trừ /.next/, mà App Engine cần .next/ được
+# upload nguyên vẹn (đã tắt build tự động qua "gcp-build": "" trong package.json). Liệt kê tường
+# minh các pattern nhạy cảm đang gitignore thay vì include cả file, để tránh mất .next/ theo.
+.git/
+node_modules/
+.next/cache/
+.open-next/
+.wrangler/
+
+# project credentials — never commit / never upload
+.env*
+documents/project-config.md
+.claude/settings.local.json
+.codex/
+.mcp.json
+.dev.vars

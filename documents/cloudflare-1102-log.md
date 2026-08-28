@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-27 (entry #9) -->
+<!-- Last updated: 2026-08-28 (entry #11) -->
 
 # Nhật ký lỗi Cloudflare 1102 (Worker exceeded resource limits)
 
@@ -15,14 +15,37 @@ user" mà là vấn đề kiến trúc/hiệu năng: có chỗ nào đó trong c
 trên mỗi request, hoặc pattern gọi request đang tạo ra tải dồn (burst) không cần thiết. Nếu không
 xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng thêm người chơi.
 
-## Tình trạng hiện tại (cập nhật 2026-08-27, entry #9)
+## Tình trạng hiện tại (cập nhật 2026-08-28, entry #11)
 
-- **Đã tăng cường fix #3 thành throttle thật sự (Entry #9) — CHƯA DEPLOY.** Đổi
-  `use-wolf-room-presence.ts`: từ debounce 700ms (chỉ gộp khi đang có 1 lần đang chờ) sang throttle
-  2500ms tính theo `lastSyncedAtRef` (mốc lần fetch THỰC SỰ CHẠY gần nhất, bất kể do broadcast/poll/
-  foreground) + jitter 500ms rải thêm. Xem chi tiết ở Entry #9.
-- **Mốc đối chiếu MỚI: fix throttle này chỉ có hiệu lực sau khi deploy lần tiếp theo (chưa có mốc
-  thời gian — hỏi lại user đã deploy chưa trước khi coi fix này là đang chạy).**
+> ⚠️ **Mục ngay dưới đây (về giới hạn 6 kết nối) đã được ĐÍNH CHÍNH ở Entry #11 — đọc Entry #11 trước
+> khi dựa vào mục này.** Tóm tắt đính chính: vượt 6 kết nối đồng thời **không tự nó gây lỗi** kể từ khi
+> Cloudflare đổi hành vi runtime (4/2026, đang áp dụng cho app này) — chỉ gây xếp hàng chờ, không ném
+> exception. Đây là yếu tố GÓP PHẦN gián tiếp vào áp lực CPU/memory, không phải một giới hạn độc lập
+> "vi phạm là chắc chắn lỗi". Mức ưu tiên hạ xuống ngang hàng với CPU time/memory — cả 3 đều chưa xác
+> nhận được cái nào là nguyên nhân chính.
+
+- **Nguyên nhân đang nghi ngờ nhất (CHƯA FIX, CHƯA xác nhận là nguyên nhân chính — xem đính chính
+  trên):** `resolveNightActions()` (`src/app/games/wolf/actions.ts` dòng ~3238) bắn `Promise.all` cập
+  nhật ĐỒNG THỜI cho MỌI lá bài (`players.length + 3`, tối đa **13** lá với phòng 10 người). Từ
+  4/2026, Cloudflare giới hạn **"tối đa 6 kết nối đang chờ response header cùng lúc / 1 lần Worker
+  invocation"** — kết nối thứ 7-13 chỉ bị XẾP HÀNG CHỜ (không lỗi), nhưng việc này kéo dài thời gian
+  giữ state/buffer trong bộ nhớ của isolate, góp phần đẩy CPU time/memory của invocation đó (hoặc
+  isolate dùng chung) tới gần giới hạn thật hơn. Đây là lời giải hợp lý nhất hiện có cho việc "13 > 6
+  xảy ra CỐ ĐỊNH mỗi lần, nhưng lỗi 1102 lại NGẪU NHIÊN" — vì phần "có đủ để vượt ngưỡng CPU/memory
+  thật hay không" phụ thuộc tải tại đúng thời điểm đó (bao nhiêu request khác dùng chung isolate, độ
+  trễ Supabase lúc đó...), không phải thứ code này tự quyết định được. Root cause thật sự (giữa CPU
+  time và memory) vẫn CHƯA xác nhận — xem Entry #11.
+- **Dữ liệu thực tế xác nhận throttle (#9) giảm nhưng KHÔNG loại bỏ lỗi:** trong cửa sổ 08:55–10:05
+  UTC ngày 27/8 (sau khi throttle 2500ms đã live), 2438 request thì có 40 lỗi `exceededResources`
+  (1.64%), vẫn dồn cụm giống các baseline trước throttle. Xem Entry #10.
+- **Trạng thái deploy (đã xác nhận bằng commit SHA thật từ GitHub Actions, không suy luận thời gian):**
+  commit `2ea36b0` (throttle #9) live từ `2026-08-27T08:55:18Z`; commit `8840920` (tính năng độ trễ
+  lượt đêm — migration CHƯA áp remote nên tính năng đang ở trạng thái tắt/fallback) live từ
+  `2026-08-27T10:05:43Z` và là bản production HIỆN TẠI.
+- **Chưa có cửa sổ tải cao nào sau 10:05:43Z (bản mới nhất) để kiểm chứng** — 363 request/~16 tiếng kể
+  từ đó, không đủ để kết luận gì. Nếu user báo lỗi 1102 "hiện tại" mà không kèm thời điểm/Ray ID cụ
+  thể, hỏi lại thời điểm chính xác trước khi tra cứu, vì dữ liệu Analytics tính đến lúc viết entry này
+  KHÔNG cho thấy lỗi nào sau 2026-08-27T10:00Z.
 
 > ⚠️ **Entry #7 bên dưới SAI một phần — xem Entry #8 để biết bản đã sửa.** Giữ nguyên Entry #7
 > trong Timeline (không xoá) để thấy rõ đã sai ở đâu và sửa thế nào, nhưng đừng dựa vào mốc thời gian
@@ -35,22 +58,17 @@ xử lý tận gốc, vấn đề sẽ tái diễn ngay cả khi không tăng th
 - **Bài học (đã ghi vào memory để không lặp lại):** KHÔNG được suy luận "code X đã có trong bản
   deploy Y hay chưa" chỉ từ mốc thời gian lỗi xảy ra trước/sau lúc deploy — phải kiểm tra TRỰC TIẾP
   nội dung commit đã deploy (`git show <commit>:<file>`, hoặc hỏi commit SHA nào tương ứng deploy
-  nào). Entry #7 đã suy luận sai theo kiểu này và kết luận nhầm.
+  nào). Entry #7 đã suy luận sai theo kiểu này và kết luận nhầm. Entry #10 áp dụng đúng bài học này
+  bằng cách đối chiếu qua GitHub Actions API (`head_sha` của từng run) thay vì chỉ so mốc thời gian.
 - **Hệ quả quan trọng: lỗi Entry #6 (18+8=26 lỗi lúc 08:15–08:20Z) xảy ra SAU KHI cả 3 fix đã live
   được 17-22 phút.** Tức là 3 fix **chưa đủ** để ngăn lỗi ở kịch bản phòng chờ bấm sẵn sàng — đây là
   kết luận khác hẳn Entry #7 (Entry #7 tưởng nhầm là 3 fix chưa deploy nên lỗi vẫn còn "hợp lý").
 - Deploy lúc 08:30:12Z (commit `d15f295`) **KHÔNG liên quan tới 1102** — đó là fix riêng cho bug
   "user đăng nhập không đổi được tên trong phòng" (`mapLobbyPlayer`), commit message trùng "fix 1102"
   chỉ là do quy trình commit của user đặt tên lặp lại, không phản ánh nội dung thật.
-- **Giả thuyết đang xem xét cho việc fix #3 (jitter) chưa đủ:** cửa sổ jitter 700ms có thể chưa đủ
-  dài để dàn trải hết N client cùng phản ứng 1 broadcast — với 4 mẫu ngẫu nhiên trong 700ms, xác suất
-  2-3 client rơi vào cùng một khoảng vài chục ms vẫn khá cao (hiệu ứng "birthday paradox"). Ngoài ra
-  cơ chế hiện tại chỉ "gộp nếu đang có timer chờ" — nếu các broadcast cách nhau HƠN 700ms (rất dễ xảy
-  ra với các hành động người thật cách nhau vài giây: vào phòng, đổi avatar, bấm sẵn sàng...), mỗi
-  broadcast vẫn tạo một đợt fetch đồng thời riêng, không được gộp giữa các đợt với nhau. **Chưa có
-  code fix mới cho việc này — đang chờ quyết định hướng đi (xem hội thoại).**
 - **Chưa xác nhận được** lỗi 1102 là do hết CPU time hay hết bộ nhớ (128MB/isolate) — vẫn mở, xem
-  phần "CPU vs Memory" bên dưới.
+  phần "CPU vs Memory" bên dưới. (Giới hạn "6 kết nối đồng thời" phát hiện ở Entry #10 là nguyên nhân
+  THỨ BA, độc lập với cả hai — không cần phân biệt CPU/memory để xác nhận giả thuyết này.)
 - Lỗi 1101 (Worker throw exception, KHÁC 1102) user báo "hôm qua" (trước 2026-08-27) **chưa điều
   tra được** — không có Ray ID/thời điểm cụ thể, không có Sentry. Vẫn đang mở.
 
@@ -408,26 +426,180 @@ lobby, thoát phòng) qua trình duyệt — không console error, luồng hoạ
 deploy) để lấy số liệu Cloudflare thật xác nhận hiệu quả, so với baseline Entry #6 (26 lỗi/2 đợt,
 lúc vẫn còn debounce 700ms).
 
+### 2026-08-28 — Entry #10: Rà soát toàn diện MỌI nguyên nhân 1102 + phát hiện giới hạn 6 kết nối đồng thời (CHƯA FIX)
+
+**User báo:** vẫn còn bị lỗi 1102, yêu cầu liệt kê **tất cả** case có thể gây lỗi 1102 trên Cloudflare
+(không riêng những gì đã điều tra trong log này), kiểm tra trước trên game Ma Sói Một Đêm.
+
+**Điều tra 1 — xác nhận lại trạng thái deploy (đúng bài học Entry #7/#8: dùng commit SHA thật, không
+suy luận từ mốc thời gian):**
+- `GET /accounts/{id}/workers/scripts/weplaytogether-web/deployments` → deploy gần nhất
+  `2026-08-27T10:05:38Z`.
+- Đối chiếu GitHub Actions API công khai (`GET api.github.com/repos/kingasawa/weplaytogether-web/
+  actions/runs?branch=main`, repo public nên không cần token): workflow "Deploy to Cloudflare Workers"
+  hoàn tất lúc `10:05:43Z` ứng với `head_sha = 8840920`; deploy `08:55:18Z` ứng với `head_sha =
+  2ea36b0`. Khớp đúng với thời điểm 2 commit này được tạo (08:53:20 và 17:03:38 giờ VN).
+- **Xác nhận: commit `2ea36b0` (Entry #9 — throttle 2500ms+jitter500ms) ĐÃ LIVE từ 08:55:18Z UTC.
+  Commit `8840920` (thêm tính năng độ trễ lượt đêm ngẫu nhiên, cột `night_turn_reveal_at`) ĐÃ LIVE từ
+  10:05:43Z UTC và là bản production hiện tại.** Tính năng độ trễ lượt đêm code đã viết xong nhưng
+  **CHƯA thực sự hoạt động** vì migration `202608270001_wolf_night_turn_delay.sql` chưa được áp remote
+  (đã kiểm tra `documents/migrations.md` — code tự fallback an toàn khi thiếu cột, hành vi hiện tại vẫn
+  như cũ: chuyển lượt/kết thúc đêm ngay lập tức, không có độ trễ).
+
+**Điều tra 2 — dữ liệu lỗi thật sau khi throttle (#9) live, so sánh công bằng với baseline cũ:**
+Query `workersInvocationsAdaptive` cho đúng cửa sổ 08:55–10:05 UTC 27/8 (từ lúc throttle live tới lúc
+deploy kế tiếp) — đây là cửa sổ DUY NHẤT có tải cao (2438 request) để so sánh với baseline Entry #2
+(36 lỗi/2438... à baseline gốc là 36 lỗi, không cùng quy mô traffic nên chỉ so tỷ lệ/hình dạng cụm):
+- **success: 2398, exceededResources: 40 → tỷ lệ lỗi 1.64%.** Lỗi vẫn dồn cụm: 09:25 (5), 09:30 (12),
+  09:40 (1), 09:55 (21), 10:00 (1).
+- **Chi tiết đáng chú ý:** bucket traffic CAO NHẤT (09:35 UTC, 243 request) **không có lỗi nào**, trong
+  khi bucket 09:55 UTC (162 success + 21 lỗi = 183 request, THẤP hơn 09:35) lại lỗi nặng nhất. Nếu
+  nguyên nhân thuần tuý là "tổng request/5 phút quá cao" thì 09:35 phải lỗi nặng hơn — ngược lại mới
+  đúng. Việc lỗi không tỷ lệ thuận với tổng traffic gợi ý mạnh: nguyên nhân là **một THAO TÁC CỤ THỂ
+  xảy ra đúng lúc đó** (khớp giả thuyết ở Điều tra 3 bên dưới), không phải do throttle chưa đủ mạnh.
+- **Kết luận: throttle 2500ms (#9) làm GIẢM nhưng KHÔNG LOẠI BỎ lỗi 1102.** Cần thêm nguyên nhân khác
+  ở phía SERVER (một loại request tự nó tốn tài nguyên/kết nối vượt giới hạn), không chỉ do nhiều
+  client gọi trùng nhau.
+- Cửa sổ sau đó (10:05:43Z 27/8 → hiện tại lúc viết entry, 2026-08-28T02:04Z): 363 request, 0 lỗi —
+  **KHÔNG dùng được để kết luận "đã hết lỗi"** vì lưu lượng quá thấp (~16 tiếng không có ván đông người
+  nào), chỉ đơn giản là chưa có tải tương đương để kiểm chứng bản mới nhất.
+
+**Điều tra 3 — đọc lại code ở góc độ MỚI (subrequest/connection, không chỉ "số lần gọi lại state" như
+các entry trước):**
+
+Tra lại `developers.cloudflare.com/workers/platform/limits/` (chính thức) — xác nhận một giới hạn
+RIÊNG BIỆT với CPU/memory mà log này **chưa từng nhắc tới trước entry này**:
+**"Simultaneous open connections: tối đa 6 kết nối đang mở cùng lúc / 1 lần Worker invocation"**
+(gộp chung `fetch()`, KV, Cache API, R2, Queues, WebSocket — áp dụng CẢ Free lẫn Paid, KHÔNG nâng cấp
+được bằng cách trả tiền, khác với CPU time).
+
+Đọc lại `resolveNightActions()` (`src/app/games/wolf/actions.ts` dòng ~3238-3261 — hàm chạy mỗi khi
+đêm kết thúc, gọi từ `settleNightTurnDelay` trong `getWolfPlayState`):
+
+```ts
+await Promise.all(
+  cards.map((card) => supabase.from("game_cards").update({ current_role: ... }).eq("id", card.id))
+);
+```
+
+- Số lá bài = `players.length + 3` (xác nhận tại `validateSelectedRoleDeck(selectedRoles,
+  players.length + 3)` và `centerCards = roles.slice(players.length)...` lúc `startWolfGame`) — đúng
+  luật Ma Sói Một Đêm chuẩn (mỗi người 1 lá + 3 lá giữa bàn).
+- Với `MAX_PLAYERS = 10`, số lá bài tối đa = **13** → `resolveNightActions` bắn **13 request UPDATE
+  Supabase đồng thời** qua `Promise.all`, kể cả khi CHỈ MỘT request duy nhất (không trùng lặp) gọi hàm
+  này. **Đây là điểm khác biệt cốt lõi so với mọi phân tích trước:** các fix throttle/CAS (#3/#4/#9)
+  chỉ ngăn NHIỀU request gọi TRÙNG NHAU — không ngăn được việc MỘT lần gọi hợp lệ, đúng thiết kế, tự nó
+  đã vượt giới hạn 6 kết nối đồng thời của chính Cloudflare. Giải thích tốt hơn cho hiện tượng lỗi dồn
+  cụm không tỷ lệ với tổng traffic ở Điều tra 2 (khớp lúc nhiều ván đồng thời cùng kết thúc đêm, hơn là
+  khớp lúc tổng lưu lượng cao nhất).
+- **Đã rà thêm để loại trừ khả năng khác trong cùng khu vực code (tránh kết luận vội):**
+  - `awardWolfGameScores` (dòng ~3133): gộp toàn bộ người chơi vào 1 mảng, gọi ĐÚNG 1 RPC
+    `award_wolf_game_points` — không fan-out, KHÔNG phải nguyên nhân.
+  - `nightResolutionCache` (dòng ~2263): dùng `WeakMap` (không phải `Map`), khoá theo mảng `cards`,
+    có comment giải thích rõ mục đích tránh giữ rác giữa các request — KHÔNG rò rỉ bộ nhớ qua isolate.
+  - `getActivePlayers`, `getLivePlayerProfilesByUserId`: đều là 1 query duy nhất, không phải kiểu N+1
+    lặp theo từng người chơi.
+  - `Promise.all` khác trong codebase (`wolf-classic/actions.ts`, `pusher/server.ts`): chỉ gộp 2-3
+    lời gọi cố định, không có nguy cơ vượt giới hạn 6 kết nối.
+
+**Chưa fix ở entry này** — chỉ mới XÁC ĐỊNH nguyên nhân, chưa chọn hướng sửa (2 hướng khả dĩ: gộp 13
+lệnh UPDATE riêng lẻ thành 1 lệnh `upsert` hàng loạt duy nhất; hoặc giữ nhiều lệnh nhưng chạy theo lô
+nhỏ ≤5-6 lệnh mỗi đợt thay vì tất cả cùng lúc) — cần bàn hướng với user trước khi code.
+
+**Việc phụ đã làm:** tổng hợp bảng đầy đủ MỌI case có thể gây 1102 theo tài liệu chính thức Cloudflare
+(không riêng case đang nghi ở app này), đối chiếu từng case với code Ma Sói Một Đêm — gửi cho user
+dạng bảng trong hội thoại/artifact, không lưu lại nội dung bảng vào file này (chỉ lưu phát hiện mới có
+giá trị lâu dài như trên).
+
+---
+
+### 2026-08-28 — Entry #11: Đính chính Entry #10 — vượt 6 kết nối KHÔNG tự nó gây lỗi (runtime đã đổi hành vi từ 4/2026)
+
+**User hỏi đúng trọng tâm:** "bắn 13 kết nối đồng thời, vượt giới hạn 6 kết nối/lần Worker chạy, thì
+sẽ bị lỗi gì, có phải là 1102 không, và tại sao lúc nào nó cũng vượt giới hạn mà lỗi 1102 thì ngẫu
+nhiên?" — câu hỏi lộ ra một chỗ Entry #10 chưa giải thích được: nếu 13 > 6 xảy ra ở MỌI lần
+`resolveNightActions` chạy (code cố định, không đổi), tại sao lỗi 1102 lại không xảy ra ở MỌI lần?
+
+**Điều tra lại (đúng tinh thần "kiểm chứng trước khi khẳng định" mà log này luôn theo — không lặp lại
+kiểu suy luận vội đã bị sửa ở Entry #7/#8):** tra lại tài liệu chính thức Cloudflare, phát hiện có một
+**thay đổi hành vi runtime** mà Entry #10 chưa biết tới:
+
+- Tìm thấy changelog chính thức:
+  [Relaxed simultaneous connection limiting for Workers](https://developers.cloudflare.com/changelog/post/2026-04-09-relaxed-connection-limiting/)
+  (ngày **2026-04-09** — đã có hiệu lực từ lâu trước khi dự án này gặp lỗi 1102 đầu tiên, nên áp dụng
+  cho toàn bộ traffic đang được phân tích trong log này).
+- **Hành vi CŨ (trước 4/2026):** giới hạn 6 kết nối áp dụng cho TOÀN BỘ vòng đời kết nối (kể cả lúc
+  đang đọc response body, không chỉ lúc chờ header). Runtime dùng "deadlock avoidance algorithm" —
+  nếu cả 6 kết nối cùng "trông có vẻ" idle dù chỉ trong khoảnh khắc, nó sẽ HỦY kết nối lâu-không-hoạt-
+  động-nhất để nhường chỗ. Việc hủy này ném ra lỗi cụ thể tên **"Response closed due to connection
+  limit"** — MỘT LOẠI LỖI KHÁC, có tên/thông báo riêng, không phải "1102 Worker exceeded resource
+  limits". Lỗi này cũng dễ bị kích hoạt "giả" (spurious) vì các thao tác nội bộ như giải nén gzip tạo
+  ra khoảng lặng I/O ngắn khiến kết nối đang hoạt động thật bị tưởng nhầm là idle.
+- **Hành vi MỚI (từ 4/2026, đang áp dụng CHO APP NÀY ngay lúc này):** giới hạn 6 chỉ còn áp dụng cho
+  giai đoạn "đang chờ response header" — ngay khi 1 kết nối nhận được header, chỗ trống được giải
+  phóng lập tức (dù body vẫn đang đọc dở). Kết nối thứ 7 trở đi khi cả 6 đang chờ header **chỉ đơn
+  giản bị XẾP HÀNG CHỜ**, không có exception/lỗi nào bị ném ra. Lỗi "Response closed due to connection
+  limit" đã **bị loại bỏ hoàn toàn**.
+
+**Kết luận đính chính:** claim ở Entry #10 rằng đây là "vi phạm xác nhận" tương đương CPU/memory là
+**QUÁ MẠNH so với bằng chứng thật**. Chính xác hơn:
+- Bắn 13 kết nối đồng thời **không tự nó gây ra lỗi nào cả** (kể cả 1102 lẫn bất kỳ lỗi nào khác) —
+  chỉ khiến 7 trong 13 request phải xếp hàng chờ, kéo dài thời gian chạy thực tế (wall-clock) của
+  `resolveNightActions()`.
+- Đây LÀ điều kiện **CẦN nhưng KHÔNG ĐỦ**: việc xếp hàng chờ này giữ nhiều state/buffer hơn (Supabase
+  client, promise, response đang chờ) sống lâu hơn trong bộ nhớ của isolate — **góp phần làm tăng áp
+  lực lên đúng 2 giới hạn THẬT SỰ gây 1102** (CPU time và memory 128MB/isolate dùng chung), chứ không
+  phải bản thân nó là một giới hạn thứ 3 độc lập.
+- **Đây chính là lời giải cho câu hỏi "luôn vượt mà lỗi lại ngẫu nhiên":** 13 > 6 xảy ra CỐ ĐỊNH mỗi
+  lần (code không đổi), nhưng việc điều đó có ĐỦ để đẩy CPU/memory của đúng invocation đó (hoặc isolate
+  đang dùng chung) vượt ngưỡng hay không lại phụ thuộc các yếu tố **ngẫu nhiên tại đúng thời điểm đó**:
+  isolate đó đang xử lý thêm bao nhiêu request khác cùng lúc (bộ nhớ dùng chung), độ trễ phản hồi thật
+  của Supabase lúc đó (chậm hơn → giữ hàng chờ lâu hơn → chiếm bộ nhớ lâu hơn), có bao nhiêu ván khác
+  đang cùng lúc kết thúc đêm... — không phải thứ code kiểm soát được.
+
+**Có cần fix `resolveNightActions` nữa không?** CÓ, vẫn nên chia thành lô nhỏ (≤5-6/đợt) như đã đề
+xuất ở Entry #10 — nhưng vì lý do KHÁC: giảm đỉnh bộ nhớ/thời gian giữ trạng thái mỗi invocation, qua
+đó giảm XÁC SUẤT góp phần vượt CPU/memory, không phải vì "tránh 1 giới hạn kết nối gây lỗi trực tiếp"
+(giới hạn đó không còn gây lỗi trực tiếp nữa từ 4/2026). Mức độ ưu tiên hạ từ "vi phạm xác nhận" xuống
+"yếu tố góp phần đáng ngờ, chưa chắc là nguyên nhân chính" — ngang hàng với CPU time và memory, cả 3
+đều CHƯA xác nhận được cái nào là nguyên nhân trực tiếp/chính.
+
+**File/artifact đã cập nhật lại cho khớp:** bảng chẩn đoán (artifact đã gửi user) — đổi mức độ dòng
+"6 kết nối đồng thời" từ 🔴 sang 🟡, viết lại phần bằng chứng theo đúng cơ chế mới. Đã sửa lại phần
+"Tình trạng hiện tại" và mục 1 "Việc cần làm tiếp" bên dưới cho khớp.
+
+---
+
 ## Việc cần làm tiếp (chưa làm, ghi lại để không quên)
 
-1. **[ĐÃ XONG — deploy thật sự lúc 07:58:40Z, KHÔNG PHẢI 08:30:12Z như Entry #7 tưởng nhầm, xem
+1. **[Entry #10, đính chính mức độ ở Entry #11 — vẫn CHƯA FIX, nghi vấn ngang hàng CPU/memory]**
+   `resolveNightActions()` (`src/app/games/wolf/actions.ts` dòng ~3238) bắn 13 lệnh UPDATE Supabase
+   đồng thời qua `Promise.all` (1 lệnh/lá bài, tối đa `players.length + 3 = 13` với phòng 10 người).
+   Từ 4/2026 Cloudflare chỉ XẾP HÀNG CHỜ kết nối vượt quá 6 (không lỗi trực tiếp) — nên đây là yếu tố
+   GÓP PHẦN vào áp lực CPU/memory của isolate, không phải một vi phạm tự nó gây lỗi (xem Entry #11).
+   Vẫn đáng sửa để giảm đỉnh bộ nhớ/thời gian giữ state mỗi invocation: (a) gộp thành 1 lệnh `upsert`
+   hàng loạt duy nhất thay vì 13 lệnh riêng, hoặc (b) giữ nhiều lệnh nhưng chạy theo lô ≤5-6 lệnh/đợt.
+   Bàn với user trước khi chọn hướng — không còn là "khẩn cấp nhất" mà là 1 trong vài nghi vấn ngang
+   nhau, nên cân nhắc làm cùng lúc với việc tìm cách xác nhận CPU hay memory mới là nguyên nhân chính
+   (mục 3 bên dưới) thay vì coi đây là đủ để giải quyết một mình.
+2. **[ĐÃ XONG — deploy thật sự lúc 07:58:40Z, KHÔNG PHẢI 08:30:12Z như Entry #7 tưởng nhầm, xem
    Entry #8]** ~~Deploy cả 3 fix (Entry #3, #4, #5) lên production~~.
-   **[ĐÃ VIẾT CODE, CHƯA DEPLOY — xem Entry #9]** ~~Tăng cường fix #3 thành throttle thật sự
-   (2.5s + jitter 500ms)~~. **Việc ưu tiên nhất bây giờ: deploy fix Entry #9**, rồi chờ ván chơi
-   đông người tiếp theo (SAU khi deploy) và tra lại `workersInvocationsAdaptive`, so với baseline
-   Entry #6 (26 lỗi/2 đợt, lúc còn debounce 700ms) để xác nhận throttle 2.5s có giải quyết được
-   không. Nếu user báo lỗi 1102 mới mà chưa xác nhận đã deploy fix Entry #9, hỏi lại trước khi kết
-   luận thêm.
-2. Cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để tra được `clientRequestPath`
+   **[ĐÃ DEPLOY từ 2026-08-27T08:55:18Z, xác nhận qua commit SHA `2ea36b0` — xem Entry #10]**
+   ~~Tăng cường fix #3 thành throttle thật sự (2.5s + jitter 500ms)~~. **KẾT QUẢ ĐÃ CÓ DỮ LIỆU (Entry
+   #10): throttle làm giảm nhưng KHÔNG loại bỏ lỗi — vẫn 1.64% lỗi (40/2438 request) trong cửa sổ tải
+   cao duy nhất quan sát được sau khi fix live.** Không cần deploy lại fix này — đã live và đã có đủ
+   dữ liệu đánh giá. Việc còn lại chuyển sang mục 1 ở trên (nguyên nhân mới).
+3. Cân nhắc thêm quyền `Zone Analytics: Read` vào token Cloudflare để tra được `clientRequestPath`
    cụ thể (hiện bị từ chối quyền) — sẽ biết chính xác endpoint nào gây lỗi thay vì chỉ biết ở mức
    Worker chung, giúp xác nhận đúng hướng trước khi sửa thêm.
-3. Nếu vẫn còn lỗi sau khi tăng cường fix #3: xem xét giảm khối lượng tính toán/bộ nhớ MỖI REQUEST ở
+4. Nếu vẫn còn lỗi sau khi fix mục 1: xem xét giảm khối lượng tính toán/bộ nhớ MỖI REQUEST ở
    server, không chỉ giảm số lượng/tần suất request — trọng tâm nghi ngờ: các hàm tính toán nặng
    trong `src/app/games/wolf/actions.ts` (`getActiveNightTurn`, `buildNightReviewMessages`,
    `getRoleByPlayerIdAfterCopycat`, `buildWolfResultSnapshotFromDatabase` — xử lý logic Nhân
    Bản/Copy Cat lồng nhau và build kết quả cuối game khá tốn), và kiểm tra xem `getWolfPlayState` có
-   trả về payload quá lớn cho client hay không.
-4. **Avalon (và Wolf Classic nếu có) chưa được audit/tối ưu tương tự:**
+   trả về payload quá lớn cho client hay không. (Đã loại trừ `awardWolfGameScores` và
+   `nightResolutionCache` khỏi danh sách nghi vấn ở Entry #10 — xem chi tiết ở entry đó.)
+5. **Avalon (và Wolf Classic nếu có) chưa được audit/tối ưu tương tự:**
    - Chưa kiểm tra Avalon có cùng kiểu race condition ở logic chuyển phase như fix #4 không — cần
      xem `src/app/games/avalon/actions.ts` có hàm tương đương `maybeAutoAdvancePhase` thiếu guard
      `.eq("phase", ...)` hay không.
@@ -438,12 +610,16 @@ lúc vẫn còn debounce 700ms).
      `PHASES_ALWAYS_NEEDING_REFETCH`), (b) truyền `phase`/`mapAvalonPhaseToSessionPhase(...)` vào các
      lệnh gọi `safeBroadcastWolfPlayUpdate`, (c) truyền `currentPhase` từ `avalon-play-screen.tsx`
      vào `useWolfRoomPresence`.
-5. **Giờ đã deploy — theo dõi thực tế xem bộ đếm "X/N đã sẵn sàng"/"X/N đã vote" có tự cập nhật
+6. **Giờ đã deploy — theo dõi thực tế xem bộ đếm "X/N đã sẵn sàng"/"X/N đã vote" có tự cập nhật
    đúng trong vòng ~8s (qua poll định kỳ) khi có người thao tác hay không**, tránh trường hợp bị
    "kẹt" hiển thị sai do lỗi logic so sánh phase ở fix #5 (trước đó chỉ verify được 1 người chơi qua
    trình duyệt + `tsc`, chưa test nhiều phiên đồng thời thật).
-6. Lỗi 1101 ở Entry #1 vẫn còn mở — nếu tái diễn, giờ đã có Worker Name thật nên tra được qua
+7. Lỗi 1101 ở Entry #1 vẫn còn mở — nếu tái diễn, giờ đã có Worker Name thật nên tra được qua
    `status: "exception"` trên `workersInvocationsAdaptive`.
+8. Migration `202608270001_wolf_night_turn_delay.sql` (cột `night_turn_reveal_at`) vẫn CHƯA áp remote
+   — tính năng độ trễ lượt đêm (Entry #9 commit `8840920`) đang ở trạng thái tắt/fallback dù code đã
+   live từ 2026-08-27T10:05:43Z. Không khẩn cấp cho riêng vấn đề 1102, nhưng cần nhớ để không tưởng
+   nhầm tính năng đã hoạt động khi theo dõi log/hành vi game.
 
 ## Việc phụ phát hiện được (không phải 1102, nhưng liên quan trong lúc điều tra)
 

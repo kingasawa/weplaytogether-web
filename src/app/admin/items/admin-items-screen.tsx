@@ -20,7 +20,7 @@ type FormMode = { mode: "create" } | { mode: "edit"; item: ShopItemRow };
 
 // Spec ảnh khuyến nghị để khung hiển thị đúng khi ghép vào avatar/thanh thông tin người chơi.
 // Ảnh tải lên sẽ TỰ ĐỘNG được nén + chuyển sang WebP ngay ở trình duyệt (bất kể định dạng/
-// kích thước gốc) trước khi lưu lên Cloudflare R2 — không cần tự resize trước.
+// kích thước gốc) trước khi lưu lên Google Cloud Storage — không cần tự resize trước.
 const IMAGE_SPEC_HINTS: Record<ShopItemType, string> = {
   avatar_frame:
     "Khuyến nghị: nền trong suốt, ảnh vuông, lỗ tròn trong suốt ở giữa ~60-65% canvas để không che avatar. Tự động nén còn tối đa 512×512px.",

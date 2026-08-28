@@ -151,14 +151,14 @@ export function PlayerAvatarPicker({
     setDeletingObjectKey(objectKey);
 
     try {
-      // Xóa object trên R2 là best-effort: bỏ qua nếu không sở hữu / object đã mất.
+      // Xóa object trên GCS là best-effort: bỏ qua nếu không sở hữu / object đã mất.
       await fetch("/api/player-avatar", {
         body: JSON.stringify({ objectKey }),
         headers: { "Content-Type": "application/json" },
         method: "DELETE",
       }).catch(() => null);
 
-      // Luôn gỡ khỏi bộ sưu tập cục bộ để giải phóng slot (kể cả khi xóa R2 thất bại).
+      // Luôn gỡ khỏi bộ sưu tập cục bộ để giải phóng slot (kể cả khi xóa trên GCS thất bại).
       setUploadedObjectKeys(removeStoredGuestPlayerAvatarUpload(objectKey));
       setFailedObjectKeys((current) => current.filter((key) => key !== objectKey));
 
