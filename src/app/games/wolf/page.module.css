@@ -1847,6 +1847,14 @@
 
 .playerList {
   display: grid;
+  /* minmax(0, 1fr) thay vì để mặc định (tương đương auto/minmax(auto,1fr)): cột grid ẩn không
+     set width sẽ tự co theo "max-content contribution" của item — với hàng có aspect-ratio,
+     trình duyệt tính preferred width = preferred height (từ nội dung) × 3, ra ~450px CỐ ĐỊNH
+     bất kể viewport hẹp/rộng, khiến hàng vỡ ra khỏi khung mobile (đã gặp lỗi này, hàng vẫn
+     450px dù viewport chỉ 375px). minmax(0, 1fr) ép cột luôn đúng bằng bề rộng container thật,
+     item .playerRow (justify-self mặc định là stretch) sẽ co theo đúng viewport, rồi
+     aspect-ratio mới tính chiều cao TỪ chiều rộng đó (đúng chiều tính toán mong muốn). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
   margin-top: calc(0.4rem - var(--spacing-md));
@@ -1888,7 +1896,6 @@
   margin-bottom: -15px;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
 /* Khung thông tin (vật phẩm shop, item_type=profile_frame) bao quanh cả thanh người chơi,
@@ -1912,6 +1919,60 @@
   background-position: center;
   background-size: contain;
   pointer-events: none;
+}
+
+/* Lớp nền kính (glassmorphism) nằm GỌN TRONG cửa sổ trong suốt của khung — không lan ra đè lên
+   viền hoạ tiết. inset khớp CHÍNH XÁC với padding của .playerRowFramed (28px mọi cạnh) — đây là
+   ranh giới "an toàn" tối thiểu để né hoạ tiết khung (đo trên các khung hiện có trong shop).
+   LƯU Ý: từ khi tách padding — .playerRowFramed còn 28px (vùng kính) trong khi avatar/tên có
+   thêm padding riêng 22px ở .playerRowFramed .playerIdentity (28+22=50, giữ đúng vị trí avatar/
+   tên như trước) — lớp kính nhờ vậy có cửa sổ RỘNG HƠN vùng avatar/tên, đúng ý đồ "2 lớp view"
+   (view ngoài = kính, view trong = avatar/tên giữ nguyên) thay vì phải dùng chung 1 ranh giới
+   50px như trước. Nằm TRƯỚC .playerRowFrameOverlay trong DOM (cùng z-index 1, phần tử sau vẽ
+   đè lên phần tử trước) để viền hoạ tiết của khung luôn hiển thị NỔI LÊN TRÊN lớp kính (kính
+   nằm dưới nền khung) — tránh backdrop-filter của kính làm mờ hoạ tiết viền nếu 2 lớp chồng
+   mép; nội dung (avatar/tên) và các hiệu ứng glow/flash/sparkle vẫn nằm trên cả 2 lớp này do
+   đứng sau trong DOM/z-index cao hơn. */
+.playerRowFrameInnerGlass {
+  position: absolute;
+  inset: 28px;
+  z-index: 1;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary-light) 10%, transparent);
+  -webkit-backdrop-filter: blur(3px) saturate(140%);
+  backdrop-filter: blur(3px) saturate(140%);
+  pointer-events: none;
+}
+
+/* ============================================================================
+   CONFIG — hiệu ứng "VIP" cho khung info (glow + flash + sparkle).
+   Mọi thông số CHỈNH ĐƯỢC (màu, kích thước, độ sáng, tốc độ) của glow/sparkle gom hết vào đây
+   dưới dạng custom property — sửa số ở 1 chỗ này là đủ, không phải lục khắp file tìm giá trị
+   hardcode rải rác. Đặt trên .playerRow (không phải :root) để kế thừa xuống đúng 3 phần tử con
+   glow/flash/sparkle mà không rò ra ngoài phạm vi hàng.
+   Riêng FLASH (shape/màu/kích thước/tốc độ/tần suất) đặt bên frame-effects.tsx vì phần lớn giá
+   trị của nó (góc quét, background-image) vốn đã phải set bằng JS mỗi lần chạy (ngẫu nhiên) —
+   gom về JS cho có 1 nguồn duy nhất, tránh CSS/JS lệch số nhau.
+   LƯU Ý ĐỒNG BỘ: --frame-glow-active-duration dưới đây phải khớp SHINE_ACTIVE_MS trong
+   frame-effects.tsx (JS dùng để biết lúc nào gỡ data-shine) — đổi 1 bên nhớ đổi bên kia.
+   ============================================================================ */
+.playerRow {
+  /* Glow: xoay quanh viền khi hàng được chọn (data-shine="on") */
+  --frame-glow-color-mix: 85%; /* màu: % primary-light pha với --text (0-100) */
+  --frame-glow-arc-deg: 80deg; /* shape: bề rộng cung sáng của conic-gradient (0-360deg, đỉnh sáng nằm giữa cung) */
+  --frame-glow-max-opacity: 0.4; /* độ sáng tối: opacity đỉnh khi đang bật (0-1) */
+  --frame-glow-shadow-blur: 0.4rem; /* độ sáng tối: độ toả glow ra ngoài viền */
+  --frame-glow-shadow-mix: 65%; /* độ sáng tối: độ đậm của glow toả ra */
+  --frame-glow-spin-duration: 3s; /* tốc độ: 1 vòng xoay hết 360° mất bao lâu */
+  --frame-glow-active-duration: 4.5s; /* tốc độ: fade in/giữ/fade out hết 1 lượt bật (PHẢI khớp SHINE_ACTIVE_MS ở JS) */
+
+  /* Sparkle: 4 điểm lấp lánh trên viền khi hàng được chọn */
+  --sparkle-size: 0.55rem; /* kích thước: đường kính mỗi sparkle */
+  --sparkle-color-mix: 55%; /* màu: % primary-light pha với --text */
+  --sparkle-peak-opacity: 1; /* độ sáng tối: opacity đỉnh lúc nhấp nháy rõ nhất (0-1) */
+  --sparkle-peak-scale: 1.15; /* kích thước: tỉ lệ phóng to lúc nhấp nháy rõ nhất */
+  --sparkle-pulse-duration: 2.4s; /* tốc độ: 1 lần nhấp nháy (sparkle gốc — B/C/D lệch thêm bên dưới) */
+  --sparkle-reposition-transition: 0.6s; /* tốc độ: thời gian trượt sang vị trí mới trên viền */
 }
 
 /* Hiệu ứng "VIP" cho khung info: glow xoay quanh viền + sparkle lấp lánh — cả 2 đều dùng
@@ -1947,32 +2008,100 @@
 /* Glow chỉ bật khi .playerRow có data-shine="on" — điều phối bởi FrameEffects
    (src/components/ui/frame-effects.tsx), chọn ngẫu nhiên 1 hàng ĐỦ ĐIỀU KIỆN (có
    data-player-row-shine-card, tức user thực sự MUA/trang bị khung info, không phải khung
-   mặc định) mỗi 5-10s để bật hiệu ứng, các hàng khác đứng yên. opacity ở trạng thái nghỉ = 0
-   + transition riêng (animation của rotate chỉ chạm --frame-glow-angle, không đụng opacity)
-   để tắt/bật mượt thay vì giật cục. */
+   mặc định) mỗi 5-10s để bật hiệu ứng trong đúng 4.5s (SHINE_ACTIVE_MS ở JS) rồi tắt.
+   Trước đây dùng animation xoay `infinite` + transition opacity riêng, nhưng JS cắt attribute
+   giữa chừng khiến animation (đang giữ opacity 0.4 do keyframe không đụng opacity) bị gỡ đột
+   ngột — transition không kịp nội suy vì animation mới là thứ đang "thắng" giá trị opacity tại
+   thời điểm đó, résult: biến mất giật cục (đã gặp lỗi này). Giờ tách 2 animation chạy song song
+   trên cùng phần tử: Fade (4.5s, chạy đúng 1 lần, tự fade in ở đầu/fade out ở cuối theo đúng
+   thời lượng active) + Spin (3s linear infinite, chỉ xoay góc, không đụng opacity) — JS chỉ
+   cần gỡ data-shine SAU KHI Fade đã tự kết thúc (khớp SHINE_ACTIVE_MS 4.5s ở JS), lúc đó
+   opacity đã về 0 tự nhiên nên gỡ thuộc tính không còn gây giật hình nữa. */
 .playerRowFrameGlow {
   z-index: 1;
   opacity: 0;
-  transition: opacity 0.4s ease;
   --frame-glow-angle: 0deg;
   background: conic-gradient(
     from var(--frame-glow-angle),
     transparent 0deg,
-    color-mix(in srgb, var(--primary-light) 85%, var(--text)) 35deg,
-    transparent 80deg,
+    color-mix(in srgb, var(--primary-light) var(--frame-glow-color-mix), var(--text)) calc(var(--frame-glow-arc-deg) / 2),
+    transparent var(--frame-glow-arc-deg),
     transparent 360deg
   );
-  filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--primary-light) 65%, transparent));
+  filter: drop-shadow(
+    0 0 var(--frame-glow-shadow-blur) color-mix(in srgb, var(--primary-light) var(--frame-glow-shadow-mix), transparent)
+  );
 }
 
 .playerRow[data-shine="on"] .playerRowFrameGlow {
-  opacity: 0.4;
-  animation: playerRowFrameGlowSpin 3s linear infinite;
+  animation:
+    playerRowFrameGlowFade var(--frame-glow-active-duration) ease-in-out,
+    playerRowFrameGlowSpin var(--frame-glow-spin-duration) linear infinite;
+}
+
+@keyframes playerRowFrameGlowFade {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--frame-glow-max-opacity);
+  }
+  85% {
+    opacity: var(--frame-glow-max-opacity);
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes playerRowFrameGlowSpin {
   to {
     --frame-glow-angle: 360deg;
+  }
+}
+
+/* Flash: 1 hình sáng (vạch thẳng hoặc vòng tròn, xem FLASH_SHAPE) quét qua khung. TOÀN BỘ
+   thông số chỉnh được (shape/màu/kích thước/tốc độ/tần suất) nằm ở CONFIG đầu file
+   frame-effects.tsx — JS set backgroundImage/backgroundSize/backgroundPosition/duration qua
+   inline style trên [data-frame-flash] mỗi lần chạy (vì phần lớn giá trị, nhất là góc quét
+   ngẫu nhiên của shape "line", chỉ tính được lúc runtime). Giá trị "1.3s" bên dưới chỉ là
+   fallback mặc định — JS luôn ghi đè qua transitionDuration/animationDuration lấy từ
+   FLASH_DURATION_MS, đổi tốc độ thì sửa ở đó, không cần sửa CSS này.
+   Full hàng inset:0 giống .playerRowFrameGlow (mask luôn khớp đúng kích thước hàng, tránh lại
+   lỗi mask-size:contain co theo phần tử nhỏ như bản offset-path cũ). Với shape "line", canvas
+   quét 300% (to gấp 3 hàng) để vạch — vốn LUÔN vuông góc với hướng di chuyển do bản chất
+   linear-gradient — trải dài vượt quá đường chéo hàng ở MỌI góc, đảm bảo luôn cắt qua viền
+   khung dù đi hướng nào (khác hình tròn: bị giới hạn đều mọi phía nên có thể "lọt" qua vùng
+   trong suốt mà không chạm viền, đã gặp phản hồi "không thấy flash" với shape tròn).
+*/
+.playerRowFrameFlash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background-repeat: no-repeat;
+  transition: background-position 1.3s linear;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+
+.playerRow[data-flash="on"] .playerRowFrameFlash {
+  animation: playerRowFrameFlashOpacity 1.3s ease-in-out;
+}
+
+@keyframes playerRowFrameFlashOpacity {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
   }
 }
 
@@ -1988,32 +2117,36 @@
   left: 5%;
   top: 5%;
   z-index: 3;
-  width: 0.55rem;
-  height: 0.55rem;
-  background: radial-gradient(circle, var(--text) 0%, var(--primary-light) 55%, transparent 100%);
+  width: var(--sparkle-size);
+  height: var(--sparkle-size);
+  background: radial-gradient(circle, var(--text) 0%, var(--primary-light) var(--sparkle-color-mix), transparent 100%);
   clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0.4);
-  transition: left 0.6s ease-out, top 0.6s ease-out;
+  transition:
+    left var(--sparkle-reposition-transition) ease-out,
+    top var(--sparkle-reposition-transition) ease-out;
 }
 
 .playerRow[data-shine="on"] .sparkle {
-  animation: playerRowSparklePulse 2.4s ease-in-out infinite;
+  animation: playerRowSparklePulse var(--sparkle-pulse-duration) ease-in-out infinite;
 }
 
+/* B/C/D lệch duration/delay so với gốc (--sparkle-pulse-duration) để 4 sparkle không nhấp
+   nháy đồng loạt — đổi tốc độ gốc ở CONFIG thì cả 4 vẫn tự lệch pha theo đúng tỉ lệ. */
 .playerRow[data-shine="on"] .sparkleB {
-  animation-duration: 2.8s;
+  animation-duration: calc(var(--sparkle-pulse-duration) + 0.4s);
   animation-delay: -0.7s;
 }
 
 .playerRow[data-shine="on"] .sparkleC {
-  animation-duration: 2.2s;
+  animation-duration: calc(var(--sparkle-pulse-duration) - 0.2s);
   animation-delay: -1.4s;
 }
 
 .playerRow[data-shine="on"] .sparkleD {
-  animation-duration: 3.1s;
+  animation-duration: calc(var(--sparkle-pulse-duration) + 0.7s);
   animation-delay: -2.1s;
 }
 
@@ -2025,8 +2158,8 @@
     transform: translate(-50%, -50%) scale(0.4);
   }
   10% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.15);
+    opacity: var(--sparkle-peak-opacity);
+    transform: translate(-50%, -50%) scale(var(--sparkle-peak-scale));
   }
   25% {
     opacity: 0.85;
@@ -2036,7 +2169,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .playerRow[data-shine="on"] .playerRowFrameGlow,
-  .playerRow[data-shine="on"] .sparkle {
+  .playerRow[data-shine="on"] .sparkle,
+  .playerRow[data-flash="on"] .playerRowFrameFlash {
     animation: none;
   }
 }
@@ -2052,18 +2186,44 @@
 */
 .playerRowFramed {
   border-color: transparent;
-  /* Padding chung 50px cho mọi cạnh (ghi đè padding-left 15%/padding-top 1.25rem chống che
-     avatar ở .playerRow) theo yêu cầu — chỉ áp dụng riêng cho hàng có khung, hàng thường vẫn
-     giữ padding cũ. */
-  padding: 50px;
+  /* Padding chung 28px cho mọi cạnh (ghi đè padding-left 15%/padding-top 1.25rem chống che
+     avatar ở .playerRow) — giảm từ 50px xuống 28px theo yêu cầu để lớp kính
+     (.playerRowFrameInnerGlass, inset khớp giá trị này) có cửa sổ rộng hơn, sát viền khung hơn.
+     Phần 22px còn thiếu (50-28) để avatar/tên KHÔNG bị xê dịch so với trước được bù riêng ở
+     .playerRowFramed .playerIdentity — chỉ áp dụng riêng cho hàng có khung, hàng thường vẫn giữ
+     padding cũ. */
+  padding: 28px;
 }
 
+/* position:relative + z-index cao hơn mọi lớp phủ (frameOverlay/innerGlass/glow/flash/sparkle,
+   z-index 1-3) — bắt buộc phải có, không thì .playerIdentity (không position, chỉ ở luồng bố
+   cục bình thường) sẽ bị CSS xếp painting order phía DƯỚI mọi phần tử position:absolute dù
+   z-index chúng chỉ là 1 (quy tắc CSS: positioned descendant luôn vẽ sau/non-positioned
+   descendant trong cùng 1 stacking context, bất kể z-index dương lớn hay nhỏ) — khiến lớp kính
+   .playerRowFrameInnerGlass đè lên TRÊN avatar/tên rồi backdrop-filter làm mờ luôn nội dung
+   (đã gặp lỗi này). */
 .playerIdentity {
+  position: relative;
+  z-index: 4;
   display: flex;
   min-width: 0;
   flex: 1;
   align-items: center;
   gap: 0.75rem;
+}
+
+/* Bù lại 22px padding vừa bớt ở .playerRowFramed (50px -> 28px): .playerIdentity là flex item
+   flex:1 DUY NHẤT trong .playerRow nên box của nó khít đúng content-box của article — cộng
+   thêm 22px padding-inline ở đây thì avatar (trái) và khối tên/hành động (phải, qua
+   .playerIdentity > div) vẫn nằm CÙNG 1 vị trí như khi article còn padding 50px (28+22=50),
+   dù article giờ padding ít hơn để nhường chỗ cho lớp kính rộng hơn. CHỈ set padding-inline
+   (không set top/bottom): .playerRow dùng align-items:center ở CẢ 2 cấp (article lẫn
+   .playerIdentity) nên vị trí dọc của avatar đã tự động giữ nguyên bất kể padding dọc — thêm
+   padding dọc ở đây là thừa và còn có thể làm .playerIdentity vượt quá chiều cao hàng (đặc biệt
+   ở mobile, hàng thấp hơn) vì .playerRow không set align-items:stretch nên .playerIdentity co
+   theo đúng content, không co giãn theo hàng. */
+.playerRowFramed .playerIdentity {
+  padding-inline: 22px;
 }
 
 .playerAvatar {
@@ -2299,12 +2459,21 @@
 /* Icon crown thật (public/images/crown.webp, nền đã tách trong suốt) thay cho lucide Crown —
    ngoại lệ có chủ đích với rule "icon phải từ lucide-react" ở AGENTS.md, vì đây là đồ hoạ
    trang trí riêng cho game (đồng bộ phong cách khung/vật phẩm shop), không phải icon chức năng
-   thông thường. */
+   thông thường.
+   filter: drop-shadow (KHÔNG dùng box-shadow — ảnh nền trong suốt, box-shadow sẽ đổ bóng cả
+   hình vuông chứ không bám theo viền vương miện) xếp chồng 2 lớp để tạo cảm giác nổi 3D trên bề
+   mặt hàng: lớp bóng tối bên dưới (giả lập ánh sáng chiếu từ trên xuống, tạo độ nâng) + lớp
+   glow vàng nhạt xung quanh (dùng --host-badge, token màu vàng của chính badge) cho cảm giác
+   phát sáng nhẹ. rgba đen ở lớp bóng là màu trung tính (không phải màu thương hiệu) nên không
+   vi phạm rule chỉ dùng token — cùng cách kickButton/connectionBadge trong file này đã dùng. */
 .hostBadge img {
   width: 2rem;
   min-width: 2rem;
   height: 2rem;
   object-fit: contain;
+  filter:
+    drop-shadow(0 0.2rem 0.15rem rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 0.3rem color-mix(in srgb, var(--host-badge) 65%, transparent));
 }
 
 .roleSetup {

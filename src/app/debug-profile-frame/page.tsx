@@ -51,6 +51,7 @@ export default async function DebugProfileFramePage() {
                   data-player-row-shine-card=""
                   key={item.id}
                 >
+                  <span aria-hidden="true" className={styles.playerRowFrameInnerGlass} />
                   <span
                     aria-hidden="true"
                     className={styles.playerRowFrameOverlay}
@@ -59,6 +60,12 @@ export default async function DebugProfileFramePage() {
                   <span
                     aria-hidden="true"
                     className={styles.playerRowFrameGlow}
+                    style={frameMaskStyle(item.image_url)}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={styles.playerRowFrameFlash}
+                    data-frame-flash
                     style={frameMaskStyle(item.image_url)}
                   />
                   <span className={styles.sparkle} data-frame-sparkle aria-hidden="true" />

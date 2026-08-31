@@ -719,17 +719,26 @@ export default function AvalonRoomLobby({
                   key={player.id}
                 >
                   {player.profileFrameUrl && (
-                    <span
-                      aria-hidden="true"
-                      className={styles.playerRowFrameOverlay}
-                      style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
-                    />
+                    <>
+                      <span aria-hidden="true" className={styles.playerRowFrameInnerGlass} />
+                      <span
+                        aria-hidden="true"
+                        className={styles.playerRowFrameOverlay}
+                        style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
+                      />
+                    </>
                   )}
                   {player.hasEquippedProfileFrame && player.profileFrameUrl && (
                     <>
                       <span
                         aria-hidden="true"
                         className={styles.playerRowFrameGlow}
+                        style={frameMaskStyle(player.profileFrameUrl)}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={styles.playerRowFrameFlash}
+                        data-frame-flash
                         style={frameMaskStyle(player.profileFrameUrl)}
                       />
                       <span className={styles.sparkle} data-frame-sparkle aria-hidden="true" />
