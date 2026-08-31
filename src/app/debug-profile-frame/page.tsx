@@ -12,6 +12,13 @@ export const metadata = {
   title: "Debug Khung Thông Tin | WePlayTogether",
 };
 
+// Trang này gọi createSupabaseAdminClient() (cần secret Supabase phía server) — nếu để
+// Next.js static-prerender lúc build, bước build trên CI (chỉ truyền biến NEXT_PUBLIC_*, không
+// có secret server-side) sẽ throw "Missing Supabase server environment variables" và làm fail
+// cả deploy (đã gặp lỗi này). force-dynamic buộc trang chỉ render lúc có request thật, khi đó
+// server production đã có đủ env.
+export const dynamic = "force-dynamic";
+
 // Trang debug UI cho khung thông tin (shop_items.item_type=profile_frame): liệt kê MỌI khung
 // đang có trong DB (kể cả is_active=false) và render bằng đúng markup/CSS của hàng người chơi
 // thật (.playerRow*, xem wolf-room-lobby.tsx) để xem khung hiển thị đúng như trong phòng chờ
