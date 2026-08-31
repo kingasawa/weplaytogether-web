@@ -1847,7 +1847,7 @@
 
 .playerList {
   display: grid;
-  gap: var(--spacing-sm);
+  gap: 0;
   /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
   margin-top: calc(0.4rem - var(--spacing-md));
 }
@@ -1863,14 +1863,29 @@
   font-weight: 700;
 }
 
+/* aspect-ratio + padding-left/top áp dụng cho MỌI hàng (không riêng hàng có khung info) để
+   cả phòng cùng 1 kích thước/vị trí avatar — trước đây chỉ .playerRowFramed cao hơn khiến
+   hàng có khung lồi hẳn lên so với các hàng khác trong danh sách, nhìn lệch. Tỉ lệ 3:1 khớp
+   quy ước ảnh profile_frame (960×320/324, xem comment ở .playerRowFrameOverlay) để hàng có
+   khung vừa đủ cao cho contain phóng to gần hết chiều ngang mà không kéo giãn (đã gặp lỗi
+   box quá dẹt làm ảnh bị thu nhỏ lại ở giữa) — hàng không có khung chỉ đơn giản cao theo,
+   không có gì để lấp khoảng trống dư nhưng đổi lại đồng bộ với cả danh sách. padding-left
+   15%/padding-top nhỉnh hơn mức thường để tránh hoạ tiết khung (đo trên khung "Ma Sói Một
+   Đêm", đầu sói lồi vào giữa) che avatar — xem chi tiết ở comment của .playerRowFramed. An
+   toàn vì app khoá width tối đa 30rem (xem body trong globals.css) nên chiều cao không bao
+   giờ vọt lên bất thường trên desktop.
+*/
 .playerRow {
   position: relative;
   display: flex;
-  min-height: 4.25rem;
+  aspect-ratio: 3 / 1;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
+  padding-top: 1.25rem;
+  padding-left: 15%;
+  margin-bottom: -15px;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 1rem;
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
@@ -1878,32 +1893,169 @@
 
 /* Khung thông tin (vật phẩm shop, item_type=profile_frame) bao quanh cả thanh người chơi,
    hiển thị cho mọi người trong phòng thấy. Render bằng 1 lớp phủ position:absolute (không
-   phải border thật trên .playerRow) — nếu border-image nằm trực tiếp trên .playerRow thì
-   border dày sẽ đẩy lệch avatar/tên vào trong so với các hàng không có khung (đã gặp lỗi
-   này). Lớp phủ không tham gia layout nên vị trí nội dung luôn khớp nhau giữa hàng có khung
-   và không có khung. inset: 0 để khung nằm khít theo đúng border của .playerRow, không tràn
-   ra ngoài đè lên header/hàng kế bên (đã gặp lỗi này khi dùng inset âm — khung 20-30px lòi ra
-   ngoài trong khi gap giữa các hàng chỉ 8px). border-width nhỏ hơn padding của .playerRow
-   (var(--spacing-md)) để không che avatar/tên. border-image-source set qua inline style vì
-   mỗi người có thể trang bị ảnh khung khác nhau. Số đo slice chốt bằng mô phỏng trực quan
-   (scripts/sim-border-image.mjs) trên ảnh 960×320: corner giữ nguyên tỉ lệ, viền trên/dưới/
-   trái/phải chỉ giãn phần vạch mảnh.
+   tham gia layout) đè lên .playerRow, không phải border thật, để vị trí avatar/tên luôn
+   khớp nhau giữa hàng có khung và không có khung. inset: 0 để khung nằm khít theo đúng
+   border của .playerRow, không tràn ra ngoài đè lên header/hàng kế bên (đã gặp lỗi này khi
+   dùng inset âm — khung lòi ra ngoài trong khi gap giữa các hàng chỉ 8px).
+   Dùng background-image + background-size:contain (KHÔNG border-image 9-slice): shop cho
+   phép trang bị ảnh khung tuỳ ý theo chủ đề (vd. hoạ tiết không đối xứng — đầu sói riêng bên
+   trái, toà lâu đài riêng bên phải), còn border-image giả định 4 góc/4 cạnh cắt theo toạ độ
+   px cố định và lặp lại đối xứng (từng thử slice 130/220 cho ảnh 01.webp) nên với ảnh khác bố
+   cục sẽ bị cắt mất chi tiết hoặc kéo méo hoạ tiết. contain luôn hiển thị trọn vẹn ảnh gốc,
+   đổi lại khung có thể không khít sát 2 cạnh trái/phải nếu ảnh hẹp hơn hàng.
 */
 .playerRowFrameOverlay {
   position: absolute;
   inset: 0;
   z-index: 1;
-  border-style: solid;
-  border-width: 0.75rem 1rem;
-  border-image-slice: 130 220;
-  border-image-repeat: stretch;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
   pointer-events: none;
 }
 
+/* Hiệu ứng "VIP" cho khung info: glow xoay quanh viền + sparkle lấp lánh — cả 2 đều dùng
+   mask-image = chính ảnh khung info của người chơi đó (set qua inline style, giống
+   backgroundImage của .playerRowFrameOverlay, vì mỗi khung 1 ảnh khác nhau, không hardcode
+   được trong CSS module) để hiệu ứng chỉ hiện trên phần hoạ tiết THẬT của khung (viền), không
+   tràn vào avatar/tên/khoảng trong suốt giữa hàng.
+   mask-size/position/repeat đặt tĩnh ở đây (không đổi theo từng khung), chỉ mask-image động.
+   (Đã bỏ vệt sáng quét ngang .playerRowFrameShine theo yêu cầu — chỉ giữ glow + sparkle.)
+*/
+.playerRowFrameGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+
+/* Glow xoay quanh viền: animate góc bắt đầu của conic-gradient qua custom property (cần
+   @property để browser nội suy mượt giữa 2 giá trị góc — không có @property thì animation
+   vẫn chạy nhưng giật cục thay vì xoay mượt, chấp nhận được vì đây chỉ là hiệu ứng phụ).
+   opacity 0.4 + drop-shadow nhẹ theo đúng khuyến nghị: chỉ làm nổi bật viền, không loè loẹt. */
+@property --frame-glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* Glow chỉ bật khi .playerRow có data-shine="on" — điều phối bởi FrameEffects
+   (src/components/ui/frame-effects.tsx), chọn ngẫu nhiên 1 hàng ĐỦ ĐIỀU KIỆN (có
+   data-player-row-shine-card, tức user thực sự MUA/trang bị khung info, không phải khung
+   mặc định) mỗi 5-10s để bật hiệu ứng, các hàng khác đứng yên. opacity ở trạng thái nghỉ = 0
+   + transition riêng (animation của rotate chỉ chạm --frame-glow-angle, không đụng opacity)
+   để tắt/bật mượt thay vì giật cục. */
+.playerRowFrameGlow {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  --frame-glow-angle: 0deg;
+  background: conic-gradient(
+    from var(--frame-glow-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--primary-light) 85%, var(--text)) 35deg,
+    transparent 80deg,
+    transparent 360deg
+  );
+  filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--primary-light) 65%, transparent));
+}
+
+.playerRow[data-shine="on"] .playerRowFrameGlow {
+  opacity: 0.4;
+  animation: playerRowFrameGlowSpin 3s linear infinite;
+}
+
+@keyframes playerRowFrameGlowSpin {
+  to {
+    --frame-glow-angle: 360deg;
+  }
+}
+
+/* Sparkle: 4 điểm sáng nhỏ hình sao 4 cánh, JS (frame-effects.tsx) di chuyển ngẫu nhiên giữa
+   các điểm cố định NẰM TRÊN VIỀN (borderPoints) mỗi 500-3000ms — không random toạ độ tự do vì
+   giữa khung là vùng trong suốt, sparkle rơi vào đó sẽ trông lơ lửng vô nghĩa (việc di chuyển
+   vị trí vẫn chạy nền cho mọi sparkle kể cả khi ẩn, chỉ animation nhấp nháy mới gate theo
+   data-shine="on" — tách 2 việc cho đơn giản). Mỗi sparkle tự nhấp nháy (opacity+scale) bằng
+   CSS animation riêng, duration/delay lệch nhau để không nháy đồng loạt — negative
+   animation-delay để chúng bắt đầu ở pha không cùng lúc ngay từ frame đầu tiên. */
+.sparkle {
+  position: absolute;
+  left: 5%;
+  top: 5%;
+  z-index: 3;
+  width: 0.55rem;
+  height: 0.55rem;
+  background: radial-gradient(circle, var(--text) 0%, var(--primary-light) 55%, transparent 100%);
+  clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.4);
+  transition: left 0.6s ease-out, top 0.6s ease-out;
+}
+
+.playerRow[data-shine="on"] .sparkle {
+  animation: playerRowSparklePulse 2.4s ease-in-out infinite;
+}
+
+.playerRow[data-shine="on"] .sparkleB {
+  animation-duration: 2.8s;
+  animation-delay: -0.7s;
+}
+
+.playerRow[data-shine="on"] .sparkleC {
+  animation-duration: 2.2s;
+  animation-delay: -1.4s;
+}
+
+.playerRow[data-shine="on"] .sparkleD {
+  animation-duration: 3.1s;
+  animation-delay: -2.1s;
+}
+
+@keyframes playerRowSparklePulse {
+  0%,
+  45%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  25% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playerRow[data-shine="on"] .playerRowFrameGlow,
+  .playerRow[data-shine="on"] .sparkle {
+    animation: none;
+  }
+}
+
 /* Khi hàng có khung info (shop) đè lên, khung tự làm viền trang trí rồi — bỏ border mặc
-   định của .playerRow để tránh hiện 2 lớp viền chồng lên nhau. */
+   định của .playerRow để tránh hiện 2 lớp viền chồng lên nhau.
+   Về padding-left 15% ở .playerRow: đo thực tế trên 3 khung trong shop tại đường giữa dọc,
+   khung Lam Ngọc Hoàng Gia/Nguyệt Thạch chỉ lồi ~5-6% bề rộng ảnh, riêng khung Ma Sói Một
+   Đêm (đầu sói lồi hẳn vào giữa) tới ~17% — ở mức 15% hiện tại, khung Ma Sói Một Đêm có thể
+   chớm che avatar (đã đánh đổi theo yêu cầu chỉnh nhỏ lại), 2 khung mỏng hơn thì thoải mái.
+   Không chống được tuyệt đối mọi khung tương lai vì mỗi ảnh admin/user tự upload có thể có
+   hoạ tiết lồi khác nhau — nếu gặp khung mới bị che, tăng % padding-left ở .playerRow lên.
+*/
 .playerRowFramed {
   border-color: transparent;
+  /* Padding chung 50px cho mọi cạnh (ghi đè padding-left 15%/padding-top 1.25rem chống che
+     avatar ở .playerRow) theo yêu cầu — chỉ áp dụng riêng cho hàng có khung, hàng thường vẫn
+     giữ padding cũ. */
+  padding: 50px;
 }
 
 .playerIdentity {
@@ -1915,8 +2067,8 @@
 }
 
 .playerAvatar {
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 3rem;
+  height: 3rem;
   flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
   border-radius: 999px;
@@ -1932,11 +2084,16 @@
 
 /* Khung avatar (vật phẩm shop) đè lên avatar, hiển thị cho mọi người trong phòng thấy.
    Kích thước khung = 145% avatar — test trực quan composite trên nhiều ảnh khung: 160%
-   để hở khoảng trống rõ, 125% che mất tóc/mặt, 145% khít nhất mà không che avatar. */
+   để hở khoảng trống rõ, 125% che mất tóc/mặt, 145% khít nhất mà không che avatar.
+   width/height phải khớp đúng .playerAvatar (hiện 3rem) — trước đây avatar tăng lên 3rem
+   nhưng wrap vẫn 2.4rem khiến .playerAvatarFrameWrap .playerAvatar (position:absolute;
+   inset:0) bị over-constrained: width/height 3rem thắng nhưng neo ở top-left thay vì lấp
+   đầy/căn giữa wrap 2.4rem, làm avatar lệch khỏi tâm hàng so với khối 2 dòng tên/trạng thái
+   (đã gặp lỗi này). */
 .playerAvatarFrameWrap {
   position: relative;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 3rem;
+  height: 3rem;
   flex: 0 0 auto;
 }
 
@@ -1949,8 +2106,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 3.48rem;
-  height: 3.48rem;
+  /* 145% của avatar 3rem (xem comment .playerAvatarFrameWrap) */
+  width: 4.35rem;
+  height: 4.35rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -2103,11 +2261,26 @@
   width: 0.95rem;
 }
 
+/* position:absolute (neo theo .playerRow, ancestor position:relative gần nhất) thay vì nằm
+   trong flex-flow của .playerLineActions — kích thước 4.35rem (tăng 3x theo yêu cầu) vượt xa
+   chiều cao nội dung còn lại của hàng (đặc biệt hàng có khung, padding 50px chỉ còn ~49px ở
+   giữa), nếu vẫn theo flex-flow sẽ ép cả .playerRow cao vượt aspect-ratio 3:1, làm ảnh khung
+   info (contain) bị lệch tỉ lệ (đã gặp lỗi này). Tách khỏi flow để phóng to icon thoải mái mà
+   không ảnh hưởng layout/kích thước hàng.
+   top:50% + translateY(-50%): căn giữa dọc đúng bằng tâm hàng, cùng "hàng" với avatar/text
+   (avatar/text cũng được .playerRow căn giữa dọc qua align-items:center).
+   right: khớp đúng padding-left của .playerRow (15%) để khoảng cách phải bằng khoảng cách
+   avatar cách trái — hàng có khung dùng padding 50px (literal), override riêng bên dưới.
+*/
 .hostBadge {
+  position: absolute;
+  top: 50%;
+  right: 15%;
+  transform: translateY(-50%);
+  z-index: 3;
   display: inline-flex;
-  width: 1.45rem;
-  min-width: 1.45rem;
-  min-height: 1.45rem;
+  width: 2rem;
+  height: 2rem;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -2117,11 +2290,21 @@
   box-shadow: none;
 }
 
-.hostBadge svg {
-  width: 1.1rem;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  color: var(--host-badge);
+/* Hàng có khung dùng padding 50px (literal, không phải %) — mirror đúng giá trị đó thay vì
+   15% kế thừa từ .playerRow. */
+.playerRowFramed .hostBadge {
+  right: 50px;
+}
+
+/* Icon crown thật (public/images/crown.webp, nền đã tách trong suốt) thay cho lucide Crown —
+   ngoại lệ có chủ đích với rule "icon phải từ lucide-react" ở AGENTS.md, vì đây là đồ hoạ
+   trang trí riêng cho game (đồng bộ phong cách khung/vật phẩm shop), không phải icon chức năng
+   thông thường. */
+.hostBadge img {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  object-fit: contain;
 }
 
 .roleSetup {

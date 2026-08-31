@@ -7,7 +7,7 @@ import {
   normalizePlayerAvatarObjectKey,
   normalizePlayerAvatarObjectKeyForSession,
 } from "@/lib/player-avatars";
-import { getLivePlayerProfilesByUserId, type LivePlayerProfile } from "@/lib/player-avatar-frames";
+import { getLivePlayerProfilesByUserId, type LivePlayerProfilesLookup } from "@/lib/player-avatar-frames";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import {
   isMissingAvatarKeyColumnError,
@@ -213,6 +213,10 @@ export type ClassicWolfLobbyPlayer = {
   avatarUrl: string | null;
   avatarFrameUrl: string | null;
   profileFrameUrl: string | null;
+  // true = user tự trang bị khung info đã MUA/sở hữu; false = đang hiện khung mặc định
+  // (chưa trang bị gì) hoặc guest. Dùng để chỉ bật hiệu ứng VIP (glow/shine/sparkle) cho
+  // người thực sự có khung, không áp cho khung mặc định.
+  hasEquippedProfileFrame: boolean;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -682,15 +686,13 @@ async function updateWolfRoomPlayerIdentity(
   return fallbackError;
 }
 
-function mapLobbyPlayer(
-  player: PlayerRow,
-  liveProfilesByUserId?: Map<string, LivePlayerProfile>
-): ClassicWolfLobbyPlayer {
+function mapLobbyPlayer(player: PlayerRow, liveProfiles?: LivePlayerProfilesLookup): ClassicWolfLobbyPlayer {
   // Tên/avatar hiển thị trong phòng LUÔN lấy từ bản snapshot ở room_players — người chơi (kể cả
   // đã đăng nhập) đổi tên/avatar qua nút bút chì trong phòng phải thấy hiệu lực ngay, không bị
   // đè lại bởi hồ sơ tài khoản. Chỉ riêng khung avatar/khung hồ sơ (trang trí mua ở shop, không có
-  // UI đổi tại phòng) mới lấy "live" từ public.users. Guest (không có user_id) không có liveProfile.
-  const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
+  // UI đổi tại phòng) mới lấy "live" từ public.users. Guest (không có user_id) không có liveProfile
+  // nhưng vẫn được áp khung thông tin mặc định (defaultProfileFrameUrl) giống user chưa trang bị.
+  const liveProfile = player.user_id ? liveProfiles?.byUserId.get(player.user_id) : undefined;
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
 
   return {
@@ -700,7 +702,8 @@ function mapLobbyPlayer(
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
-    profileFrameUrl: liveProfile?.profileFrameUrl ?? null,
+    profileFrameUrl: liveProfile?.profileFrameUrl ?? liveProfiles?.defaultProfileFrameUrl ?? null,
+    hasEquippedProfileFrame: liveProfile?.hasEquippedProfileFrame ?? false,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,

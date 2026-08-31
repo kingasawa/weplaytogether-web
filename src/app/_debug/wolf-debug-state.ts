@@ -70,6 +70,7 @@ function buildPlayers(overrides: {
     avatarUrl: null,
     avatarFrameUrl: null,
     profileFrameUrl: null,
+    hasEquippedProfileFrame: false,
     isHost: seed.isHost,
     isReady: true,
     joinedAt: "2026-01-01T00:00:00.000Z",

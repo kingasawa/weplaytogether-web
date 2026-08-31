@@ -8,6 +8,8 @@ import {
   readStoredGuestPlayerAvatarKey,
   readStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import FrameEffects from "@/components/ui/frame-effects";
+import { frameMaskStyle } from "@/lib/frame-mask-style";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { WOLF_PHASE_LABELS } from "@/lib/wolf-game";
@@ -104,6 +106,7 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
           </section>
         )}
 
+        <FrameEffects />
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {spectatorState.players.map((player) => (
             <article
@@ -112,14 +115,40 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
                   ? `${styles.playerRow} ${styles.playerRowFramed}`
                   : styles.playerRow
               }
+              data-player-row-shine-card={player.hasEquippedProfileFrame ? "" : undefined}
               key={player.id}
             >
               {player.profileFrameUrl && (
                 <span
                   aria-hidden="true"
                   className={styles.playerRowFrameOverlay}
-                  style={{ borderImageSource: `url(${player.profileFrameUrl})` }}
+                  style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
                 />
+              )}
+              {player.hasEquippedProfileFrame && player.profileFrameUrl && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className={styles.playerRowFrameGlow}
+                    style={frameMaskStyle(player.profileFrameUrl)}
+                  />
+                  <span className={styles.sparkle} data-frame-sparkle aria-hidden="true" />
+                  <span
+                    className={`${styles.sparkle} ${styles.sparkleB}`}
+                    data-frame-sparkle
+                    aria-hidden="true"
+                  />
+                  <span
+                    className={`${styles.sparkle} ${styles.sparkleC}`}
+                    data-frame-sparkle
+                    aria-hidden="true"
+                  />
+                  <span
+                    className={`${styles.sparkle} ${styles.sparkleD}`}
+                    data-frame-sparkle
+                    aria-hidden="true"
+                  />
+                </>
               )}
               <div className={styles.playerIdentity}>
                 <span className={styles.playerAvatarFrameWrap}>

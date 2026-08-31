@@ -1,8 +1,10 @@
 "use client";
 
-import { Crown, Link as LinkIcon, LogOut, Minus, Pencil, Play, UserRound } from "lucide-react";
+import { Link as LinkIcon, LogOut, Minus, Pencil, Play, UserRound } from "lucide-react";
 import Image from "next/image";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
+import FrameEffects from "@/components/ui/frame-effects";
+import { frameMaskStyle } from "@/lib/frame-mask-style";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -661,6 +663,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
               <span>Danh sách</span>
               <span>{lobbyState.players.length}/10</span>
             </div>
+            <FrameEffects />
             <div className={styles.playerList} aria-label="Danh sách người chơi">
               {lobbyState.players.map((player) => (
                 <article
@@ -669,14 +672,40 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                       ? `${styles.playerRow} ${styles.playerRowFramed}`
                       : styles.playerRow
                   }
+                  data-player-row-shine-card={player.hasEquippedProfileFrame ? "" : undefined}
                   key={player.id}
                 >
                   {player.profileFrameUrl && (
                     <span
                       aria-hidden="true"
                       className={styles.playerRowFrameOverlay}
-                      style={{ borderImageSource: `url(${player.profileFrameUrl})` }}
+                      style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
                     />
+                  )}
+                  {player.hasEquippedProfileFrame && player.profileFrameUrl && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className={styles.playerRowFrameGlow}
+                        style={frameMaskStyle(player.profileFrameUrl)}
+                      />
+                      <span className={styles.sparkle} data-frame-sparkle aria-hidden="true" />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleB}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleC}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleD}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                    </>
                   )}
                   <div className={styles.playerIdentity}>
                     <span className={styles.playerAvatarFrameWrap}>
@@ -729,7 +758,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                     <span className={styles.playerLineActions}>
                       {player.isHost && (
                         <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
-                          <Crown aria-hidden="true" />
+                          <Image alt="" aria-hidden="true" width={54} height={54} src="/images/crown.webp" />
                         </span>
                       )}
                       {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (

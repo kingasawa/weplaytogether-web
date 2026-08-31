@@ -32,8 +32,8 @@ import {
 import {
   getEquippedFrameUrlsByUserId,
   getLivePlayerProfilesByUserId,
-  type EquippedFrameUrls,
-  type LivePlayerProfile,
+  type EquippedFrameUrlsLookup,
+  type LivePlayerProfilesLookup,
 } from "@/lib/player-avatar-frames";
 import { safeBroadcastWolfPlayUpdate, safeBroadcastWolfRoomUpdate } from "@/lib/pusher/server";
 import {
@@ -173,6 +173,10 @@ export type AvalonLobbyPlayer = {
   avatarUrl: string | null;
   avatarFrameUrl: string | null;
   profileFrameUrl: string | null;
+  // true = user tự trang bị khung info đã MUA/sở hữu; false = đang hiện khung mặc định
+  // (chưa trang bị gì) hoặc guest. Dùng để chỉ bật hiệu ứng VIP (glow/shine/sparkle) cho
+  // người thực sự có khung, không áp cho khung mặc định.
+  hasEquippedProfileFrame: boolean;
   isHost: boolean;
   isReady: boolean;
   joinedAt: string;
@@ -677,15 +681,13 @@ function getUsableAvatarObjectKey(avatarObjectKey: string | null | undefined, se
   return normalizePlayerAvatarObjectKeyForSession(avatarObjectKey, sessionId);
 }
 
-function mapLobbyPlayer(
-  player: PlayerRow,
-  liveProfilesByUserId?: Map<string, LivePlayerProfile>
-): AvalonLobbyPlayer {
+function mapLobbyPlayer(player: PlayerRow, liveProfiles?: LivePlayerProfilesLookup): AvalonLobbyPlayer {
   // Tên/avatar hiển thị trong phòng LUÔN lấy từ bản snapshot ở room_players — người chơi (kể cả
   // đã đăng nhập) đổi tên/avatar qua nút bút chì trong phòng phải thấy hiệu lực ngay, không bị
   // đè lại bởi hồ sơ tài khoản. Chỉ riêng khung avatar/khung hồ sơ (trang trí mua ở shop, không có
-  // UI đổi tại phòng) mới lấy "live" từ public.users. Guest (không có user_id) không có liveProfile.
-  const liveProfile = player.user_id ? liveProfilesByUserId?.get(player.user_id) : undefined;
+  // UI đổi tại phòng) mới lấy "live" từ public.users. Guest (không có user_id) không có liveProfile
+  // nhưng vẫn được áp khung thông tin mặc định (defaultProfileFrameUrl) giống user chưa trang bị.
+  const liveProfile = player.user_id ? liveProfiles?.byUserId.get(player.user_id) : undefined;
   const avatarObjectKey = normalizePlayerAvatarObjectKey(player.avatar_object_key);
 
   return {
@@ -695,7 +697,8 @@ function mapLobbyPlayer(
     avatarObjectKey,
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
-    profileFrameUrl: liveProfile?.profileFrameUrl ?? null,
+    profileFrameUrl: liveProfile?.profileFrameUrl ?? liveProfiles?.defaultProfileFrameUrl ?? null,
+    hasEquippedProfileFrame: liveProfile?.hasEquippedProfileFrame ?? false,
     isHost: player.is_host,
     isReady: player.is_ready,
     joinedAt: player.joined_at,
@@ -1216,7 +1219,7 @@ function buildAvalonPlayPlayers(
   state: AvalonGameState,
   livePlayers: PlayerRow[],
   currentPlayer: PlayerRow | null,
-  frameUrlsByUserId?: Map<string, EquippedFrameUrls>
+  frameUrlsByUserId?: EquippedFrameUrlsLookup
 ): AvalonPlayPlayer[] {
   const confirmedRolePlayerIds = new Set(state.phaseConfirmations.role_reveal ?? []);
   const shouldRevealAllRoles = state.phase === "result";
@@ -1229,7 +1232,9 @@ function buildAvalonPlayPlayers(
     const avatarObjectKey = normalizePlayerAvatarObjectKey(
       livePlayer?.avatar_object_key ?? state.playerAvatarObjectKeyByPlayerId[playerId]
     );
-    const frames = livePlayer?.user_id ? frameUrlsByUserId?.get(livePlayer.user_id) : undefined;
+    // Guest (không có user_id) cũng không có entry trong byUserId, nhưng vẫn được áp khung
+    // thông tin mặc định (defaultProfileFrameUrl) giống user chưa trang bị.
+    const frames = livePlayer?.user_id ? frameUrlsByUserId?.byUserId.get(livePlayer.user_id) : undefined;
 
     return {
       id: playerId,
@@ -1238,7 +1243,8 @@ function buildAvalonPlayPlayers(
       avatarObjectKey,
       avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
       avatarFrameUrl: frames?.avatarFrameUrl ?? null,
-      profileFrameUrl: frames?.profileFrameUrl ?? null,
+      profileFrameUrl: frames?.profileFrameUrl ?? frameUrlsByUserId?.defaultProfileFrameUrl ?? null,
+      hasEquippedProfileFrame: frames?.hasEquippedProfileFrame ?? false,
       isHost: Boolean(livePlayer?.is_host),
       isReady: Boolean(livePlayer?.is_ready),
       joinedAt: livePlayer?.joined_at ?? "",

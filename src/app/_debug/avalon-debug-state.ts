@@ -362,6 +362,7 @@ export function buildDebugAvalonState({ phase, playerId, role, view, votes }: Bu
         avatarUrl: null,
         avatarFrameUrl: null,
         profileFrameUrl: null,
+        hasEquippedProfileFrame: false,
         isHost: player.id === "p1",
         isReady: true,
         joinedAt: "",
