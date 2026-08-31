@@ -3,7 +3,7 @@ import type { ShopItemRow } from "@/lib/supabase/types";
 
 export type DebugProfileFrameItem = Pick<
   ShopItemRow,
-  "id" | "name" | "image_url" | "price_coins" | "is_active" | "sort_order"
+  "id" | "name" | "image_url" | "frame_color" | "price_coins" | "is_active" | "sort_order"
 >;
 
 export type DebugProfileFrameResult =
@@ -19,7 +19,7 @@ export async function listAllProfileFrameShopItems(): Promise<DebugProfileFrameR
 
   const { data, error } = await supabase
     .from("shop_items")
-    .select("id, name, image_url, price_coins, is_active, sort_order")
+    .select("id, name, image_url, frame_color, price_coins, is_active, sort_order")
     .eq("item_type", "profile_frame")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });

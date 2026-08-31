@@ -34,9 +34,15 @@ const EMPTY_FORM: ShopItemInput = {
   description: "",
   priceCoins: 0,
   imageUrl: "",
+  frameColor: null,
   isActive: true,
   sortOrder: 0,
 };
+
+// Màu mặc định điền sẵn vào <input type="color"> khi khung chưa có frame_color — input type
+// color luôn cần 1 giá trị hex hợp lệ để hiển thị (không nhận null/rỗng), --primary-light hiện
+// tại (#8EA8FF) làm chuẩn để khớp đúng cảm giác "màu mặc định" trước khi admin chọn màu riêng.
+const DEFAULT_COLOR_PICKER_VALUE = "#8EA8FF";
 
 export default function AdminItemsScreen() {
   const [items, setItems] = useState<ShopItemRow[]>([]);
@@ -81,6 +87,7 @@ export default function AdminItemsScreen() {
       description: item.description ?? "",
       priceCoins: item.price_coins,
       imageUrl: item.image_url,
+      frameColor: item.frame_color,
       isActive: item.is_active,
       sortOrder: item.sort_order,
     });
@@ -354,6 +361,40 @@ export default function AdminItemsScreen() {
                   </span>
                 )}
               </div>
+
+              {formInput.itemType === "profile_frame" && (
+                <div className={styles.formField}>
+                  <div className={styles.formCheckboxRow}>
+                    <input
+                      checked={formInput.frameColor !== null}
+                      id="item-frame-color-enabled"
+                      type="checkbox"
+                      onChange={(event) =>
+                        setFormInput((current) => ({
+                          ...current,
+                          frameColor: event.target.checked ? DEFAULT_COLOR_PICKER_VALUE : null,
+                        }))
+                      }
+                    />
+                    <label htmlFor="item-frame-color-enabled">Dùng màu riêng cho lớp kính bên trong khung</label>
+                  </div>
+                  {formInput.frameColor !== null && (
+                    <>
+                      <input
+                        id="item-frame-color"
+                        type="color"
+                        value={formInput.frameColor}
+                        onChange={(event) =>
+                          setFormInput((current) => ({ ...current, frameColor: event.target.value }))
+                        }
+                      />
+                      <p className={styles.formHint}>
+                        Bỏ trống (tắt checkbox trên) để lớp kính dùng màu mặc định của hệ thống.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className={styles.formField}>
                 <label htmlFor="item-description">Mô tả (tùy chọn)</label>

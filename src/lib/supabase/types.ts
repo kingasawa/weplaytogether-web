@@ -128,6 +128,9 @@ export type ShopItemRow = {
   description: string | null;
   price_coins: number;
   image_url: string;
+  // Màu riêng của khung (chuỗi màu CSS, vd "#5D7CFF"), chỉ có ý nghĩa với item_type=profile_frame
+  // — dùng để tô lớp kính .playerRowFrameInnerGlass theo tông màu khung. null = dùng màu mặc định.
+  frame_color: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -204,7 +207,7 @@ export type Database = {
       };
       shop_items: {
         Row: ShopItemRow;
-        Insert: Partial<Pick<ShopItemRow, "id" | "description" | "price_coins" | "is_active" | "sort_order" | "created_at" | "updated_at">> &
+        Insert: Partial<Pick<ShopItemRow, "id" | "description" | "price_coins" | "frame_color" | "is_active" | "sort_order" | "created_at" | "updated_at">> &
           Pick<ShopItemRow, "item_type" | "name" | "image_url">;
         Update: Partial<Omit<ShopItemRow, "id" | "created_at">>;
       };

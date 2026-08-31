@@ -1922,23 +1922,24 @@
 }
 
 /* Lớp nền kính (glassmorphism) nằm GỌN TRONG cửa sổ trong suốt của khung — không lan ra đè lên
-   viền hoạ tiết. inset khớp CHÍNH XÁC với padding của .playerRowFramed (28px mọi cạnh) — đây là
-   ranh giới "an toàn" tối thiểu để né hoạ tiết khung (đo trên các khung hiện có trong shop).
-   LƯU Ý: từ khi tách padding — .playerRowFramed còn 28px (vùng kính) trong khi avatar/tên có
-   thêm padding riêng 22px ở .playerRowFramed .playerIdentity (28+22=50, giữ đúng vị trí avatar/
-   tên như trước) — lớp kính nhờ vậy có cửa sổ RỘNG HƠN vùng avatar/tên, đúng ý đồ "2 lớp view"
-   (view ngoài = kính, view trong = avatar/tên giữ nguyên) thay vì phải dùng chung 1 ranh giới
-   50px như trước. Nằm TRƯỚC .playerRowFrameOverlay trong DOM (cùng z-index 1, phần tử sau vẽ
-   đè lên phần tử trước) để viền hoạ tiết của khung luôn hiển thị NỔI LÊN TRÊN lớp kính (kính
-   nằm dưới nền khung) — tránh backdrop-filter của kính làm mờ hoạ tiết viền nếu 2 lớp chồng
-   mép; nội dung (avatar/tên) và các hiệu ứng glow/flash/sparkle vẫn nằm trên cả 2 lớp này do
-   đứng sau trong DOM/z-index cao hơn. */
+   viền hoạ tiết — inset là ranh giới "an toàn" (né hoạ tiết khung) riêng cho lớp kính, độc lập
+   với padding của .playerRowFramed (28px) và padding riêng của .playerRowFramed .playerIdentity
+   (12px), đúng ý đồ "2 lớp view" (view ngoài = kính, view trong = avatar/tên) — mỗi lớp có ranh
+   giới/kích thước tự tinh chỉnh riêng, không bắt buộc bằng nhau. Nằm TRƯỚC .playerRowFrameOverlay
+   trong DOM (cùng z-index 1, phần tử sau vẽ đè lên phần tử trước) để viền hoạ tiết của khung luôn
+   hiển thị NỔI LÊN TRÊN lớp kính (kính nằm dưới nền khung) — tránh backdrop-filter của kính làm
+   mờ hoạ tiết viền nếu 2 lớp chồng mép; nội dung (avatar/tên) và các hiệu ứng glow/flash/sparkle
+   vẫn nằm trên cả 2 lớp này do đứng sau trong DOM/z-index cao hơn. */
 .playerRowFrameInnerGlass {
   position: absolute;
-  inset: 28px;
+  inset: 20px;
   z-index: 1;
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--primary-light) 10%, transparent);
+  /* Gradient thay vì màu đặc đồng nhất: đậm nhất ở mép phải (đúng công thức color-mix cũ), tan
+     dần về trong suốt hoàn toàn ở mép trái — nếu khung có frame_color riêng, frameGlassStyle()
+     (src/lib/frame-mask-style.ts) override đúng gradient này qua inline style, base ở đây chỉ là
+     fallback khi khung chưa set màu riêng (giữ cùng 1 công thức, không phân nhánh 2 nơi). */
+  background: linear-gradient(to left, color-mix(in srgb, var(--primary-light) 10%, transparent) 0%, transparent 100%);
   -webkit-backdrop-filter: blur(3px) saturate(140%);
   backdrop-filter: blur(3px) saturate(140%);
   pointer-events: none;
@@ -1957,6 +1958,14 @@
    frame-effects.tsx (JS dùng để biết lúc nào gỡ data-shine) — đổi 1 bên nhớ đổi bên kia.
    ============================================================================ */
 .playerRow {
+  /* Màu gốc cho CẢ 3 hiệu ứng ánh sáng (glow/flash/sparkle) bên dưới — mặc định = --primary-light
+     của hệ thống, override theo từng hàng qua inline style (frameTintStyle() trong
+     src/lib/frame-mask-style.ts) khi khung có frame_color riêng, để hiệu ứng đổi màu theo đúng
+     tông màu của khung đó thay vì luôn 1 màu cố định. .playerRowFrameFlash không đọc biến này
+     qua CSS module (JS ở frame-effects.tsx set trực tiếp background-image chứa chuỗi
+     var(--frame-tint-color)) nhưng vẫn cùng cơ chế inherit CSS custom property như glow/sparkle. */
+  --frame-tint-color: var(--primary-light);
+
   /* Glow: xoay quanh viền khi hàng được chọn (data-shine="on") */
   --frame-glow-color-mix: 85%; /* màu: % primary-light pha với --text (0-100) */
   --frame-glow-arc-deg: 80deg; /* shape: bề rộng cung sáng của conic-gradient (0-360deg, đỉnh sáng nằm giữa cung) */
@@ -2024,12 +2033,12 @@
   background: conic-gradient(
     from var(--frame-glow-angle),
     transparent 0deg,
-    color-mix(in srgb, var(--primary-light) var(--frame-glow-color-mix), var(--text)) calc(var(--frame-glow-arc-deg) / 2),
+    color-mix(in srgb, var(--frame-tint-color) var(--frame-glow-color-mix), var(--text)) calc(var(--frame-glow-arc-deg) / 2),
     transparent var(--frame-glow-arc-deg),
     transparent 360deg
   );
   filter: drop-shadow(
-    0 0 var(--frame-glow-shadow-blur) color-mix(in srgb, var(--primary-light) var(--frame-glow-shadow-mix), transparent)
+    0 0 var(--frame-glow-shadow-blur) color-mix(in srgb, var(--frame-tint-color) var(--frame-glow-shadow-mix), transparent)
   );
 }
 
@@ -2119,7 +2128,7 @@
   z-index: 3;
   width: var(--sparkle-size);
   height: var(--sparkle-size);
-  background: radial-gradient(circle, var(--text) 0%, var(--primary-light) var(--sparkle-color-mix), transparent 100%);
+  background: radial-gradient(circle, var(--text) 0%, var(--frame-tint-color) var(--sparkle-color-mix), transparent 100%);
   clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
   opacity: 0;
   pointer-events: none;
@@ -2133,8 +2142,11 @@
   animation: playerRowSparklePulse var(--sparkle-pulse-duration) ease-in-out infinite;
 }
 
-/* B/C/D lệch duration/delay so với gốc (--sparkle-pulse-duration) để 4 sparkle không nhấp
-   nháy đồng loạt — đổi tốc độ gốc ở CONFIG thì cả 4 vẫn tự lệch pha theo đúng tỉ lệ. */
+/* B..H lệch duration/delay so với gốc (--sparkle-pulse-duration) để các sparkle không nhấp
+   nháy đồng loạt — đổi tốc độ gốc ở CONFIG thì cả dàn vẫn tự lệch pha theo đúng tỉ lệ. Tăng số
+   lượng sparkle (4 -> 8) theo yêu cầu "nhiều hạt hơn" — muốn thêm/bớt hạt thì thêm/bớt cặp
+   class ở đây + span tương ứng ở mọi file render (xem data-frame-sparkle), giữ đều bước nhảy
+   delay ~0.7s để dàn trải đều trên 1 chu kỳ --sparkle-pulse-duration (2.4s mặc định). */
 .playerRow[data-shine="on"] .sparkleB {
   animation-duration: calc(var(--sparkle-pulse-duration) + 0.4s);
   animation-delay: -0.7s;
@@ -2148,6 +2160,26 @@
 .playerRow[data-shine="on"] .sparkleD {
   animation-duration: calc(var(--sparkle-pulse-duration) + 0.7s);
   animation-delay: -2.1s;
+}
+
+.playerRow[data-shine="on"] .sparkleE {
+  animation-duration: calc(var(--sparkle-pulse-duration) + 0.5s);
+  animation-delay: -2.8s;
+}
+
+.playerRow[data-shine="on"] .sparkleF {
+  animation-duration: calc(var(--sparkle-pulse-duration) - 0.3s);
+  animation-delay: -3.5s;
+}
+
+.playerRow[data-shine="on"] .sparkleG {
+  animation-duration: calc(var(--sparkle-pulse-duration) + 0.6s);
+  animation-delay: -4.2s;
+}
+
+.playerRow[data-shine="on"] .sparkleH {
+  animation-duration: calc(var(--sparkle-pulse-duration) - 0.4s);
+  animation-delay: -4.9s;
 }
 
 @keyframes playerRowSparklePulse {
@@ -2212,25 +2244,27 @@
   gap: 0.75rem;
 }
 
-/* Bù lại 22px padding vừa bớt ở .playerRowFramed (50px -> 28px): .playerIdentity là flex item
-   flex:1 DUY NHẤT trong .playerRow nên box của nó khít đúng content-box của article — cộng
-   thêm 22px padding-inline ở đây thì avatar (trái) và khối tên/hành động (phải, qua
-   .playerIdentity > div) vẫn nằm CÙNG 1 vị trí như khi article còn padding 50px (28+22=50),
-   dù article giờ padding ít hơn để nhường chỗ cho lớp kính rộng hơn. CHỈ set padding-inline
-   (không set top/bottom): .playerRow dùng align-items:center ở CẢ 2 cấp (article lẫn
-   .playerIdentity) nên vị trí dọc của avatar đã tự động giữ nguyên bất kể padding dọc — thêm
+/* padding-inline riêng cho hàng có khung: .playerIdentity là flex item flex:1 DUY NHẤT trong
+   .playerRow nên box của nó khít đúng content-box của article — padding-inline ở đây đẩy avatar
+   (trái)/khối tên (phải, qua .playerIdentity > div) vào thêm 1 đoạn tính từ mép trong của
+   .playerRowFramed (đang padding 28px), tổng cách mép ngoài = 28 + giá trị dưới đây. CHỈ set
+   padding-inline (không set top/bottom): .playerRow dùng align-items:center ở CẢ 2 cấp (article
+   lẫn .playerIdentity) nên vị trí dọc của avatar đã tự động giữ nguyên bất kể padding dọc — thêm
    padding dọc ở đây là thừa và còn có thể làm .playerIdentity vượt quá chiều cao hàng (đặc biệt
    ở mobile, hàng thấp hơn) vì .playerRow không set align-items:stretch nên .playerIdentity co
    theo đúng content, không co giãn theo hàng. */
 .playerRowFramed .playerIdentity {
-  padding-inline: 22px;
+  padding-inline: 12px;
 }
 
 .playerAvatar {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  /* var(--frame-tint-color) (khai báo ở .playerRow, xem khối CONFIG hiệu ứng VIP phía trên) —
+     mặc định = --primary-light, tự đổi theo màu riêng của khung info (frame_color) khi có, cùng
+     cơ chế/màu với glow-flash-sparkle để avatar luôn đồng bộ tông màu với khung đang trang bị. */
+  border: 2px solid var(--frame-tint-color);
   border-radius: 999px;
   background: var(--bg-secondary);
   object-fit: cover;
@@ -2245,15 +2279,15 @@
 /* Khung avatar (vật phẩm shop) đè lên avatar, hiển thị cho mọi người trong phòng thấy.
    Kích thước khung = 145% avatar — test trực quan composite trên nhiều ảnh khung: 160%
    để hở khoảng trống rõ, 125% che mất tóc/mặt, 145% khít nhất mà không che avatar.
-   width/height phải khớp đúng .playerAvatar (hiện 3rem) — trước đây avatar tăng lên 3rem
+   width/height phải khớp đúng .playerAvatar (hiện 2.5rem) — trước đây avatar tăng lên 3rem
    nhưng wrap vẫn 2.4rem khiến .playerAvatarFrameWrap .playerAvatar (position:absolute;
-   inset:0) bị over-constrained: width/height 3rem thắng nhưng neo ở top-left thay vì lấp
-   đầy/căn giữa wrap 2.4rem, làm avatar lệch khỏi tâm hàng so với khối 2 dòng tên/trạng thái
-   (đã gặp lỗi này). */
+   inset:0) bị over-constrained: width/height thắng nhưng neo ở top-left thay vì lấp
+   đầy/căn giữa wrap, làm avatar lệch khỏi tâm hàng so với khối 2 dòng tên/trạng thái
+   (đã gặp lỗi này) — mỗi lần đổi size avatar phải đổi đồng bộ cả 2 nơi. */
 .playerAvatarFrameWrap {
   position: relative;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex: 0 0 auto;
 }
 
@@ -2266,9 +2300,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  /* 145% của avatar 3rem (xem comment .playerAvatarFrameWrap) */
-  width: 4.35rem;
-  height: 4.35rem;
+  /* 145% của avatar 2.5rem (xem comment .playerAvatarFrameWrap) */
+  width: 3.625rem;
+  height: 3.625rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -2430,7 +2464,7 @@
    top:50% + translateY(-50%): căn giữa dọc đúng bằng tâm hàng, cùng "hàng" với avatar/text
    (avatar/text cũng được .playerRow căn giữa dọc qua align-items:center).
    right: khớp đúng padding-left của .playerRow (15%) để khoảng cách phải bằng khoảng cách
-   avatar cách trái — hàng có khung dùng padding 50px (literal), override riêng bên dưới.
+   avatar cách trái — hàng có khung dùng giá trị literal riêng, override bên dưới.
 */
 .hostBadge {
   position: absolute;
@@ -2450,10 +2484,9 @@
   box-shadow: none;
 }
 
-/* Hàng có khung dùng padding 50px (literal, không phải %) — mirror đúng giá trị đó thay vì
-   15% kế thừa từ .playerRow. */
+/* Hàng có khung dùng giá trị literal (px) riêng thay vì 15% kế thừa từ .playerRow. */
 .playerRowFramed .hostBadge {
-  right: 50px;
+  right: 20px;
 }
 
 /* Icon crown thật (public/images/crown.webp, nền đã tách trong suốt) thay cho lucide Crown —

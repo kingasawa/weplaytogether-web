@@ -70,6 +70,7 @@ function buildPlayers(overrides: {
     avatarUrl: null,
     avatarFrameUrl: null,
     profileFrameUrl: null,
+    profileFrameColor: null,
     hasEquippedProfileFrame: false,
     isHost: seed.isHost,
     isReady: true,

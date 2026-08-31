@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-27 -->
+﻿<!-- Last updated: 2026-08-31 -->
 
 # Database Schema
 
@@ -32,6 +32,8 @@ On 2026-08-26, local migration `202608260001_shop_items.sql` was created to add 
 
 On 2026-08-27, local migration `202608270001_wolf_night_turn_delay.sql` was created to add `game_sessions.night_turn_reveal_at`, backing a night-phase pacing feature (5-10s delay between night turns, 5-15s delay before leaving "night") for Ma Sói Một Đêm. App code tolerates the column being absent (feature stays inactive, old instant-transition behavior), so this is safe to leave pending.
 
+On 2026-08-31, local migration `202608310001_shop_items_frame_color.sql` was created to add `shop_items.frame_color text null` — a per-frame custom color (only meaningful for `item_type = 'profile_frame'`), set by admin via `/admin/items`, used to tint the profile-frame "glass" panel (`.playerRowFrameInnerGlass`) instead of always using the fixed `--primary-light` design token. App code (`src/lib/player-avatar-frames.ts`, `src/lib/frame-mask-style.ts`'s `frameGlassStyle`) tolerates the column being absent (Supabase returns an error on select, which the existing empty-map fallback already handles) or null (falls back to the CSS module's default `--primary-light`-based background), so applying this migration is optional for the app to keep working, but required for the per-frame color feature to activate.
+
 On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
@@ -58,6 +60,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608250001_wolf_scoring_currency.sql`
 - `supabase/migrations/202608260001_shop_items.sql`
 - `supabase/migrations/202608270001_wolf_night_turn_delay.sql`
+- `supabase/migrations/202608310001_shop_items_frame_color.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -97,6 +100,7 @@ Vật phẩm bán trong shop (khung avatar, khung thông tin người chơi). **
 - `description text null`, tối đa 200 ký tự
 - `price_coins integer not null default 0`, giá bán bằng Xu, `>= 0`
 - `image_url text not null` — URL ảnh (admin nhập tay, ví dụ URL public trên Cloudflare R2)
+- `frame_color text null` — màu riêng của khung, chỉ có ý nghĩa với `item_type='profile_frame'`, tô lớp kính `.playerRowFrameInnerGlass`. **Pending apply**: thêm bởi `202608310001_shop_items_frame_color.sql`.
 - `is_active boolean not null default true` — chỉ vật phẩm `true` hiện trên shop cho user thường
 - `sort_order integer not null default 0`
 - `created_at timestamptz not null default now()`

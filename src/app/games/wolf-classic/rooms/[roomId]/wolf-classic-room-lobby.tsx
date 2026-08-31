@@ -4,7 +4,7 @@ import { Link as LinkIcon, LogOut, Minus, Pencil, Play, UserRound } from "lucide
 import Image from "next/image";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
-import { frameMaskStyle } from "@/lib/frame-mask-style";
+import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -674,10 +674,15 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                   }
                   data-player-row-shine-card={player.hasEquippedProfileFrame ? "" : undefined}
                   key={player.id}
+                  style={frameTintStyle(player.profileFrameColor)}
                 >
                   {player.profileFrameUrl && (
                     <>
-                      <span aria-hidden="true" className={styles.playerRowFrameInnerGlass} />
+                      <span
+                        aria-hidden="true"
+                        className={styles.playerRowFrameInnerGlass}
+                        style={frameGlassStyle(player.profileFrameColor)}
+                      />
                       <span
                         aria-hidden="true"
                         className={styles.playerRowFrameOverlay}
@@ -711,6 +716,26 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                       />
                       <span
                         className={`${styles.sparkle} ${styles.sparkleD}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleE}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleF}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleG}`}
+                        data-frame-sparkle
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`${styles.sparkle} ${styles.sparkleH}`}
                         data-frame-sparkle
                         aria-hidden="true"
                       />

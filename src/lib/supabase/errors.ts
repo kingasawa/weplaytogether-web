@@ -38,6 +38,10 @@ export function isMissingUserIdColumnError(error: SupabaseErrorLike) {
   return isMissingColumnError(error, "user_id");
 }
 
+export function isMissingFrameColorColumnError(error: SupabaseErrorLike) {
+  return isMissingColumnError(error, "frame_color");
+}
+
 // PGRST205: bảng chưa tồn tại trên remote (migration chưa được apply thủ công).
 export function isMissingTableError(error: SupabaseErrorLike, tableName: string) {
   if (!error) {

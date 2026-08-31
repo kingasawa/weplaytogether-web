@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { optimizeShopItemImage, SHOP_ITEM_IMAGE_SOURCE_MAX_BYTES } from "@/lib/shop-item-image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { isMissingTableError } from "@/lib/supabase/errors";
+import { isMissingFrameColorColumnError, isMissingTableError } from "@/lib/supabase/errors";
 import type { ShopItemRow, ShopItemType } from "@/lib/supabase/types";
 
 // Data layer cho trang /admin. Mọi thao tác ghi (insert/update/delete shop_items, update Xu
@@ -10,6 +10,12 @@ import type { ShopItemRow, ShopItemType } from "@/lib/supabase/types";
 // đây vì trang admin gate bằng whitelist email, không phải server session.
 
 const ADMIN_SHOP_ITEMS_COLUMNS =
+  "id, item_type, name, description, price_coins, image_url, frame_color, is_active, sort_order, created_at, updated_at";
+
+// Bản không có frame_color — dùng khi cột đó chưa được apply thủ công lên remote (xem
+// listAllShopItems). Khai báo literal riêng (không .replace() runtime) để Supabase client vẫn
+// suy được kiểu dữ liệu trả về từ chuỗi cột (cần string literal, không phải computed string).
+const ADMIN_SHOP_ITEMS_COLUMNS_NO_FRAME_COLOR =
   "id, item_type, name, description, price_coins, image_url, is_active, sort_order, created_at, updated_at";
 
 export type AdminResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -26,6 +32,9 @@ export type ShopItemInput = {
   description: string | null;
   priceCoins: number;
   imageUrl: string;
+  // Chỉ có ý nghĩa với itemType=profile_frame (tô màu lớp kính bên trong khung) — null = dùng
+  // màu mặc định --primary-light.
+  frameColor: string | null;
   isActive: boolean;
   sortOrder: number;
 };
@@ -74,6 +83,10 @@ export async function uploadShopItemImage(itemType: ShopItemType, file: File): P
   return { data: body.imageUrl, error: null };
 }
 
+// shop_items.frame_color (202608310001_shop_items_frame_color.sql) có thể chưa được apply thủ
+// công lên remote — fallback về select không có cột đó (frame_color luôn null ở client) để
+// KHÔNG làm gãy toàn bộ trang /admin/items (kể cả vật phẩm avatar_frame không liên quan) trong
+// lúc chờ migration, giống idiom isMissingAvatarKeyColumnError ở actions.ts.
 export async function listAllShopItems(): Promise<AdminResult<ShopItemRow[]>> {
   const { data, error } = await client()
     .from("shop_items")
@@ -81,11 +94,26 @@ export async function listAllShopItems(): Promise<AdminResult<ShopItemRow[]>> {
     .order("item_type", { ascending: true })
     .order("sort_order", { ascending: true });
 
-  if (error) {
-    return { data: null, error: isMissingTableError(error, "shop_items") ? NOT_READY_ERROR : error.message };
+  if (!error) {
+    return { data: (data ?? []) as ShopItemRow[], error: null };
   }
 
-  return { data: (data ?? []) as ShopItemRow[], error: null };
+  if (isMissingFrameColorColumnError(error)) {
+    const fallback = await client()
+      .from("shop_items")
+      .select(ADMIN_SHOP_ITEMS_COLUMNS_NO_FRAME_COLOR)
+      .order("item_type", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (fallback.error) {
+      return { data: null, error: fallback.error.message };
+    }
+
+    const rows = (fallback.data ?? []).map((row) => ({ ...row, frame_color: null }));
+    return { data: rows, error: null };
+  }
+
+  return { data: null, error: isMissingTableError(error, "shop_items") ? NOT_READY_ERROR : error.message };
 }
 
 export async function createShopItem(input: ShopItemInput): Promise<AdminResult<ShopItemRow>> {
@@ -97,6 +125,7 @@ export async function createShopItem(input: ShopItemInput): Promise<AdminResult<
       description: input.description,
       price_coins: input.priceCoins,
       image_url: input.imageUrl,
+      frame_color: input.frameColor,
       is_active: input.isActive,
       sort_order: input.sortOrder,
     })
@@ -122,6 +151,7 @@ export async function updateShopItem(
       description: input.description,
       price_coins: input.priceCoins,
       image_url: input.imageUrl,
+      frame_color: input.frameColor,
       is_active: input.isActive,
       sort_order: input.sortOrder,
     })

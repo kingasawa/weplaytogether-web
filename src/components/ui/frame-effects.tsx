@@ -25,7 +25,7 @@ const SPARKLE_REPOSITION_MAX_MS = 3000; // tốc độ: 0.5-3s giữa 2 lần đ
 // Flash: shape "line" (vạch thẳng, góc ngẫu nhiên mỗi lần) hoặc "circle" (vòng tròn, luôn quét
 // cố định trái->phải, không có góc để random) — đổi giá trị này để chuyển hẳn kiểu hiệu ứng.
 const FLASH_SHAPE: "line" | "circle" = "line";
-const FLASH_COLOR_MIX_PERCENT = 75; // màu/độ sáng tối: % primary-light so với phần trong suốt (0-100, càng cao càng đặc/sáng)
+const FLASH_COLOR_MIX_PERCENT = 75; // màu/độ sáng tối: % --frame-tint-color so với phần trong suốt (0-100, càng cao càng đặc/sáng)
 const FLASH_LINE_THICKNESS_PERCENT = 16; // kích thước (chỉ shape "line"): bề dày vạch, tính theo % canvas quét 300% (~3x kích thước hàng)
 const FLASH_CIRCLE_SIZE_REM = 6.5; // kích thước (chỉ shape "circle"): đường kính vòng tròn
 const FLASH_DURATION_MS = 1300; // tốc độ: quét hết 1 lượt mất bao lâu
@@ -55,7 +55,12 @@ const BORDER_POINTS: Array<[number, number]> = [
 
 const RESCAN_INTERVAL_MS = 2000;
 
-const FLASH_COLOR = `color-mix(in srgb, var(--primary-light) ${FLASH_COLOR_MIX_PERCENT}%, transparent ${100 - FLASH_COLOR_MIX_PERCENT}%)`;
+// var(--frame-tint-color) (không phải --primary-light trực tiếp) — custom property khai báo ở
+// .playerRow trong page.module.css, mặc định = --primary-light nhưng override theo từng hàng
+// qua inline style (frameTintStyle()) khi khung có frame_color riêng. Chuỗi này chỉ chứa tên
+// biến CSS, giá trị thật được TRÌNH DUYỆT tự resolve lúc paint dựa trên .playerRow cụ thể chứa
+// [data-frame-flash] đang set backgroundImage — không cần JS biết màu thật của từng khung.
+const FLASH_COLOR = `color-mix(in srgb, var(--frame-tint-color) ${FLASH_COLOR_MIX_PERCENT}%, transparent ${100 - FLASH_COLOR_MIX_PERCENT}%)`;
 
 type FlashSweep = {
   backgroundImage: string;

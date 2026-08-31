@@ -1,3 +1,4 @@
+import { isMissingFrameColorColumnError } from "@/lib/supabase/errors";
 import type { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 // Khung thông tin mặc định hiển thị cho MỌI người chơi chưa trang bị khung nào — kể cả user đã
@@ -7,22 +8,68 @@ import type { createSupabaseAdminClient } from "@/lib/supabase/server";
 // này theo.
 const DEFAULT_PROFILE_FRAME_NAME = "Khung Bạch Kim";
 
-async function getDefaultProfileFrameUrl(
+// shop_items.frame_color (202608310001_shop_items_frame_color.sql) có thể CHƯA được apply thủ
+// công lên remote — mọi hàm đọc frame_color trong file này phải fallback về select KHÔNG có cột
+// đó khi gặp lỗi "column does not exist", để tính năng ảnh khung (đã chạy thật từ trước) không
+// bị vỡ trong lúc chờ migration apply (chỉ mất phần tô màu riêng, color luôn về null).
+async function selectShopItemsFrameData(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  ids: string[]
+): Promise<Map<string, { imageUrl: string; color: string | null }>> {
+  const { data, error } = await supabase.from("shop_items").select("id, image_url, frame_color").in("id", ids);
+
+  if (!error) {
+    return new Map(
+      (data ?? []).map((item) => [
+        item.id as string,
+        { imageUrl: item.image_url as string, color: (item.frame_color as string | null) ?? null },
+      ])
+    );
+  }
+
+  if (!isMissingFrameColorColumnError(error)) {
+    return new Map();
+  }
+
+  const { data: fallbackData } = await supabase.from("shop_items").select("id, image_url").in("id", ids);
+  return new Map((fallbackData ?? []).map((item) => [item.id as string, { imageUrl: item.image_url as string, color: null }]));
+}
+
+async function getDefaultProfileFrame(
   supabase: ReturnType<typeof createSupabaseAdminClient>
-): Promise<string | null> {
-  const { data } = await supabase
+): Promise<{ imageUrl: string | null; color: string | null }> {
+  const { data, error } = await supabase
+    .from("shop_items")
+    .select("image_url, frame_color")
+    .eq("item_type", "profile_frame")
+    .eq("name", DEFAULT_PROFILE_FRAME_NAME)
+    .maybeSingle();
+
+  if (!error) {
+    const row = data as { image_url: string; frame_color: string | null } | null;
+    return { imageUrl: row?.image_url ?? null, color: row?.frame_color ?? null };
+  }
+
+  if (!isMissingFrameColorColumnError(error)) {
+    return { imageUrl: null, color: null };
+  }
+
+  const { data: fallbackData } = await supabase
     .from("shop_items")
     .select("image_url")
     .eq("item_type", "profile_frame")
     .eq("name", DEFAULT_PROFILE_FRAME_NAME)
     .maybeSingle();
 
-  return (data as { image_url: string } | null)?.image_url ?? null;
+  return { imageUrl: (fallbackData as { image_url: string } | null)?.image_url ?? null, color: null };
 }
 
 export type EquippedFrameUrls = {
   avatarFrameUrl: string | null;
   profileFrameUrl: string | null;
+  // Màu riêng của khung info (shop_items.frame_color) — tô lớp kính .playerRowFrameInnerGlass.
+  // null = dùng màu mặc định --primary-light (xem src/lib/frame-glass-style.ts).
+  profileFrameColor: string | null;
   // true = user tự trang bị khung info đã mua/sở hữu; false = equipped_profile_frame_id null
   // (đang hiện khung mặc định qua defaultProfileFrameUrl).
   hasEquippedProfileFrame: boolean;
@@ -34,6 +81,7 @@ export type LivePlayerProfile = {
   avatarObjectKey: string | null;
   avatarFrameUrl: string | null;
   profileFrameUrl: string | null;
+  profileFrameColor: string | null;
   hasEquippedProfileFrame: boolean;
 };
 
@@ -42,11 +90,13 @@ export type EquippedFrameUrlsLookup = {
   // Khung thông tin mặc định — caller phải tự áp dụng cho CẢ user không có map entry (chưa từng
   // trang bị khung) LẪN guest (không có user_id nên không nằm trong map này).
   defaultProfileFrameUrl: string | null;
+  defaultProfileFrameColor: string | null;
 };
 
 export type LivePlayerProfilesLookup = {
   byUserId: Map<string, LivePlayerProfile>;
   defaultProfileFrameUrl: string | null;
+  defaultProfileFrameColor: string | null;
 };
 
 // Tra map user_id -> URL ảnh khung avatar + khung thông tin đang trang bị
@@ -59,11 +109,13 @@ export async function getEquippedFrameUrlsByUserId(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   userIds: Array<string | null | undefined>
 ): Promise<EquippedFrameUrlsLookup> {
-  const defaultProfileFrameUrl = await getDefaultProfileFrameUrl(supabase);
+  const defaultFrame = await getDefaultProfileFrame(supabase);
+  const defaultProfileFrameUrl = defaultFrame.imageUrl;
+  const defaultProfileFrameColor = defaultFrame.color;
   const distinctUserIds = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
 
   if (distinctUserIds.length === 0) {
-    return { byUserId: new Map(), defaultProfileFrameUrl };
+    return { byUserId: new Map(), defaultProfileFrameUrl, defaultProfileFrameColor };
   }
 
   const { data: usersData, error: usersError } = await supabase
@@ -72,7 +124,7 @@ export async function getEquippedFrameUrlsByUserId(
     .in("id", distinctUserIds);
 
   if (usersError || !usersData) {
-    return { byUserId: new Map(), defaultProfileFrameUrl };
+    return { byUserId: new Map(), defaultProfileFrameUrl, defaultProfileFrameColor };
   }
 
   const typedUsers = usersData as {
@@ -87,24 +139,22 @@ export async function getEquippedFrameUrlsByUserId(
     ),
   ];
 
-  let imageUrlByItemId = new Map<string, string>();
-
-  if (frameIds.length > 0) {
-    const { data: itemsData } = await supabase.from("shop_items").select("id, image_url").in("id", frameIds);
-    imageUrlByItemId = new Map((itemsData ?? []).map((item) => [item.id as string, item.image_url as string]));
-  }
+  const frameDataByItemId = frameIds.length > 0 ? await selectShopItemsFrameData(supabase, frameIds) : new Map();
 
   const byUserId = new Map<string, EquippedFrameUrls>();
 
   for (const row of typedUsers) {
+    const equippedProfileFrame = row.equipped_profile_frame_id ? frameDataByItemId.get(row.equipped_profile_frame_id) : undefined;
+
     byUserId.set(row.id, {
-      avatarFrameUrl: (row.equipped_avatar_frame_id && imageUrlByItemId.get(row.equipped_avatar_frame_id)) || null,
-      profileFrameUrl: (row.equipped_profile_frame_id && imageUrlByItemId.get(row.equipped_profile_frame_id)) || null,
+      avatarFrameUrl: (row.equipped_avatar_frame_id && frameDataByItemId.get(row.equipped_avatar_frame_id)?.imageUrl) || null,
+      profileFrameUrl: equippedProfileFrame?.imageUrl ?? null,
+      profileFrameColor: equippedProfileFrame?.color ?? null,
       hasEquippedProfileFrame: Boolean(row.equipped_profile_frame_id),
     });
   }
 
-  return { byUserId, defaultProfileFrameUrl };
+  return { byUserId, defaultProfileFrameUrl, defaultProfileFrameColor };
 }
 
 // Tra map user_id -> hồ sơ "live" (tên, avatar, khung) đọc thẳng từ public.users, dùng service
@@ -117,11 +167,13 @@ export async function getLivePlayerProfilesByUserId(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   userIds: Array<string | null | undefined>
 ): Promise<LivePlayerProfilesLookup> {
-  const defaultProfileFrameUrl = await getDefaultProfileFrameUrl(supabase);
+  const defaultFrame = await getDefaultProfileFrame(supabase);
+  const defaultProfileFrameUrl = defaultFrame.imageUrl;
+  const defaultProfileFrameColor = defaultFrame.color;
   const distinctUserIds = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
 
   if (distinctUserIds.length === 0) {
-    return { byUserId: new Map(), defaultProfileFrameUrl };
+    return { byUserId: new Map(), defaultProfileFrameUrl, defaultProfileFrameColor };
   }
 
   const { data: usersData, error: usersError } = await supabase
@@ -130,7 +182,7 @@ export async function getLivePlayerProfilesByUserId(
     .in("id", distinctUserIds);
 
   if (usersError || !usersData) {
-    return { byUserId: new Map(), defaultProfileFrameUrl };
+    return { byUserId: new Map(), defaultProfileFrameUrl, defaultProfileFrameColor };
   }
 
   const typedUsers = usersData as {
@@ -148,27 +200,24 @@ export async function getLivePlayerProfilesByUserId(
     ),
   ];
 
-  let imageUrlByItemId = new Map<string, string>();
-
-  if (frameIds.length > 0) {
-    const { data: itemsData } = await supabase.from("shop_items").select("id, image_url").in("id", frameIds);
-    imageUrlByItemId = new Map((itemsData ?? []).map((item) => [item.id as string, item.image_url as string]));
-  }
+  const frameDataByItemId = frameIds.length > 0 ? await selectShopItemsFrameData(supabase, frameIds) : new Map();
 
   const byUserId = new Map<string, LivePlayerProfile>();
 
   for (const row of typedUsers) {
     const displayName = row.display_name?.trim() || null;
+    const equippedProfileFrame = row.equipped_profile_frame_id ? frameDataByItemId.get(row.equipped_profile_frame_id) : undefined;
 
     byUserId.set(row.id, {
       displayName,
       avatarKey: row.avatar_key,
       avatarObjectKey: row.avatar_object_key,
-      avatarFrameUrl: (row.equipped_avatar_frame_id && imageUrlByItemId.get(row.equipped_avatar_frame_id)) || null,
-      profileFrameUrl: (row.equipped_profile_frame_id && imageUrlByItemId.get(row.equipped_profile_frame_id)) || null,
+      avatarFrameUrl: (row.equipped_avatar_frame_id && frameDataByItemId.get(row.equipped_avatar_frame_id)?.imageUrl) || null,
+      profileFrameUrl: equippedProfileFrame?.imageUrl ?? null,
+      profileFrameColor: equippedProfileFrame?.color ?? null,
       hasEquippedProfileFrame: Boolean(row.equipped_profile_frame_id),
     });
   }
 
-  return { byUserId, defaultProfileFrameUrl };
+  return { byUserId, defaultProfileFrameUrl, defaultProfileFrameColor };
 }

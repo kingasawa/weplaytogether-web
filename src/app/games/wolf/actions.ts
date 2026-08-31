@@ -206,6 +206,7 @@ export type WolfLobbyPlayer = {
   avatarUrl: string | null;
   avatarFrameUrl: string | null;
   profileFrameUrl: string | null;
+  profileFrameColor: string | null;
   // true = user tự trang bị khung info đã MUA/sở hữu; false = đang hiện khung mặc định
   // (chưa trang bị gì) hoặc guest. Dùng để chỉ bật hiệu ứng VIP (glow/shine/sparkle) cho
   // người thực sự có khung, không áp cho khung mặc định.
@@ -818,6 +819,7 @@ function mapLobbyPlayer(player: PlayerRow, liveProfiles?: LivePlayerProfilesLook
     avatarUrl: getUploadedPlayerAvatarUrl(avatarObjectKey),
     avatarFrameUrl: liveProfile?.avatarFrameUrl ?? null,
     profileFrameUrl: liveProfile?.profileFrameUrl ?? liveProfiles?.defaultProfileFrameUrl ?? null,
+    profileFrameColor: liveProfile?.profileFrameColor ?? liveProfiles?.defaultProfileFrameColor ?? null,
     hasEquippedProfileFrame: liveProfile?.hasEquippedProfileFrame ?? false,
     isHost: player.is_host,
     isReady: player.is_ready,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
-import { frameMaskStyle } from "@/lib/frame-mask-style";
+import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { DEFAULT_PLAYER_AVATAR_KEY, getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { listAllProfileFrameShopItems } from "../_debug/profile-frame-debug-data";
 import styles from "../games/wolf/page.module.css";
@@ -57,8 +57,13 @@ export default async function DebugProfileFramePage() {
                   className={`${styles.playerRow} ${styles.playerRowFramed}`}
                   data-player-row-shine-card=""
                   key={item.id}
+                  style={frameTintStyle(item.frame_color)}
                 >
-                  <span aria-hidden="true" className={styles.playerRowFrameInnerGlass} />
+                  <span
+                    aria-hidden="true"
+                    className={styles.playerRowFrameInnerGlass}
+                    style={frameGlassStyle(item.frame_color)}
+                  />
                   <span
                     aria-hidden="true"
                     className={styles.playerRowFrameOverlay}

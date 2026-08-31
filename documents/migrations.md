@@ -1,6 +1,34 @@
-﻿<!-- Last updated: 2026-08-27 -->
+﻿<!-- Last updated: 2026-08-31 -->
 
 # Migrations
+
+## 202608310001_shop_items_frame_color.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202608310001_shop_items_frame_color.sql`
+
+Purpose:
+
+- Adds `shop_items.frame_color text null` — a per-frame custom color, only meaningful for
+  `item_type = 'profile_frame'`, set by admin in `/admin/items` (color picker, only shown for
+  that item type). Used to tint the profile-frame "glass" panel (`.playerRowFrameInnerGlass` in
+  `src/app/games/wolf/page.module.css`) with the frame's own color instead of always using the
+  fixed `--primary-light` design token — formula (see `frameGlassStyle` in
+  `src/lib/frame-mask-style.ts`): `color-mix(in srgb, var(--primary-light) 10%, color-mix(in srgb,
+  <frame_color> 80%, transparent))`.
+- App code tolerates the column being absent: `src/lib/player-avatar-frames.ts`
+  (`selectShopItemsFrameData`, `getDefaultProfileFrame`) and `src/lib/admin-shop.ts`
+  (`listAllShopItems`) catch the "column does not exist" error (`isMissingFrameColorColumnError`
+  in `src/lib/supabase/errors.ts`) and retry the same query without `frame_color`, so the
+  already-shipping frame **image** feature (and the rest of `/admin/items`, including unrelated
+  `avatar_frame` items) keeps working unchanged while this migration is still pending — only the
+  new color-tint feature stays inactive (falls back to the CSS module's default
+  `--primary-light`-based background) until applied.
+- Same manual-apply limitation as the other pending migrations below (no working Supabase MCP /
+  Management API access from this workspace) — paste the file into the SQL Editor manually.
 
 ## 202608270001_wolf_night_turn_delay.sql
 
