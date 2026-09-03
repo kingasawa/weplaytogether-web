@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { vi } from "@/i18n/dictionaries";
 import { normalizeAuthNextPath } from "@/lib/auth-redirect";
 import AuthScreen from "../auth-screen";
 
@@ -7,7 +8,7 @@ type SignUpPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Đăng ký | WePlayTogether",
+  title: `${vi["auth.modeTitle.signUp"]} | WePlayTogether`,
 };
 
 export default async function SignUpPage({ searchParams }: SignUpPageProps) {

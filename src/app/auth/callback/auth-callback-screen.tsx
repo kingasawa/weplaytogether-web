@@ -4,6 +4,7 @@ import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/i18n/language-provider";
 import { AUTH_NEXT_STORAGE_KEY, normalizeAuthNextPath } from "@/lib/auth-redirect";
 import { isAllowedGmailSession, signOutFromSupabase } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -40,9 +41,10 @@ export default function AuthCallbackScreen({
   nextPath,
 }: AuthCallbackScreenProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const hasHandledCallback = useRef(false);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("Đang hoàn tất đăng nhập...");
+  const [message, setMessage] = useState(t("auth.callback.loading"));
 
   useEffect(() => {
     if (hasHandledCallback.current) {
@@ -76,10 +78,11 @@ export default function AuthCallbackScreen({
         }
 
         if (!isAllowedGmailSession(data.session)) {
-          const detectedEmail = data.session?.user.email ?? "(không có email)";
-          const detectedProvider = data.session?.user.app_metadata?.provider ?? "(không rõ)";
+          const detectedEmail = data.session?.user.email ?? t("auth.callback.noEmail");
+          const detectedProvider =
+            data.session?.user.app_metadata?.provider ?? t("auth.callback.unknownProvider");
           const detectedProviders = data.session?.user.app_metadata?.providers ?? [];
-          console.warn("[auth] Đăng nhập bị từ chối:", {
+          console.warn(t("auth.callback.rejectedLog"), {
             email: detectedEmail,
             provider: detectedProvider,
             providers: detectedProviders,
@@ -87,28 +90,30 @@ export default function AuthCallbackScreen({
           });
           await signOutFromSupabase();
           throw new Error(
-            `Chỉ hỗ trợ đăng nhập bằng Google. Tài khoản của bạn: ${detectedEmail} (provider: ${detectedProvider}).`
+            t("auth.callback.googleOnlyWithAccount", {
+              email: detectedEmail,
+              provider: detectedProvider,
+            })
           );
         }
 
-        // Tạo record hồ sơ trong bảng users nếu đây là lần đăng nhập đầu tiên.
         if (data.session) {
           await ensureMyProfile(data.session);
         }
 
         setStatus("success");
-        setMessage("Đăng nhập thành công.");
+        setMessage(t("auth.callback.success"));
         clearStoredAuthNextPath();
         router.replace(redirectPath);
         router.refresh();
       } catch (callbackError) {
         setStatus("error");
-        setMessage(callbackError instanceof Error ? callbackError.message : "Không thể hoàn tất đăng nhập.");
+        setMessage(callbackError instanceof Error ? callbackError.message : t("auth.callback.failed"));
       }
     }
 
     void completeAuth();
-  }, [code, error, errorDescription, nextPath, router]);
+  }, [code, error, errorDescription, nextPath, router, t]);
 
   return (
     <main className={styles.page}>
@@ -122,7 +127,7 @@ export default function AuthCallbackScreen({
 
         {status === "error" && (
           <Link className={styles.secondaryLink} href="/auth/sign-in">
-            Thử lại
+            {t("auth.callback.retry")}
           </Link>
         )}
       </section>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { vi } from "@/i18n/dictionaries";
 import AuthCallbackScreen from "./auth-callback-screen";
 
 type AuthCallbackPageProps = {
@@ -11,7 +12,7 @@ type AuthCallbackPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Đang đăng nhập | WePlayTogether",
+  title: `${vi["auth.callback.loading"]} | WePlayTogether`,
 };
 
 function getFirstParam(value?: string | string[]) {

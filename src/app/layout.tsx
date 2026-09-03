@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import { cookies } from "next/headers";
+import { vi } from "@/i18n/dictionaries";
+import { LanguageProvider } from "@/i18n/language-provider";
+import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/i18n/locales";
 import "./globals.css";
 
 const defaultSiteUrl = "https://weplaytogether.online";
@@ -17,20 +21,12 @@ const beVietnamPro = Be_Vietnam_Pro({
   weight: ["400", "500", "600", "700", "800", "900"],
 });
 
-// Mã xác minh quyền sở hữu tên miền do Google Search Console cấp.
-// Cách lấy: Search Console -> thêm property "https://weplaytogether.online" -> chọn cách
-// xác minh "HTML tag" -> copy phần content="..." (chỉ chuỗi, không kèm thẻ) dán vào đây.
-// Phải dùng đúng tài khoản Google đang sở hữu dự án OAuth thì Google mới công nhận.
 const GOOGLE_SITE_VERIFICATION = "";
 
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
-  // Tên phải khớp chính xác tên app trên màn hình đồng ý OAuth của Google.
   title: "WePlayTogether",
-  description:
-    "WePlayTogether là nền tảng chơi board game suy luận online cho nhóm bạn: Ma Sói Một Đêm, " +
-    "Ma Sói Nhiều Đêm, Avalon và Ai Là Gián Điệp. Tạo phòng, chia mã phòng và chơi ngay trên " +
-    "điện thoại, không cần bộ bài giấy hay quản trò.",
+  description: vi["app.meta.description"],
   applicationName: "WePlayTogether",
   ...(GOOGLE_SITE_VERIFICATION ? { verification: { google: GOOGLE_SITE_VERIFICATION } } : {}),
   manifest: "/manifest.webmanifest",
@@ -50,17 +46,21 @@ export const viewport: Viewport = {
   themeColor: "#050912",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialLocale = normalizeLocale((await cookies()).get(LOCALE_COOKIE_NAME)?.value);
+
   return (
     <html
-      lang="vi"
+      lang={initialLocale}
       className={beVietnamPro.variable}
     >
-      <body>{children}</body>
+      <body>
+        <LanguageProvider initialLocale={initialLocale}>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

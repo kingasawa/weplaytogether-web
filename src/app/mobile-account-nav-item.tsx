@@ -5,11 +5,13 @@ import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lu
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
+import { useLanguage } from "@/i18n/language-provider";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerName,
   saveStoredGuestPlayerName,
 } from "@/lib/guest-player";
+import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import {
   getAuthDisplayName,
   getCurrentAuthNextPath,
@@ -18,12 +20,12 @@ import {
   signInWithGmail,
   signOutFromSupabase,
 } from "@/lib/supabase/auth-client";
-import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile, type StoredAccountProfile } from "@/lib/user-profile";
 import styles from "./page.module.css";
 
 export default function MobileAccountNavItem() {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -35,7 +37,6 @@ export default function MobileAccountNavItem() {
   const [accountProfile, setAccountProfile] = useState<StoredAccountProfile | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Đóng profile menu khi bấm ra ngoài hoặc nhấn Escape.
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -74,7 +75,7 @@ export default function MobileAccountNavItem() {
           nextSession = null;
 
           if (isMounted) {
-            setAuthError("Chỉ hỗ trợ đăng nhập bằng Google.");
+            setAuthError(t("auth.googleOnly"));
           }
         }
 
@@ -125,7 +126,7 @@ export default function MobileAccountNavItem() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   const openRenameForm = () => {
     const savedGuestName = readStoredGuestPlayerName();
@@ -143,7 +144,7 @@ export default function MobileAccountNavItem() {
       .slice(0, MAX_GUEST_PLAYER_NAME_LENGTH);
 
     if (!normalizedGuestName) {
-      setGuestNameError("Nhập tên để lưu lại.");
+      setGuestNameError(t("auth.nameRequired"));
       return;
     }
 
@@ -193,7 +194,7 @@ export default function MobileAccountNavItem() {
         className={styles.mobileAccountButton}
         type="button"
         aria-expanded={isOpen}
-        aria-label="Tài khoản"
+        aria-label={t("auth.account")}
         onClick={() => {
           if (session) {
             setAccountProfile(readStoredAccountProfile());
@@ -219,7 +220,7 @@ export default function MobileAccountNavItem() {
 
       {isOpen && (
         <div className={styles.mobileAccountPanel}>
-          {!isAuthReady && <span className={styles.mobileAccountStatus}>Đang kiểm tra...</span>}
+          {!isAuthReady && <span className={styles.mobileAccountStatus}>{t("auth.checking")}</span>}
 
           {isAuthReady && session && (
             <>
@@ -229,7 +230,7 @@ export default function MobileAccountNavItem() {
               </span>
               <Link className={styles.mobileAccountLink} href="/profile" onClick={() => setIsOpen(false)}>
                 <IdCard aria-hidden="true" />
-                Hồ sơ người chơi
+                {t("auth.profile")}
               </Link>
               <button
                 className={`${styles.mobileAccountLink} ${styles.mobileAccountLinkDanger}`}
@@ -238,7 +239,7 @@ export default function MobileAccountNavItem() {
                 onClick={signOut}
               >
                 <LogOut aria-hidden="true" />
-                Đăng xuất
+                {t("auth.signOut")}
               </button>
             </>
           )}
@@ -252,7 +253,7 @@ export default function MobileAccountNavItem() {
                 onClick={startGmailAuth}
               >
                 <LogIn aria-hidden="true" />
-                Đăng nhập
+                {t("auth.signIn")}
               </button>
               <button
                 className={styles.mobileAccountPrimaryLink}
@@ -261,7 +262,7 @@ export default function MobileAccountNavItem() {
                 onClick={startGmailAuth}
               >
                 <UserPlus aria-hidden="true" />
-                Đăng ký
+                {t("auth.signUp")}
               </button>
               <button
                 className={styles.mobileAccountRenameButton}
@@ -269,7 +270,7 @@ export default function MobileAccountNavItem() {
                 onClick={openRenameForm}
               >
                 <PencilLine aria-hidden="true" />
-                Đổi tên
+                {t("auth.rename")}
               </button>
             </>
           )}
@@ -281,11 +282,11 @@ export default function MobileAccountNavItem() {
               className={styles.mobileAccountRenameForm}
               onSubmit={saveGuestName}
             >
-              <label htmlFor="mobile-account-guest-name">Tên khách</label>
+              <label htmlFor="mobile-account-guest-name">{t("auth.guestName")}</label>
               <input
                 id="mobile-account-guest-name"
                 maxLength={MAX_GUEST_PLAYER_NAME_LENGTH}
-                placeholder="Nhập tên của bạn"
+                placeholder={t("auth.guestNamePlaceholder")}
                 value={guestNameInput}
                 onChange={(event) => {
                   setGuestNameInput(event.target.value);
@@ -298,7 +299,7 @@ export default function MobileAccountNavItem() {
                 </span>
               )}
               <button className={styles.mobileAccountSaveButton} type="submit">
-                Lưu tên
+                {t("auth.saveName")}
               </button>
             </form>
           )}

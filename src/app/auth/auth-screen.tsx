@@ -4,6 +4,7 @@ import { CircleAlert, Gamepad2, LoaderCircle, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/i18n/language-provider";
 import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   isAllowedGmailSession,
@@ -20,6 +21,7 @@ type AuthScreenProps = {
 
 export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [isPending, setIsPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const isSignUp = mode === "sign-up";
@@ -47,19 +49,19 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
         await signOutFromSupabase();
 
         if (isMounted) {
-          setErrorMessage("Chỉ hỗ trợ đăng nhập bằng Google.");
+          setErrorMessage(t("auth.googleOnly"));
         }
       })
       .catch(() => {
         if (isMounted) {
-          setErrorMessage("Không thể kiểm tra phiên đăng nhập.");
+          setErrorMessage(t("auth.checkSessionFailed"));
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [nextPath, router]);
+  }, [nextPath, router, t]);
 
   async function continueWithGmail() {
     setIsPending(true);
@@ -88,13 +90,13 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
 
         <div className={styles.heading}>
           <span>Google</span>
-          <h1>{isSignUp ? "Đăng ký" : "Đăng nhập"}</h1>
-          <p>Đăng nhập bằng tài khoản Google để vào WePlayTogether.</p>
+          <h1>{isSignUp ? t("auth.modeTitle.signUp") : t("auth.modeTitle.signIn")}</h1>
+          <p>{t("auth.headingDescription")}</p>
         </div>
 
         <button className={styles.gmailButton} type="button" disabled={isPending} onClick={continueWithGmail}>
           {isPending ? <LoaderCircle aria-hidden="true" /> : <Mail aria-hidden="true" />}
-          {isPending ? "Đang chuyển..." : "Tiếp tục bằng Google"}
+          {isPending ? t("auth.redirecting") : t("auth.continueWithGoogle")}
         </button>
 
         {errorMessage && (
@@ -105,17 +107,17 @@ export default function AuthScreen({ mode, nextPath }: AuthScreenProps) {
         )}
 
         <p className={styles.switchText}>
-          {isSignUp ? "Đã có tài khoản?" : "Chưa có tài khoản?"}{" "}
-          <Link href={switchHref}>{isSignUp ? "Đăng nhập" : "Đăng ký"}</Link>
+          {isSignUp ? t("auth.hasAccount") : t("auth.noAccount")}{" "}
+          <Link href={switchHref}>{isSignUp ? t("auth.signIn") : t("auth.signUp")}</Link>
         </p>
 
-        <p className={styles.switchText} lang="en">
-          By continuing, you agree to the <Link href="/terms-of-service">Terms of Service</Link> and acknowledge the{" "}
-          <Link href="/privacy-policy">Privacy Policy</Link>.
+        <p className={styles.switchText}>
+          {t("auth.agreement.prefix")} <Link href="/terms-of-service">{t("nav.terms")}</Link>{" "}
+          {t("auth.agreement.middle")} <Link href="/privacy-policy">{t("nav.privacy")}</Link>.
         </p>
 
         <Link className={styles.secondaryLink} href={nextPath}>
-          Quay lại
+          {t("auth.back")}
         </Link>
       </section>
     </main>

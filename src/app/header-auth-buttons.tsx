@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/i18n/language-provider";
 import {
   getAuthDisplayName,
   isAllowedGmailSession,
@@ -14,6 +15,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import styles from "./page.module.css";
 
 export default function HeaderAuthButtons() {
+  const { t } = useLanguage();
   const [session, setSession] = useState<Session | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -81,12 +83,12 @@ export default function HeaderAuthButtons() {
   if (isReady && session) {
     return (
       <>
-        <Link className={styles.accountBadge} href="/profile" title="Hồ sơ người chơi">
+        <Link className={styles.accountBadge} href="/profile" title={t("auth.profile")}>
           {getAuthDisplayName(session)}
         </Link>
         <button className={styles.loginButton} type="button" disabled={isPending} onClick={signOut}>
           <LogOut aria-hidden="true" />
-          Đăng xuất
+          {t("auth.signOut")}
         </button>
       </>
     );
@@ -95,10 +97,10 @@ export default function HeaderAuthButtons() {
   return (
     <>
       <button className={styles.loginButton} type="button" disabled={isPending} onClick={startGmailAuth}>
-        Đăng nhập
+        {t("auth.signIn")}
       </button>
       <button className={styles.signupButton} type="button" disabled={isPending} onClick={startGmailAuth}>
-        Đăng ký
+        {t("auth.signUp")}
       </button>
     </>
   );

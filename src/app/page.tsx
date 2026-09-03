@@ -1,6 +1,10 @@
+"use client";
+
 import { FileText, Gamepad2, ShieldCheck, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import type { TranslationKey } from "@/i18n/dictionaries";
+import { useLanguage } from "@/i18n/language-provider";
 import CardShine from "./card-shine";
 import HeaderMenu from "./header-menu";
 import IntroSection from "./intro-section";
@@ -8,9 +12,9 @@ import MobileAccountNavItem from "./mobile-account-nav-item";
 import styles from "./page.module.css";
 
 type FeaturedGame = {
-  name: string;
-  players: string;
-  category: string;
+  nameKey: TranslationKey;
+  playersKey: TranslationKey;
+  categoryKey: TranslationKey;
   image: string;
   href: string;
   featured?: boolean;
@@ -19,32 +23,32 @@ type FeaturedGame = {
 
 const featuredGames: FeaturedGame[] = [
   {
-    name: "Ma Sói Một Đêm",
-    players: "3 - 10 người",
-    category: "Suy luận",
+    nameKey: "home.game.wolf.name",
+    playersKey: "home.game.players.wolf",
+    categoryKey: "home.game.category.deduction",
     image: "/images/boards/wolf.webp",
     href: "/games/wolf",
     featured: true,
   },
   {
-    name: "Ma Sói Nhiều Đêm",
-    players: "4 - 10 người",
-    category: "Suy luận",
+    nameKey: "home.game.wolfClassic.name",
+    playersKey: "home.game.players.wolfClassic",
+    categoryKey: "home.game.category.deduction",
     image: "/images/boards/wolf-classic.webp",
     href: "/games/wolf-classic",
     featured: true,
   },
   {
-    name: "Avalon",
-    players: "5 - 10 người",
-    category: "Nhập vai",
+    nameKey: "home.game.avalon.name",
+    playersKey: "home.game.players.avalon",
+    categoryKey: "home.game.category.roleplay",
     image: "/images/boards/avalon.webp",
     href: "/games/avalon",
   },
   {
-    name: "Ai Là Gián Điệp",
-    players: "4 - 12 người",
-    category: "Suy luận",
+    nameKey: "home.game.spy.name",
+    playersKey: "home.game.players.spy",
+    categoryKey: "home.game.category.deduction",
     image: "/images/boards/spy.webp",
     href: "#game-detail",
     dotDanger: true,
@@ -52,8 +56,10 @@ const featuredGames: FeaturedGame[] = [
 ];
 
 function Logo() {
+  const { t } = useLanguage();
+
   return (
-    <Link className={styles.logo} href="/" aria-label="WE PLAY TOGETHER - Trang chủ">
+    <Link className={styles.logo} href="/" aria-label={t("app.logoAria")}>
       <span className={styles.logoIcon}>
         <Image
           alt="WE PLAY TOGETHER"
@@ -72,6 +78,9 @@ function Logo() {
 }
 
 function GameCard({ game }: { game: FeaturedGame }) {
+  const { t } = useLanguage();
+  const gameName = t(game.nameKey);
+
   return (
     <Link className={styles.gameCard} href={game.href} data-game-card>
       <span className={styles.gameCardShine} aria-hidden="true">
@@ -82,7 +91,7 @@ function GameCard({ game }: { game: FeaturedGame }) {
       </span>
       <div className={styles.gameCover}>
         <Image
-          alt={`Ảnh bìa game ${game.name}`}
+          alt={t("home.game.coverAlt", { gameName })}
           width={96}
           height={96}
           loading="eager"
@@ -91,18 +100,18 @@ function GameCard({ game }: { game: FeaturedGame }) {
         />
       </div>
       <div className={styles.gameDetails}>
-        <h3>{game.name}</h3>
+        <h3>{gameName}</h3>
         <p>
           <UsersRound aria-hidden="true" />
-          {game.players}
+          {t(game.playersKey)}
           <i
-            aria-label="Đang có phòng chờ"
+            aria-label={t("home.game.waitingRoom")}
             className={game.dotDanger ? styles.dotDanger : undefined}
           />
         </p>
         <span>
           <Gamepad2 aria-hidden="true" />
-          {game.category}
+          {t(game.categoryKey)}
         </span>
       </div>
     </Link>
@@ -110,6 +119,8 @@ function GameCard({ game }: { game: FeaturedGame }) {
 }
 
 export default function Home() {
+  const { t } = useLanguage();
+
   return (
     <div className={styles.page}>
       <main className={styles.frame}>
@@ -127,7 +138,7 @@ export default function Home() {
           <section className={styles.featuredGames} id="games">
             <div className={styles.gameList}>
               {featuredGames.map((game) => (
-                <GameCard game={game} key={game.name} />
+                <GameCard game={game} key={game.nameKey} />
               ))}
             </div>
           </section>
@@ -139,14 +150,14 @@ export default function Home() {
           <nav aria-label="Legal links">
             <Link href="/privacy-policy">
               <ShieldCheck aria-hidden="true" />
-              Privacy Policy
+              {t("nav.privacy")}
             </Link>
             <span className={styles.footerDivider} aria-hidden="true">
               |
             </span>
             <Link href="/terms-of-service">
               <FileText aria-hidden="true" />
-              Terms of Service
+              {t("nav.terms")}
             </Link>
           </nav>
         </footer>
