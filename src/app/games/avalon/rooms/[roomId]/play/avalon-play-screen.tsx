@@ -20,6 +20,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { GameBugReportDialog } from "@/components/game";
 import {
   AVALON_ROLE_LABELS,
   getAvalonRoleImagePath,
@@ -1561,6 +1562,11 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
               Quay lại phòng chờ
             </button>
           )}
+          <GameBugReportDialog
+            roomCode={playState.room.code}
+            gameId={playState.game.id}
+            disabled={isPreview || isPending}
+          />
           <button className={styles.exitButton} type="button" disabled={isPending} onClick={exitGame}>
             <LogOut aria-hidden="true" />
             Thoát

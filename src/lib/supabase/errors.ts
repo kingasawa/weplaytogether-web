@@ -52,5 +52,13 @@ export function isMissingTableError(error: SupabaseErrorLike, tableName: string)
     error.hint ?? ""
   }`.toLowerCase();
 
-  return error.code === "PGRST205" && errorText.includes(tableName.toLowerCase());
+  if (!errorText.includes(tableName.toLowerCase())) {
+    return false;
+  }
+
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    (errorText.includes("relation") && errorText.includes("does not exist"))
+  );
 }
