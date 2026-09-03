@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-31 -->
+﻿<!-- Last updated: 2026-09-03 -->
 
 # Database Schema
 
@@ -34,6 +34,8 @@ On 2026-08-27, local migration `202608270001_wolf_night_turn_delay.sql` was crea
 
 On 2026-08-31, local migration `202608310001_shop_items_frame_color.sql` was created to add `shop_items.frame_color text null` — a per-frame custom color (only meaningful for `item_type = 'profile_frame'`), set by admin via `/admin/items`, used to tint the profile-frame "glass" panel (`.playerRowFrameInnerGlass`) instead of always using the fixed `--primary-light` design token. App code (`src/lib/player-avatar-frames.ts`, `src/lib/frame-mask-style.ts`'s `frameGlassStyle`) tolerates the column being absent (Supabase returns an error on select, which the existing empty-map fallback already handles) or null (falls back to the CSS module's default `--primary-light`-based background), so applying this migration is optional for the app to keep working, but required for the per-frame color feature to activate.
 
+On 2026-09-03, local migration `202609030001_user_level_system.sql` was created to add the user level progression system. It stores lifetime level XP in `users.level_xp`, stores per-match XP in `player_score_events.xp_awarded`, backfills existing scored users, adds `get_user_level(...)` and `get_user_level_tier(...)`, extends `leaderboard` with `level_xp`/`level`/`level_tier`, and patches `award_wolf_game_points(...)` so XP is awarded idempotently together with the existing points/Xu ledger. Level is derived from XP instead of stored as a separate mutable column; level 100 is reached at exactly 5000 XP.
+
 On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
@@ -61,6 +63,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608260001_shop_items.sql`
 - `supabase/migrations/202608270001_wolf_night_turn_delay.sql`
 - `supabase/migrations/202608310001_shop_items_frame_color.sql`
+- `supabase/migrations/202609030001_user_level_system.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -84,11 +87,12 @@ Hồ sơ người chơi cho tài khoản đăng nhập Google. **Pending apply**
 - `avatar_object_key text null` — object key avatar upload lên R2 hoặc URL ảnh đại diện Google đã validate (nếu có)
 - `total_points integer not null default 0` — tổng điểm xếp hạng, cộng dồn qua `award_wolf_game_points(...)`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
 - `total_coins integer not null default 0` — tổng Xu (tiền tệ trong app), cộng dồn cùng lúc với điểm. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
+- `level_xp integer not null default 0` — XP level tích lũy trọn đời; level hiển thị được tính bằng `get_user_level(level_xp)` thay vì lưu cứng để tránh lệch dữ liệu. **Pending apply**: thêm bởi `202609030001_user_level_system.sql`.
 - `equipped_avatar_frame_id uuid null references public.shop_items(id) on delete set null` — khung avatar đang trang bị. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 - `equipped_profile_frame_id uuid null references public.shop_items(id) on delete set null` — khung thông tin người chơi đang trang bị. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()` (trigger `set_users_updated_at`)
-- RLS bật; mỗi user tự select/insert/update hàng của mình (`auth.uid() = id`), **hoặc** admin (`is_shop_admin()`) đọc/sửa được mọi hàng — mở rộng bởi `202608260001_shop_items.sql` cho trang `/admin/users`. Client đọc/ghi trực tiếp bằng JWT. Trigger `enforce_equipped_shop_items` (từ cùng migration) chặn set `equipped_avatar_frame_id`/`equipped_profile_frame_id` sang vật phẩm sai loại hoặc chưa sở hữu.
+- RLS bật; mỗi user tự select/insert/update hàng của mình (`auth.uid() = id`), **hoặc** admin (`is_shop_admin()`) đọc/sửa được mọi hàng — mở rộng bởi `202608260001_shop_items.sql` cho trang `/admin/users`. Client đọc/ghi trực tiếp bằng JWT. Trigger `enforce_equipped_shop_items` (từ cùng migration) chặn set `equipped_avatar_frame_id`/`equipped_profile_frame_id` sang vật phẩm sai loại hoặc chưa sở hữu. Trigger `protect_user_progression_stats` (từ `202609030001_user_level_system.sql`) chặn client thường tự set/sửa `total_points`, `total_coins`, và `level_xp`; chỉ trusted RPC, service role, hoặc admin được sửa.
 
 #### `public.shop_items`
 
@@ -224,15 +228,16 @@ Sổ ghi nhận điểm/Xu từng ván cho user đã đăng nhập. **Pending ap
 - `is_winner boolean not null`
 - `points_awarded integer not null default 0`
 - `coins_awarded integer not null default 0`
+- `xp_awarded integer not null default 0` — XP level nhận từ ván này; phe thắng nhận XP, phe thua nhận 0. **Pending apply**: thêm bởi `202609030001_user_level_system.sql`.
 - `created_at timestamptz not null default now()`
 - Unique `(game_id, user_id)` — chống trao điểm/Xu trùng nếu action chạy lại
 - RLS bật; user chỉ đọc được hàng của chính mình (`auth.uid() = user_id`). Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` chạy bằng service role.
 
 #### `public.leaderboard` (view)
 
-View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Select từ `public.users`, sort theo `total_points desc, total_coins desc`. Grant select cho `anon` và `authenticated`.
+View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`, mở rộng bởi `202609030001_user_level_system.sql`. Select từ `public.users`, sort theo `total_points desc, total_coins desc, level_xp desc`. Grant select cho `anon` và `authenticated`.
 
-- `id`, `display_name`, `avatar_key`, `avatar_object_key`, `total_points`, `total_coins`
+- `id`, `display_name`, `avatar_key`, `avatar_object_key`, `total_points`, `total_coins`, `level_xp`, `level`, `level_tier`
 
 #### `public.game_phase_confirmations`
 
@@ -275,13 +280,32 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 - **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 - `security definer`, chỉ `authenticated` gọi được (revoke khỏi `public`).
 - Trong 1 transaction: khóa hàng `shop_items`/`users` (`for update`), kiểm tra vật phẩm `is_active`, chưa sở hữu, đủ Xu, rồi trừ `users.total_coins` và insert vào `user_shop_items`. Raise exception (`insufficient_coins`, `item_already_owned`, `item_not_available`, `not_authenticated`) khi thất bại — chặn gian lận/race từ client vì client không có quyền tự ghi trực tiếp hai bảng này.
+- **Pending patch**: `202609030001_user_level_system.sql` set `app.user_stat_update = trusted` trước khi trừ Xu để trigger `protect_user_progression_stats` cho phép update hợp lệ.
 - Gọi từ `src/lib/shop.ts` (`purchaseShopItem`) bằng JWT của chính user mua hàng.
+
+#### `public.get_user_level(p_level_xp)`
+
+- **Pending apply**: thêm bởi `202609030001_user_level_system.sql`.
+- `language sql immutable`, tính level 1-100 từ `level_xp` bằng curve `round(5000 * ((level - 1) / 99) ^ 1.5)`.
+- Level 1 bắt đầu ở `0 XP`; level 100 đạt đúng `5000 XP`; XP vượt 5000 vẫn lưu nhưng level hiển thị cap ở 100.
+
+#### `public.get_user_level_tier(p_level)`
+
+- **Pending apply**: thêm bởi `202609030001_user_level_system.sql`.
+- Trả về bậc hiển thị theo level: `Tân Binh`, `Đồng`, `Bạc`, `Vàng`, `Bạch Kim`, `Kim Cương`, `Cao Thủ`, `Huyền Thoại`.
+
+#### `public.protect_user_progression_stats()`
+
+- **Pending apply**: thêm bởi `202609030001_user_level_system.sql`.
+- Trigger `before insert or update` trên `public.users`.
+- Chặn client thường tự set/sửa `total_points`, `total_coins`, hoặc `level_xp` qua policy `users_insert_own`/`users_update_own`.
+- Cho phép update khi `app.user_stat_update = trusted`, `auth.role() = 'service_role'`, hoặc `public.is_shop_admin()` đúng.
 
 #### `public.award_wolf_game_points(p_game_id, p_room_code, p_game_key, p_awards)`
 
-- **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`.
-- Nhận `p_awards` là mảng jsonb `{ user_id, team, role, is_winner, points, coins }`.
-- Insert vào `player_score_events` với `on conflict (game_id, user_id) do nothing` (idempotent), rồi cộng dồn `points_awarded`/`coins_awarded` vào `users.total_points`/`users.total_coins` trong cùng transaction.
+- **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`, mở rộng bởi `202609030001_user_level_system.sql`.
+- Nhận `p_awards` là mảng jsonb `{ user_id, team, role, is_winner, points, coins, xp? }`.
+- Insert vào `player_score_events` với `on conflict (game_id, user_id) do nothing` (idempotent), rồi cộng dồn `points_awarded`/`coins_awarded`/`xp_awarded` vào `users.total_points`/`users.total_coins`/`users.level_xp` trong cùng transaction. Nếu payload chưa gửi `xp`, database tự tính `xp_awarded = greatest(points, 0)` để tương thích code hiện tại.
 - Gọi từ server action `src/app/games/wolf/actions.ts` (`awardWolfGameScores`) ngay sau khi ván Ma Sói Một Đêm vào phase `result` và `result_snapshot` được lưu lần đầu.
 - Function execution is revoked from `PUBLIC` and granted to `service_role`.
 
