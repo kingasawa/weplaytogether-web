@@ -12,6 +12,8 @@ RLS bật. Mỗi user thao tác hàng của chính mình, **hoặc** admin (`is_
 
 Không có policy delete (không cho xóa hồ sơ từ client). Trigger `trg_enforce_equipped_shop_items` (`enforce_equipped_shop_items()`, security definer) chạy trước mọi update, chặn set `equipped_avatar_frame_id`/`equipped_profile_frame_id` sang vật phẩm sai loại hoặc user chưa sở hữu trong `user_shop_items`.
 
+`202609030001_user_level_system.sql` thêm trigger `trg_protect_user_progression_stats` (`protect_user_progression_stats()`, security definer) chạy trước mọi insert/update trên `public.users`. Trigger này chặn client thường tự set/sửa `total_points`, `total_coins`, hoặc `level_xp` qua policy `users_insert_own`/`users_update_own`; chỉ trusted RPC (`app.user_stat_update = trusted`), `service_role`, hoặc admin (`is_shop_admin()`) được sửa các cột progression/economy này.
+
 ## `public.shop_items` (202608260001_shop_items.sql — pending apply)
 
 RLS bật:
@@ -29,6 +31,7 @@ RLS bật:
 
 Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(p_item_id)` (`security definer`, chỉ `authenticated` gọi được), để không cho client tự thêm vật phẩm vào kho hoặc gian lận Xu.
 
+## `public.player_score_events` (202608250001_wolf_scoring_currency.sql — pending apply; extended by 202609030001_user_level_system.sql — pending apply)
 ## `public.game_bug_reports` (202609030002_game_bug_reports.sql — pending apply)
 
 RLS bật:
@@ -45,11 +48,11 @@ RLS bật:
 
 - `player_score_events_select_own`: `for select using (auth.uid() = user_id)`
 
-Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` (`security definer`, chạy bằng service role, execute chỉ grant cho `service_role`).
+Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` (`security definer`, chạy bằng service role, execute chỉ grant cho `service_role`). Migration `202609030001_user_level_system.sql` thêm `xp_awarded` vào ledger nhưng không thêm policy ghi mới.
 
-## `public.leaderboard` (view, 202608250001_wolf_scoring_currency.sql — pending apply)
+## `public.leaderboard` (view, 202608250001_wolf_scoring_currency.sql — pending apply; extended by 202609030001_user_level_system.sql — pending apply)
 
-Không phải bảng nên không có RLS trực tiếp; view select từ `public.users` và được tạo bởi role có `bypassrls` (Supabase SQL Editor), nên trả về toàn bộ user bất kể RLS của `public.users` chỉ cho tự đọc hàng của mình. Cột hiển thị không gồm `email`. `grant select` cho `anon` và `authenticated`.
+Không phải bảng nên không có RLS trực tiếp; view select từ `public.users` và được tạo bởi role có `bypassrls` (Supabase SQL Editor), nên trả về toàn bộ user bất kể RLS của `public.users` chỉ cho tự đọc hàng của mình. Cột hiển thị không gồm `email`. `grant select` cho `anon` và `authenticated`. Migration `202609030001_user_level_system.sql` thêm `level_xp`, `level`, và `level_tier` vào view.
 
 ## Current Remote State
 

@@ -147,6 +147,33 @@ export type UserShopItemRow = {
   purchased_at: string;
 };
 
+export type PlayerScoreEventRow = {
+  id: string;
+  user_id: string;
+  game_key: string;
+  game_id: string;
+  room_code: string;
+  team: string;
+  role: string;
+  is_winner: boolean;
+  points_awarded: number;
+  coins_awarded: number;
+  xp_awarded: number;
+  created_at: string;
+};
+
+export type LeaderboardRow = {
+  id: string;
+  display_name: string | null;
+  avatar_key: string;
+  avatar_object_key: string | null;
+  total_points: number;
+  total_coins: number;
+  level_xp: number;
+  level: number;
+  level_tier: string;
+};
+
 export type GameBugReportRow = {
   id: string;
   reporter_user_id: string | null;
@@ -197,6 +224,7 @@ export type Database = {
           avatar_object_key: string | null;
           total_points: number;
           total_coins: number;
+          level_xp: number;
           equipped_avatar_frame_id: string | null;
           equipped_profile_frame_id: string | null;
           created_at: string;
@@ -210,6 +238,7 @@ export type Database = {
           avatar_object_key?: string | null;
           total_points?: number;
           total_coins?: number;
+          level_xp?: number;
           equipped_avatar_frame_id?: string | null;
           equipped_profile_frame_id?: string | null;
           created_at?: string;
@@ -222,10 +251,22 @@ export type Database = {
           avatar_object_key?: string | null;
           total_points?: number;
           total_coins?: number;
+          level_xp?: number;
           equipped_avatar_frame_id?: string | null;
           equipped_profile_frame_id?: string | null;
           updated_at?: string;
         };
+      };
+      player_score_events: {
+        Row: PlayerScoreEventRow;
+        Insert: Partial<
+          Pick<PlayerScoreEventRow, "id" | "points_awarded" | "coins_awarded" | "xp_awarded" | "created_at">
+        > &
+          Pick<
+            PlayerScoreEventRow,
+            "user_id" | "game_key" | "game_id" | "room_code" | "team" | "role" | "is_winner"
+          >;
+        Update: Partial<Omit<PlayerScoreEventRow, "id" | "user_id" | "game_id" | "created_at">>;
       };
       shop_items: {
         Row: ShopItemRow;
@@ -341,8 +382,40 @@ export type Database = {
         Update: Partial<Omit<WolfGamePhaseConfirmationRow, "id" | "game_id" | "player_id" | "created_at">>;
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      leaderboard: {
+        Row: LeaderboardRow;
+      };
+    };
+    Functions: {
+      award_wolf_game_points: {
+        Args: {
+          p_game_id: string;
+          p_room_code: string;
+          p_game_key: string;
+          p_awards: Json;
+        };
+        Returns: void;
+      };
+      get_user_level: {
+        Args: {
+          p_level_xp: number;
+        };
+        Returns: number;
+      };
+      get_user_level_tier: {
+        Args: {
+          p_level: number;
+        };
+        Returns: string;
+      };
+      purchase_shop_item: {
+        Args: {
+          p_item_id: string;
+        };
+        Returns: Json;
+      };
+    };
     Enums: {
       wolf_room_status: WolfRoomStatus;
       wolf_game_phase: WolfGamePhase;
