@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-26 -->
+﻿<!-- Last updated: 2026-09-03 -->
 
 # RLS Policies
 
@@ -28,6 +28,16 @@ RLS bật:
 - `user_shop_items_select_own_or_admin`: `for select using (auth.uid() = user_id or public.is_shop_admin())`
 
 Không có policy insert/update/delete cho client — chỉ ghi qua function `purchase_shop_item(p_item_id)` (`security definer`, chỉ `authenticated` gọi được), để không cho client tự thêm vật phẩm vào kho hoặc gian lận Xu.
+
+## `public.game_bug_reports` (202609030002_game_bug_reports.sql — pending apply)
+
+RLS bật:
+
+- `game_bug_reports_admin_select`: `for select using (public.is_shop_admin())`
+- `game_bug_reports_admin_update`: `for update using (public.is_shop_admin()) with check (public.is_shop_admin())`
+- `game_bug_reports_reporter_select_own`: `for select using (auth.uid() = reporter_user_id)`
+
+Không có policy insert/delete cho client. Người chơi gửi report qua server action dùng service role sau khi server xác thực `boardverse_wolf_session` là player của đúng room/game và tự gom context debug. Guest player vẫn gửi được qua server action, nhưng vì `reporter_user_id = null` nên không có quyền đọc lại report qua RLS client. Admin đọc/sửa status/note trực tiếp từ `/admin/reports` bằng JWT admin và policy `is_shop_admin()`.
 
 ## `public.player_score_events` (202608250001_wolf_scoring_currency.sql — pending apply)
 
@@ -86,11 +96,15 @@ Private rooms are still read and joined through server actions using the service
 
 The hourly room maintenance migration adds no new RLS policies. Maintenance functions run as `SECURITY DEFINER`, execution is revoked from `PUBLIC`, and execution is granted to `service_role`.
 
+### `202609030002_game_bug_reports.sql`
+
+The game bug report migration enables RLS on `public.game_bug_reports`, allows admins (`public.is_shop_admin()`) to select/update all rows, allows logged-in reporters to select their own rows, and intentionally leaves insert/delete unavailable to client roles. Inserts are performed only by the shared game report server action through the service role.
+
 ## Access Model
 
 The policies allow `anon` and `authenticated` clients to read public room/game state for realtime updates. Private room access is routed through server actions.
 
-Client writes are intentionally not granted. Room creation, lobby mutation, game start, night actions, phase transitions, votes, game finish, inactive-room closing, and cleanup are performed through server actions, scheduled database jobs, or service-role-only functions.
+Client writes are intentionally not granted for game-state tables. Room creation, lobby mutation, game start, night actions, phase transitions, votes, game finish, bug report submission, inactive-room closing, and cleanup are performed through server actions, scheduled database jobs, or service-role-only functions. Admin-only tables/actions use `is_shop_admin()` RLS with the logged-in admin JWT.
 
 ## Remote Apply Blocker
 

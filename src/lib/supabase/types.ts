@@ -120,6 +120,8 @@ export type WolfGamePhaseConfirmationRow = {
 };
 
 export type ShopItemType = "avatar_frame" | "profile_frame";
+export type GameBugReportStatus = "open" | "investigating" | "fixed" | "duplicate" | "wont_fix";
+export type GameBugReportGameKey = "wolf" | "classic_wolf" | "avalon";
 
 export type ShopItemRow = {
   id: string;
@@ -143,6 +145,26 @@ export type UserShopItemRow = {
   item_id: string;
   price_paid_coins: number;
   purchased_at: string;
+};
+
+export type GameBugReportRow = {
+  id: string;
+  reporter_user_id: string | null;
+  reporter_player_id: string | null;
+  reporter_name: string;
+  game_key: GameBugReportGameKey;
+  game_id: string;
+  room_id: string;
+  room_code: string;
+  game_phase: string;
+  report_text: string;
+  game_context: Json;
+  client_context: Json;
+  status: GameBugReportStatus;
+  admin_note: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Database = {
@@ -216,6 +238,29 @@ export type Database = {
         Insert: Partial<Pick<UserShopItemRow, "id" | "price_paid_coins" | "purchased_at">> &
           Pick<UserShopItemRow, "user_id" | "item_id">;
         Update: Partial<Omit<UserShopItemRow, "id" | "user_id" | "item_id">>;
+      };
+      game_bug_reports: {
+        Row: GameBugReportRow;
+        Insert: Partial<
+          Pick<
+            GameBugReportRow,
+            | "id"
+            | "reporter_user_id"
+            | "reporter_player_id"
+            | "game_context"
+            | "client_context"
+            | "status"
+            | "admin_note"
+            | "resolved_at"
+            | "created_at"
+            | "updated_at"
+          >
+        > &
+          Pick<
+            GameBugReportRow,
+            "reporter_name" | "game_key" | "game_id" | "room_id" | "room_code" | "game_phase" | "report_text"
+          >;
+        Update: Partial<Omit<GameBugReportRow, "id" | "created_at">>;
       };
       room_players: {
         Row: WolfRoomPlayerRow;
@@ -303,6 +348,7 @@ export type Database = {
       wolf_game_phase: WolfGamePhase;
       wolf_role: WolfRole;
       shop_item_type: ShopItemType;
+      game_bug_report_status: GameBugReportStatus;
     };
   };
 };

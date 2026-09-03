@@ -1,6 +1,24 @@
-﻿<!-- Last updated: 2026-08-31 -->
+﻿<!-- Last updated: 2026-09-03 -->
 
 # Migrations
+
+## 202609030002_game_bug_reports.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202609030002_game_bug_reports.sql`
+
+Purpose:
+
+- Adds the post-game bug report system for `wolf`, `classic_wolf`, and `avalon`.
+- Creates enum `public.game_bug_report_status`: `open`, `investigating`, `fixed`, `duplicate`, `wont_fix`.
+- Creates `public.game_bug_reports` with reporter/player snapshots, room/game snapshots, report text, server-collected `game_context`, browser-limited `client_context`, admin status/note fields, and timestamps.
+- Keeps report audit rows independent from room/game/player cleanup: `game_id`, `room_id`, and `reporter_player_id` are stored as plain UUID snapshots. `reporter_user_id` gets an `on delete set null` FK only if `public.users` already exists when the migration is applied.
+- Enables RLS: admin (`is_shop_admin()`) can select/update all reports; logged-in reporters can select their own report rows; client insert/delete is intentionally not allowed. Game report submission goes through `src/app/games/report-actions.ts` with the service role after server-side room/game/player verification.
+- Adds indexes for admin filtering by status, game key, room code, reporter user, and game id.
+- App code handles the table not existing yet and shows a friendly "report system not ready" state instead of breaking game flow or admin UI.
 
 ## 202608310001_shop_items_frame_color.sql
 
@@ -419,7 +437,7 @@ Remote execution update on 2026-08-17:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, and `202608260002_rename_shared_game_tables.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`; apply `202608260002` last, and deploy the matching app code right away since it renames tables the running app already queries) in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, `202608260002_rename_shared_game_tables.sql`, `202608270001_wolf_night_turn_delay.sql`, `202608310001_shop_items_frame_color.sql`, and `202609030002_game_bug_reports.sql` in Supabase SQL Editor. Apply `202608260002_rename_shared_game_tables.sql` before deploying app code that queries the renamed shared tables; newer migrations can then follow filename order.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 - On 2026-08-26, `202608260001_shop_items.sql` (shop feature) was created for this same reason: this workspace could not `supabase link`/`db push` (blocked by the sandbox's auto-mode classifier before even reaching the network) or reach the Supabase Management API/session pooler directly. The migration is written to be self-sufficient (creates `public.users` + points/coins columns if missing) so it can be pasted into the SQL Editor regardless of which earlier pending migrations were already applied.
 - On 2026-08-26 (same day, separate task), `202608260002_rename_shared_game_tables.sql` hit the same blocker: the Supabase MCP tool connected in this workspace belongs to an unrelated project ("Map Buddy", not this app's `tvwofffcpjgfyxxbvpsi`). Paste it into the SQL Editor manually like the rest.

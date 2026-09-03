@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-08-31 -->
+﻿<!-- Last updated: 2026-09-03 -->
 
 # Database Schema
 
@@ -34,6 +34,8 @@ On 2026-08-27, local migration `202608270001_wolf_night_turn_delay.sql` was crea
 
 On 2026-08-31, local migration `202608310001_shop_items_frame_color.sql` was created to add `shop_items.frame_color text null` — a per-frame custom color (only meaningful for `item_type = 'profile_frame'`), set by admin via `/admin/items`, used to tint the profile-frame "glass" panel (`.playerRowFrameInnerGlass`) instead of always using the fixed `--primary-light` design token. App code (`src/lib/player-avatar-frames.ts`, `src/lib/frame-mask-style.ts`'s `frameGlassStyle`) tolerates the column being absent (Supabase returns an error on select, which the existing empty-map fallback already handles) or null (falls back to the CSS module's default `--primary-light`-based background), so applying this migration is optional for the app to keep working, but required for the per-frame color feature to activate.
 
+On 2026-09-03, local migration `202609030002_game_bug_reports.sql` was created to add the post-game bug report system. It adds enum `game_bug_report_status`, table `game_bug_reports`, indexes for admin filters, RLS policies for admin/user visibility, and an `updated_at`/`resolved_at` trigger. Reports intentionally do not FK to room/game/player tables because old rooms are cleaned up; `reporter_user_id` gets an optional `on delete set null` FK only when `public.users` already exists.
+
 On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
@@ -61,6 +63,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608260001_shop_items.sql`
 - `supabase/migrations/202608270001_wolf_night_turn_delay.sql`
 - `supabase/migrations/202608310001_shop_items_frame_color.sql`
+- `supabase/migrations/202609030002_game_bug_reports.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -70,6 +73,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `public.wolf_game_phase`: `card_reveal`, `night`, `night_review`, `discussion`, `voting`, `result`
 - `public.wolf_role`: `werewolf`, `werewolf_seer`, `villager`, `seer`, `robber`, `troublemaker`, `witch`, `drunk`, `insomniac`, `doppelganger`, `copycat`
 - `public.shop_item_type`: `avatar_frame`, `profile_frame`. **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+- `public.game_bug_report_status`: `open`, `investigating`, `fixed`, `duplicate`, `wont_fix`. **Pending apply**: thêm bởi `202609030002_game_bug_reports.sql`.
 
 ### Tables
 
@@ -228,6 +232,29 @@ Sổ ghi nhận điểm/Xu từng ván cho user đã đăng nhập. **Pending ap
 - Unique `(game_id, user_id)` — chống trao điểm/Xu trùng nếu action chạy lại
 - RLS bật; user chỉ đọc được hàng của chính mình (`auth.uid() = user_id`). Không có policy insert/update/delete cho client — chỉ ghi qua function `award_wolf_game_points(...)` chạy bằng service role.
 
+#### `public.game_bug_reports`
+
+Báo lỗi sau ván chơi. **Pending apply**: thêm bởi `202609030002_game_bug_reports.sql`.
+
+- `id uuid primary key default gen_random_uuid()`
+- `reporter_user_id uuid null` — optional FK `references public.users(id) on delete set null` nếu `public.users` đã tồn tại lúc apply migration
+- `reporter_player_id uuid null` — snapshot id player trong phòng, không FK để report sống sót sau cleanup phòng
+- `reporter_name text not null`
+- `game_key text not null`, constrained to `wolf`, `classic_wolf`, `avalon`
+- `game_id uuid not null` — snapshot id `game_sessions`, không FK
+- `room_id uuid not null` — snapshot id `rooms`, không FK
+- `room_code text not null`
+- `game_phase text not null`
+- `report_text text not null`, trimmed length 5-1000
+- `game_context jsonb not null default '{}'::jsonb` — context debug server gom từ room/game/players và state riêng từng game
+- `client_context jsonb not null default '{}'::jsonb` — path, viewport, user agent đã giới hạn độ dài
+- `status public.game_bug_report_status not null default 'open'`
+- `admin_note text null`
+- `resolved_at timestamptz null` — tự set khi status chuyển sang `fixed`, `duplicate`, hoặc `wont_fix`; clear khi quay về `open`/`investigating`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()` (trigger `trg_game_bug_reports_updated_at`)
+- RLS bật; admin (`is_shop_admin()`) select/update được mọi report, user đăng nhập chỉ select report của chính mình (`auth.uid() = reporter_user_id`). Không có policy insert trực tiếp cho client — submit qua server action service role.
+
 #### `public.leaderboard` (view)
 
 View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**: thêm bởi `202608250001_wolf_scoring_currency.sql`. Select từ `public.users`, sort theo `total_points desc, total_coins desc`. Grant select cho `anon` và `authenticated`.
@@ -260,12 +287,14 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 - Unique phase confirmation per game/player/phase: `game_phase_confirmations(game_id, player_id, phase)`
 - Avatar key check allows `avatar0`, `img` through `img_19`, `khanh`, `duong`, `duy`, `lan`, `na`, `oanh`, and `tri`
 - Result snapshot consistency: `game_sessions.result_snapshot` must be null or a JSON object
+- Bug report lookup indexes: `game_bug_reports(status, created_at desc)`, `(game_key, created_at desc)`, `(room_code, created_at desc)`, partial `(reporter_user_id, created_at desc) where reporter_user_id is not null`, and `(game_id)`. **Pending apply**: thêm bởi `202609030002_game_bug_reports.sql`.
 
 ### Functions And Scheduled Jobs
 
 #### `public.is_shop_admin()`
 
 - **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
+- Also redefined by `202609030002_game_bug_reports.sql` so report RLS can be applied even if the shop migration has not been run yet.
 - `language sql stable`, so sánh `auth.jwt() ->> 'email'` với whitelist hardcode (hiện chỉ `trancatkhanh@gmail.com`).
 - Dùng làm điều kiện trong RLS policy của `shop_items`, `user_shop_items`, và mở rộng của `users` — thay cho cột `is_admin` riêng (theo yêu cầu người dùng).
 - Đồng bộ tay với `ADMIN_EMAILS` trong `src/lib/admin.ts` (dùng để ẩn/hiện UI `/admin`, không phải lớp bảo mật chính — `is_shop_admin()` ở Postgres mới là lớp chặn ghi thật sự).
