@@ -1,6 +1,49 @@
-﻿<!-- Last updated: 2026-08-31 -->
+﻿<!-- Last updated: 2026-09-03 -->
 
 # Migrations
+
+## 202609030002_game_bug_reports.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202609030002_game_bug_reports.sql`
+
+Purpose:
+
+- Adds the post-game bug report system for `wolf`, `classic_wolf`, and `avalon`.
+- Creates enum `public.game_bug_report_status`: `open`, `investigating`, `fixed`, `duplicate`, `wont_fix`.
+- Creates `public.game_bug_reports` with reporter/player snapshots, room/game snapshots, report text, server-collected `game_context`, browser-limited `client_context`, admin status/note fields, and timestamps.
+- Keeps report audit rows independent from room/game/player cleanup: `game_id`, `room_id`, and `reporter_player_id` are stored as plain UUID snapshots. `reporter_user_id` gets an `on delete set null` FK only if `public.users` already exists when the migration is applied.
+- Enables RLS: admin (`is_shop_admin()`) can select/update all reports; logged-in reporters can select their own report rows; client insert/delete is intentionally not allowed. Game report submission goes through `src/app/games/report-actions.ts` with the service role after server-side room/game/player verification.
+- Adds indexes for admin filtering by status, game key, room code, reporter user, and game id.
+- App code handles the table not existing yet and shows a friendly "report system not ready" state instead of breaking game flow or admin UI.
+
+## 202609030001_user_level_system.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202609030001_user_level_system.sql`
+
+Purpose:
+
+- Add hệ thống level cho user đã đăng nhập.
+- Add `users.level_xp integer not null default 0` để lưu XP level tích lũy trọn đời. Không lưu cứng `users.level`; level được tính từ `level_xp` để tránh lệch dữ liệu khi đổi bảng level.
+- Add `player_score_events.xp_awarded integer not null default 0` để audit XP từng ván và giữ idempotency theo unique `(game_id, user_id)`.
+- Backfill user cũ: event cũ dùng `xp_awarded = greatest(points_awarded, 0)`; user có ledger lấy tổng `xp_awarded`; user không có ledger nhưng có `total_points > 0` được seed `level_xp = total_points` như baseline bảo thủ.
+- Add `get_user_level(level_xp)` và `get_user_level_tier(level)`:
+  - Level 1 = `0 XP`.
+  - Level 100 = `5000 XP`.
+  - Curve: `round(5000 * ((level - 1) / 99) ^ 1.5)`.
+- Extend `leaderboard` view với `level_xp`, `level`, và `level_tier`; sort vẫn ưu tiên `total_points`, rồi `total_coins`, rồi `level_xp`.
+- Patch `award_wolf_game_points(...)` để cộng `users.level_xp` trong cùng transaction với điểm/Xu. Payload cũ không có `xp` vẫn hoạt động vì DB tự tính `xp_awarded = greatest(points, 0)`.
+- Add trigger `protect_user_progression_stats` để client thường không thể tự set/sửa `total_points`, `total_coins`, hoặc `level_xp` qua policy `users_insert_own`/`users_update_own`. Trusted RPC set `app.user_stat_update = trusted`; service role và admin vẫn được sửa.
+- Patch `purchase_shop_item(...)` để set trusted flag trước khi trừ Xu, tránh bị trigger mới chặn giao dịch mua hợp lệ.
+- Depends on `202608250001_wolf_scoring_currency.sql` và `202608260001_shop_items.sql`; apply sau các migration đó.
+- Same manual-apply limitation as the other pending migrations — paste the file into the app's Supabase SQL Editor manually.
 
 ## 202608310001_shop_items_frame_color.sql
 
@@ -419,7 +462,8 @@ Remote execution update on 2026-08-17:
 
 Required next action:
 
-- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, and `202608260002_rename_shared_game_tables.sql` (apply after `202608180002_user_profiles.sql` since it depends on `public.users`; apply `202608260002` last, and deploy the matching app code right away since it renames tables the running app already queries) in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, `202608260002_rename_shared_game_tables.sql`, `202608270001_wolf_night_turn_delay.sql`, `202608310001_shop_items_frame_color.sql`, and `202609030001_user_level_system.sql` (apply after `202608250001_wolf_scoring_currency.sql` and `202608260001_shop_items.sql`; keep `202608260002` aligned with app deploy because it renames tables the running app queries) in Supabase SQL Editor.
+- If `202606030001`, `202606030002`, and `202606030003` are already applied, apply `202606030004_wolf_remove_presence_columns.sql`, `202606040001_wolf_player_avatars.sql`, `202606040002_wolf_vote_skip.sql`, `202606050001_wolf_cleanup_old_rooms.sql`, `202607270001_wolf_doppelganger_role.sql`, `202607280001_classic_wolf_state.sql`, `202607300001_wolf_avatar_key_new_assets.sql`, `202608110001_wolf_room_visibility.sql`, `202608110002_wolf_hourly_room_maintenance.sql`, `202608120001_wolf_result_snapshot.sql`, `202608130001_avalon_game_state.sql`, `202608170001_wolf_avatar_key_all_assets.sql`, `202608180001_wolf_player_avatar_objects.sql`, `202608180002_user_profiles.sql`, `202608250001_wolf_scoring_currency.sql`, `202608260001_shop_items.sql`, `202608260002_rename_shared_game_tables.sql`, `202608270001_wolf_night_turn_delay.sql`, `202608310001_shop_items_frame_color.sql`, and `202609030002_game_bug_reports.sql` in Supabase SQL Editor. Apply `202608260002_rename_shared_game_tables.sql` before deploying app code that queries the renamed shared tables; newer migrations can then follow filename order.
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 - On 2026-08-26, `202608260001_shop_items.sql` (shop feature) was created for this same reason: this workspace could not `supabase link`/`db push` (blocked by the sandbox's auto-mode classifier before even reaching the network) or reach the Supabase Management API/session pooler directly. The migration is written to be self-sufficient (creates `public.users` + points/coins columns if missing) so it can be pasted into the SQL Editor regardless of which earlier pending migrations were already applied.
 - On 2026-08-26 (same day, separate task), `202608260002_rename_shared_game_tables.sql` hit the same blocker: the Supabase MCP tool connected in this workspace belongs to an unrelated project ("Map Buddy", not this app's `tvwofffcpjgfyxxbvpsi`). Paste it into the SQL Editor manually like the rest.

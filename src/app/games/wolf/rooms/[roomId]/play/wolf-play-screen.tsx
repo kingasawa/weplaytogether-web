@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUp, Check, Coins, History, LoaderCircle, LogOut, Rotat
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition, type PointerEvent } from "react";
+import { GameBugReportDialog } from "@/components/game";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
@@ -1816,6 +1817,11 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
               Quay lại phòng chờ
             </button>
           )}
+          <GameBugReportDialog
+            roomCode={playState.room.code}
+            gameId={playState.game.id}
+            disabled={isPreview || isPending}
+          />
           <button className={styles.exitButton} type="button" disabled={isPending} onClick={exitGame}>
             <LogOut aria-hidden="true" />
             Thoát
