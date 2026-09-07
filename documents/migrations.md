@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-03 -->
+﻿<!-- Last updated: 2026-09-07 -->
 
 # Migrations
 
@@ -84,8 +84,8 @@ Path:
 Purpose:
 
 - Adds `game_sessions.night_turn_reveal_at timestamptz null` for Ma Sói Một Đêm's night-phase pacing
-  feature: a random 5-10s delay between one player's night turn and the next being revealed, and a
-  random 5-15s delay after the last player's turn before the game actually transitions out of
+  feature: a random 2-5s delay between one player's night turn and the next being revealed, and a
+  random 2-5s delay after the last player's turn before the game actually transitions out of
   "night" (to "discussion"). When set and still in the future, the server withholds the next active
   turn / defers the phase transition; app code (`src/app/games/wolf/actions.ts`:
   `armNightTurnDelay`, `settleNightTurnDelay`, `getNightTurnRevealAt`) already tolerates this column

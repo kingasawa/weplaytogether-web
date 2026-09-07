@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-03 -->
+﻿<!-- Last updated: 2026-09-07 -->
 
 # Database Schema
 
@@ -30,7 +30,7 @@ On 2026-08-25, local migration `202608250001_wolf_scoring_currency.sql` was crea
 
 On 2026-08-26, local migration `202608260001_shop_items.sql` was created to add a shop feature: users spend `total_coins` (Xu) to buy decorative avatar frames and profile-info frames. Adds enum `shop_item_type`, tables `shop_items` and `user_shop_items`, `users.equipped_avatar_frame_id`/`users.equipped_profile_frame_id`, function `is_shop_admin()` (email-whitelist based, no `is_admin` column), and function `purchase_shop_item(...)` (security definer, atomic coin deduction + inventory insert). The migration is self-sufficient — it (re)creates `public.users` and the points/coins columns if the earlier pending migrations were never applied — so it can be run standalone in the SQL Editor.
 
-On 2026-08-27, local migration `202608270001_wolf_night_turn_delay.sql` was created to add `game_sessions.night_turn_reveal_at`, backing a night-phase pacing feature (5-10s delay between night turns, 5-15s delay before leaving "night") for Ma Sói Một Đêm. App code tolerates the column being absent (feature stays inactive, old instant-transition behavior), so this is safe to leave pending.
+On 2026-08-27, local migration `202608270001_wolf_night_turn_delay.sql` was created to add `game_sessions.night_turn_reveal_at`, backing a night-phase pacing feature (2-5s delay between night turns and before leaving "night") for Ma Sói Một Đêm. App code tolerates the column being absent (feature stays inactive, old instant-transition behavior), so this is safe to leave pending.
 
 On 2026-08-31, local migration `202608310001_shop_items_frame_color.sql` was created to add `shop_items.frame_color text null` — a per-frame custom color (only meaningful for `item_type = 'profile_frame'`), set by admin via `/admin/items`, used to tint the profile-frame "glass" panel (`.playerRowFrameInnerGlass`) instead of always using the fixed `--primary-light` design token. App code (`src/lib/player-avatar-frames.ts`, `src/lib/frame-mask-style.ts`'s `frameGlassStyle`) tolerates the column being absent (Supabase returns an error on select, which the existing empty-map fallback already handles) or null (falls back to the CSS module's default `--primary-light`-based background), so applying this migration is optional for the app to keep working, but required for the per-frame color feature to activate.
 

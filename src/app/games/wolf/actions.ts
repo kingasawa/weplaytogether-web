@@ -1952,12 +1952,11 @@ async function getWolfGameRowById(
   return (fallbackData ?? null) as GameRow | null;
 }
 
-// Độ trễ ngẫu nhiên giữa lượt ban đêm của người này với người tiếp theo, và trước khi kết thúc đêm
-// (dài hơn một chút vì đây là khoảnh khắc quan trọng hơn — chuyển sang thảo luận).
-const NIGHT_TURN_DELAY_MIN_MS = 5000;
-const NIGHT_TURN_DELAY_MAX_MS = 10000;
-const NIGHT_END_DELAY_MIN_MS = 5000;
-const NIGHT_END_DELAY_MAX_MS = 15000;
+// Độ trễ ngẫu nhiên giữa lượt ban đêm của người này với người tiếp theo, và trước khi kết thúc đêm.
+const NIGHT_TURN_DELAY_MIN_MS = 2000;
+const NIGHT_TURN_DELAY_MAX_MS = 5000;
+const NIGHT_END_DELAY_MIN_MS = 2000;
+const NIGHT_END_DELAY_MAX_MS = 5000;
 
 function randomDelayMs(minMs: number, maxMs: number) {
   return minMs + Math.random() * (maxMs - minMs);
@@ -2114,8 +2113,8 @@ async function maybeAutoAdvancePhase(
     const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
 
     // KHÔNG chuyển phase/lộ lượt tiếp theo ngay ở đây nữa — chỉ đặt mốc "được phép lộ" sau một
-    // khoảng trễ ngẫu nhiên (5-10s giữa 2 người chơi, 5-15s trước khi kết thúc đêm), để tạo nhịp
-    // game tự nhiên và tránh nhiều client dồn request ngay khoảnh khắc chuyển lượt. Việc lộ
+    // khoảng trễ ngẫu nhiên (2-5s), để tạo nhịp game tự nhiên và tránh nhiều client dồn request
+    // ngay khoảnh khắc chuyển lượt. Việc lộ
     // lượt/thực sự chuyển sang "discussion" diễn ra ở settleNightTurnDelay, gọi từ getWolfPlayState
     // mỗi lần client fetch lại — đây là nơi duy nhất còn được gọi sau khi người chơi cuối cùng đã
     // hành động xong (không còn ai submit gì thêm để kích hoạt hàm này nữa).
@@ -4331,7 +4330,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       currentPlayer && activeNightTurn?.playerId === currentPlayer.id
         ? isNightTurnActionSubmitted(activeNightTurn, myAction, cards)
         : false,
-    isNightTurnInProgress: Boolean(activeNightTurn),
+    isNightTurnInProgress: Boolean(activeNightTurn) || isNightTurnRevealPending(nightTurnRevealAt),
     isCurrentPlayerPhaseReady: currentPlayer ? phaseReadyPlayerIdSet.has(currentPlayer.id) : false,
     phaseReadyPlayerIds,
     nightReviewMessages: buildNightReviewMessages(currentPlayer, myAction, cards, players, actions),

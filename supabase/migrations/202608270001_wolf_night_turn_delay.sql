@@ -1,4 +1,4 @@
--- Ma Sói Một Đêm: thêm độ trễ ngẫu nhiên giữa các lượt ban đêm (5-10s giữa 2 người chơi, 5-15s
+-- Ma Sói Một Đêm: thêm độ trễ ngẫu nhiên giữa các lượt ban đêm (2-5s giữa 2 người chơi, 2-5s
 -- trước khi kết thúc đêm) để tạo nhịp game tự nhiên hơn và tránh nhiều client dồn request cùng lúc.
 -- Khi cột này có giá trị và còn ở tương lai, server tạm ẩn lượt đêm tiếp theo / tạm hoãn chuyển sang
 -- thảo luận cho tới khi hết hạn.
