@@ -25,9 +25,21 @@ const SPARKLE_REPOSITION_MAX_MS = 3000; // tốc độ: 0.5-3s giữa 2 lần đ
 // Flash: shape "line" (vạch thẳng, góc ngẫu nhiên mỗi lần) hoặc "circle" (vòng tròn, luôn quét
 // cố định trái->phải, không có góc để random) — đổi giá trị này để chuyển hẳn kiểu hiệu ứng.
 const FLASH_SHAPE: "line" | "circle" = "line";
-const FLASH_COLOR_MIX_PERCENT = 75; // màu/độ sáng tối: % --frame-tint-color so với phần trong suốt (0-100, càng cao càng đặc/sáng)
-const FLASH_LINE_THICKNESS_PERCENT = 16; // kích thước (chỉ shape "line"): bề dày vạch, tính theo % canvas quét 300% (~3x kích thước hàng)
+// Tăng nhẹ so với bản gốc (75/16) — giữ mức vừa phải, không đẩy quá tay. Vấn đề "không thấy gì
+// cả" thực chất là do cache/dev-server chưa nhận code mới (xem FLASH_TRAVEL_PERCENT — lỗi thật
+// nằm ở đó), không phải do effect quá yếu.
+const FLASH_COLOR_MIX_PERCENT = 82; // màu/độ sáng tối: % --frame-tint-color so với phần trong suốt (0-100, càng cao càng đặc/sáng)
+const FLASH_LINE_THICKNESS_PERCENT = 22; // kích thước (chỉ shape "line"): bề dày vạch, tính theo % canvas quét 300% (~3x kích thước hàng)
 const FLASH_CIRCLE_SIZE_REM = 6.5; // kích thước (chỉ shape "circle"): đường kính vòng tròn
+// 150 -> 55: đây mới là nguyên nhân CHÍNH khiến gần như không thấy flash (đã verify bằng cách
+// bẫy đúng khoảnh khắc thật rồi đọc background-position — ra tới "195%"). Với background-size
+// 300% (canvas to gấp 3 hàng), vùng hiển thị (viewport = hàng) chỉ LUÔN nằm trong canvas thật khi
+// background-position ở khoảng 0%-100%; travel=150 khiến điểm đầu/cuối = 50±150 = -100% đến
+// 200%, vượt xa khoảng an toàn đó — phần lớn hành trình quét trỏ tới vùng KHÔNG CÒN canvas (rỗng
+// hoàn toàn, không phải do mask), dù toạ độ vẫn "hợp lệ" về mặt CSS. travel=55 giữ điểm đầu/cuối
+// trong khoảng -5% -> 105% (chỉ hơi tràn ra ngoài viền 2 đầu cho mượt lúc fade in/out), đảm bảo
+// gần như toàn bộ hành trình luôn hiển thị đúng phần canvas có nội dung thật.
+const FLASH_TRAVEL_PERCENT = 55;
 const FLASH_DURATION_MS = 1300; // tốc độ: quét hết 1 lượt mất bao lâu
 const FLASH_MIN_DELAY_MS = 4000;
 const FLASH_MAX_DELAY_MS = 8000; // tần suất: 4-8s giữa 2 lần phóng flash — độc lập với chu kỳ glow/sparkle
@@ -72,15 +84,15 @@ type FlashSweep = {
 // Sinh 1 lượt quét cho shape "line": góc bất kỳ (0-360°, nên có thể ngang/dọc/chéo, không cố
 // định hướng) rồi suy ra cặp toạ độ background-position đầu/cuối tương ứng đúng hướng đó (quy
 // đổi góc CSS — 0° hướng lên, tăng theo chiều kim đồng hồ — sang vector rồi nhân với biên độ
-// quét travel=150, khớp canvas 300% để vạch luôn đi hết từ ngoài mép này sang mép kia). Vạch
-// LUÔN vuông góc với hướng di chuyển (bản chất linear-gradient) và canvas to hơn cả đường chéo
-// hàng nên dù đi góc nào cũng chắc chắn cắt qua viền khung ở đâu đó trong hành trình.
+// quét FLASH_TRAVEL_PERCENT). Vạch LUÔN vuông góc với hướng di chuyển (bản chất linear-gradient)
+// nên dù đi góc nào cũng cắt qua viền khung ở đâu đó trong hành trình — xem comment ở
+// FLASH_TRAVEL_PERCENT về lý do KHÔNG dùng travel lớn (150) như bản cũ.
 function buildLineFlashSweep(): FlashSweep {
   const angleDeg = Math.random() * 360;
   const rad = (angleDeg * Math.PI) / 180;
   const dirX = Math.sin(rad);
   const dirY = -Math.cos(rad);
-  const travel = 150;
+  const travel = FLASH_TRAVEL_PERCENT;
 
   const startX = 50 - dirX * travel;
   const startY = 50 - dirY * travel;

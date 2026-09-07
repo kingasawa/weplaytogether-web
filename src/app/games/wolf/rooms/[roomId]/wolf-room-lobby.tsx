@@ -3,8 +3,6 @@
 import {
   Link as LinkIcon,
   LogOut,
-  Minus,
-  Pencil,
   Play,
   UserRound,
 } from "lucide-react";
@@ -12,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
+import PlayerActionMenuModal from "@/components/game/player-action-menu-modal";
 import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -189,12 +188,16 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [copyFeedback, setCopyFeedback] = useState("");
   const [isRoleSetupOpen, setIsRoleSetupOpen] = useState(false);
   const [selectedRoleOptionIds, setSelectedRoleOptionIds] = useState<string[]>([]);
+  // id người chơi đang mở modal hành động (bấm vào chính mình -> đổi tên; host bấm vào người
+  // khác -> đuổi khỏi phòng). null = không mở modal nào.
+  const [actionMenuPlayerId, setActionMenuPlayerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const currentPlayer = lobbyState.players.find(
     (player) => player.id === lobbyState.currentPlayerId
   );
   const isCurrentPlayerHost = Boolean(currentPlayer?.isHost);
+  const actionMenuPlayer = lobbyState.players.find((player) => player.id === actionMenuPlayerId) ?? null;
   const allPlayersReady =
     lobbyState.players.length >= 3 && lobbyState.players.every((player) => player.isReady);
   const requiredRoleCount = lobbyState.players.length + 3;
@@ -247,44 +250,22 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     onRoomUpdate: refreshLobby,
   });
 
-  function renderPlayerConnectionStatus(playerId: string) {
-    if (!currentPlayer) {
-      return null;
-    }
-
-    if (playerId === currentPlayer.id) {
-      return null;
+  // true = card của người chơi này chuyển grayscale (thay cho chấm đỏ trước đây). Không áp dụng
+  // cho chính mình (tự mình luôn thấy card của mình bình thường).
+  function isPlayerConnectionOffline(playerId: string) {
+    if (!currentPlayer || playerId === currentPlayer.id) {
+      return false;
     }
 
     if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
-      return (
-        <span aria-label={connectionStatus} className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title={connectionStatus}>
-          <span aria-hidden="true" className={styles.connectionDot} />
-        </span>
-      );
+      return true;
     }
 
     if (!isPresenceReady) {
-      return (
-        <span aria-label="Kiểm tra kết nối" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Kiểm tra kết nối">
-          <span aria-hidden="true" className={styles.connectionDot} />
-        </span>
-      );
+      return true;
     }
 
-    if (onlinePlayerIds.includes(playerId)) {
-      return (
-        <span aria-label="Online" className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`} title="Online">
-          <span aria-hidden="true" className={styles.connectionDot} />
-        </span>
-      );
-    }
-
-    return (
-      <span aria-label="Đã thoát game" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Đã thoát game">
-        <span aria-hidden="true" className={styles.connectionDot} />
-      </span>
-    );
+    return !onlinePlayerIds.includes(playerId);
   }
 
   useEffect(() => {
@@ -785,16 +766,39 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         </div>
         <FrameEffects />
         <div className={styles.playerList} aria-label="Danh sách người chơi">
-          {lobbyState.players.map((player) => (
+          {lobbyState.players.map((player) => {
+            const isSelf = player.id === currentPlayer?.id;
+            const canRename = isSelf && lobbyState.room.status === "waiting";
+            const canKick = isCurrentPlayerHost && !isSelf && !player.isHost;
+            const isActionable = canRename || canKick;
+
+            return (
             <article
-              className={
-                player.profileFrameUrl
-                  ? `${styles.playerRow} ${styles.playerRowFramed}`
-                  : styles.playerRow
-              }
+              className={[
+                styles.playerRow,
+                player.profileFrameUrl ? styles.playerRowFramed : "",
+                isPlayerConnectionOffline(player.id) ? styles.playerRowOffline : "",
+                isActionable ? styles.playerRowActionable : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               data-player-row-shine-card={player.hasEquippedProfileFrame ? "" : undefined}
               key={player.id}
               style={frameTintStyle(player.profileFrameColor)}
+              role={isActionable ? "button" : undefined}
+              tabIndex={isActionable ? 0 : undefined}
+              aria-label={isActionable ? (canRename ? "Đổi tên và avatar" : `Tuỳ chọn cho ${player.name}`) : undefined}
+              onClick={isActionable ? () => setActionMenuPlayerId(player.id) : undefined}
+              onKeyDown={
+                isActionable
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setActionMenuPlayerId(player.id);
+                      }
+                    }
+                  : undefined
+              }
             >
               {player.profileFrameUrl && (
                 <>
@@ -887,49 +891,26 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                       unoptimized
                     />
                   )}
-                </span>
-                <div>
-                  <div className={styles.playerNameLine}>
-                    <span className={styles.playerNameActions}>
-                      <strong>{player.name}</strong>
-                      {player.id === currentPlayer?.id && lobbyState.room.status === "waiting" && (
-                        <button
-                          aria-label="Đổi tên và avatar"
-                          className={styles.playerEditButton}
-                          type="button"
-                          disabled={isPending}
-                          title="Đổi tên và avatar"
-                          onClick={openRoomProfileEditor}
-                        >
-                          <Pencil aria-hidden="true" />
-                        </button>
-                      )}
-                      {renderPlayerConnectionStatus(player.id)}
-                    </span>
-                  </div>
-                  <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
-                </div>
-                <span className={styles.playerLineActions}>
                   {player.isHost && (
                     <span aria-label="Chủ phòng" className={styles.hostBadge} title="Chủ phòng">
                       <Image alt="" aria-hidden="true" width={54} height={54} src="/images/crown.webp" />
                     </span>
                   )}
-                  {isCurrentPlayerHost && !player.isHost && player.id !== currentPlayer?.id && (
-                    <button
-                      aria-label={`Kick ${player.name}`}
-                      className={styles.kickButton}
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => kickPlayer(player.id)}
-                    >
-                      <Minus aria-hidden="true" />
-                    </button>
-                  )}
                 </span>
+                <div>
+                  <div className={styles.playerNameLine}>
+                    <span className={styles.playerNameActions}>
+                      <strong title={player.name}>
+                        {player.name.length > 15 ? `${player.name.slice(0, 15)}...` : player.name}
+                      </strong>
+                    </span>
+                  </div>
+                  <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
+                </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
 
         {errorMessage && <p className={styles.inlineError}>{errorMessage}</p>}
@@ -1025,6 +1006,30 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         </div>
       )}
 
+      {actionMenuPlayer && (
+        <PlayerActionMenuModal
+          playerName={actionMenuPlayer.name}
+          onClose={() => setActionMenuPlayerId(null)}
+          action={
+            actionMenuPlayer.id === currentPlayer?.id
+              ? {
+                  label: "Đổi tên & avatar",
+                  onSelect: () => {
+                    setActionMenuPlayerId(null);
+                    openRoomProfileEditor();
+                  },
+                }
+              : {
+                  label: "Đuổi khỏi phòng",
+                  variant: "danger",
+                  onSelect: () => {
+                    setActionMenuPlayerId(null);
+                    kickPlayer(actionMenuPlayer.id);
+                  },
+                }
+          }
+        />
+      )}
     </main>
   );
 }

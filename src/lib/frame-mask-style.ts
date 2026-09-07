@@ -17,10 +17,10 @@ export function frameMaskStyle(profileFrameUrl: string): CSSProperties {
 // (color-mix với --primary-light) đã khai báo sẵn trên .playerRowFrameInnerGlass.
 // Công thức màu: 0% --primary-light của hệ thống (không pha, chỉ giữ cú pháp color-mix lồng để
 // dễ chỉnh lại sau) + trộn thêm màu riêng của khung ở mức 40% (tức "60% trong suốt") để lớp
-// kính nhẹ nhàng, không bị màu khung lấn át. Bọc trong linear-gradient (phải -> trái, đậm ->
+// kính nhẹ nhàng, không bị màu khung lấn át. Bọc trong linear-gradient (dưới -> trên, đậm ->
 // trong suốt hẳn) thay vì tô đặc đồng nhất cả lớp kính — cùng công thức/hướng với background
 // mặc định khai báo sẵn trên .playerRowFrameInnerGlass (page.module.css), chỉ khác màu gốc dùng
-// ở mép phải.
+// ở mép dưới.
 export function frameGlassStyle(profileFrameColor: string | null): CSSProperties | undefined {
   if (!profileFrameColor) {
     return undefined;
@@ -29,7 +29,7 @@ export function frameGlassStyle(profileFrameColor: string | null): CSSProperties
   const color = `color-mix(in srgb, var(--primary-light) 0%, color-mix(in srgb, ${profileFrameColor} 40%, transparent))`;
 
   return {
-    background: `linear-gradient(to left, ${color} 0%, transparent 100%)`,
+    background: `linear-gradient(to top, ${color} 0%, transparent 100%)`,
   };
 }
 

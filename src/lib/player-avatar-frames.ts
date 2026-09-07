@@ -6,7 +6,7 @@ import type { createSupabaseAdminClient } from "@/lib/supabase/server";
 // để tra "equipped"). Không bán trong shop (is_active=false), không qua cơ chế sở hữu/trang bị
 // bình thường, chỉ tra theo tên. Nếu đổi tên vật phẩm này trong shop_items thì phải sửa hằng số
 // này theo.
-const DEFAULT_PROFILE_FRAME_NAME = "Khung Bạch Kim";
+const DEFAULT_PROFILE_FRAME_NAME = "Khung Mặc Định";
 
 // shop_items.frame_color (202608310001_shop_items_frame_color.sql) có thể CHƯA được apply thủ
 // công lên remote — mọi hàm đọc frame_color trong file này phải fallback về select KHÔNG có cột

@@ -1,0 +1,94 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: end center;
+  padding: var(--spacing-md);
+  padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  backdrop-filter: blur(1rem);
+}
+
+.modal {
+  position: relative;
+  width: min(100%, 26rem);
+  max-height: calc(100svh - (var(--spacing-md) * 2) - env(safe-area-inset-bottom));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--spacing-lg);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
+  border-radius: 0.85rem;
+  background: var(--bg-card);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.modal h2 {
+  padding-right: 2.75rem;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.closeButton {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  width: 2.75rem;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-secondary) 76%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.closeButton svg {
+  width: 1.05rem;
+  min-width: 1.05rem;
+}
+
+.defaultAction,
+.dangerAction {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  border: 0;
+  border-radius: 999rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.defaultAction svg,
+.dangerAction svg {
+  width: 1.05rem;
+  min-width: 1.05rem;
+}
+
+.defaultAction {
+  background: color-mix(in srgb, var(--primary) 84%, var(--bg-primary));
+  color: var(--text);
+}
+
+.dangerAction {
+  background: linear-gradient(
+    1deg,
+    color-mix(in srgb, var(--danger) 55%, var(--bg-primary)),
+    color-mix(in srgb, var(--danger) 78%, var(--bg-primary))
+  );
+  color: var(--text);
+}
+
+@media (min-width: 768px) {
+  .backdrop {
+    place-items: center;
+  }
+}
