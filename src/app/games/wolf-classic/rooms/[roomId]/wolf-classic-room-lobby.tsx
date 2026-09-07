@@ -789,7 +789,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                       <div className={styles.playerNameLine}>
                         <span className={styles.playerNameActions}>
                           <strong title={player.name}>
-                            {player.name.length > 15 ? `${player.name.slice(0, 15)}...` : player.name}
+                            {player.name.length > 12 ? `${player.name.slice(0, 12)}...` : player.name}
                           </strong>
                         </span>
                       </div>
