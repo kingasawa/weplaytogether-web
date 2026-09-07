@@ -1828,11 +1828,18 @@
   gap: 0.35rem;
 }
 
-.lobbyHeader span,
-.playerRow span {
+.lobbyHeader span {
   color: var(--text-secondary);
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+/* Dòng trạng thái ("Đã sẵn sàng"/"Chưa sẵn sàng") — giảm cỡ chữ + line-height (tách riêng khỏi
+   .lobbyHeader span ở trên, vốn dùng chung 1 rule) để sát với dòng tên phía trên hơn. */
+.playerRow span {
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  line-height: 1.15;
 }
 
 .lobbyHeader strong {
@@ -1853,9 +1860,11 @@
      bất kể viewport hẹp/rộng, khiến hàng vỡ ra khỏi khung mobile (đã gặp lỗi này, hàng vẫn
      450px dù viewport chỉ 375px). minmax(0, 1fr) ép cột luôn đúng bằng bề rộng container thật,
      item .playerRow (justify-self mặc định là stretch) sẽ co theo đúng viewport, rồi
-     aspect-ratio mới tính chiều cao TỪ chiều rộng đó (đúng chiều tính toán mong muốn). */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
+     aspect-ratio mới tính chiều cao TỪ chiều rộng đó (đúng chiều tính toán mong muốn).
+     2 cột (thay vì 1) theo yêu cầu hiển thị 2 người chơi/hàng, áp dụng mọi kích thước màn hình
+     kể cả mobile. .playerRow tự tạo khoảng cách dọc bằng margin-bottom âm (xem comment ở
+     .playerRow), không cần row-gap riêng ở đây. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
   margin-top: calc(0.4rem - var(--spacing-md));
 }
@@ -1889,11 +1898,17 @@
   aspect-ratio: 3 / 1;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  padding-top: 1.25rem;
+  /* gap/padding giảm còn ~1 nửa so với trước (var(--spacing-md) 16px, padding-top 1.25rem) vì
+     mỗi hàng giờ chỉ rộng bằng 1 nửa (2 người/hàng, xem .playerList) — giữ nguyên tỉ lệ cũ sẽ
+     ăn hết chỗ của tên/avatar (đã test: chữ vỡ dòng liên tục ở mobile trước khi giảm). */
+  gap: 0.4rem;
+  padding: 0.5rem;
+  padding-top: 0.6rem;
   padding-left: 15%;
-  margin-bottom: -15px;
+  /* -15px -> 4px: ở chế độ 2 cột, cột hẹp hơn khiến tên dài (vd. "Khung Nhật Thực Hoàng Kim")
+     wrap 3 dòng thay vì 1-2 như trước, chiều cao thật của hàng vượt quá box aspect-ratio 3:1 —
+     giữ -15px sẽ khiến chữ dòng cuối đè lên viền hàng kế tiếp. */
+  margin-bottom: 4px;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 1rem;
 }
@@ -1932,7 +1947,9 @@
    vẫn nằm trên cả 2 lớp này do đứng sau trong DOM/z-index cao hơn. */
 .playerRowFrameInnerGlass {
   position: absolute;
-  inset: 20px;
+  /* Giảm theo cùng tỉ lệ với .playerRowFramed padding (28px -> 12px) để cửa sổ kính vẫn đúng vị
+     trí tương đối so với padding mới, không lấn ra ngoài viền khung ở hàng giờ hẹp bằng nửa. */
+  inset: 8px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient thay vì màu đặc đồng nhất: đậm nhất ở mép phải (đúng công thức color-mix cũ), tan
@@ -2223,8 +2240,10 @@
      (.playerRowFrameInnerGlass, inset khớp giá trị này) có cửa sổ rộng hơn, sát viền khung hơn.
      Phần 22px còn thiếu (50-28) để avatar/tên KHÔNG bị xê dịch so với trước được bù riêng ở
      .playerRowFramed .playerIdentity — chỉ áp dụng riêng cho hàng có khung, hàng thường vẫn giữ
-     padding cũ. */
-  padding: 28px;
+     padding cũ.
+     Giảm còn 8px (từ 28px, rồi 12px) cho chế độ 2 người/hàng — 28px cố định trên hàng đã hẹp bằng
+     nửa ăn gần hết chỗ chữ (đã test: chỉ còn ~28px cho cột tên, vỡ dòng từng chữ một). */
+  padding: 8px;
 }
 
 /* Chỉ tạo khung layout cho avatar + text/action. Không set z-index ở parent: avatar cần nằm dưới
@@ -2235,7 +2254,7 @@
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0;
 }
 
 /* padding-inline riêng cho hàng có khung: .playerIdentity là flex item flex:1 DUY NHẤT trong
@@ -2248,12 +2267,14 @@
    ở mobile, hàng thấp hơn) vì .playerRow không set align-items:stretch nên .playerIdentity co
    theo đúng content, không co giãn theo hàng. */
 .playerRowFramed .playerIdentity {
-  padding-inline: 12px;
+  padding-inline: 10px;
 }
 
 .playerAvatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  /* 2.5rem -> 1.8rem: hàng giờ hẹp bằng nửa (2 người/hàng), avatar cỡ cũ ăn quá nhiều chỗ của
+     cột tên. Mọi kích thước liên quan (wrap, ảnh khung 145%) giảm cùng tỉ lệ bên dưới. */
+  width: 1.8rem;
+  height: 1.8rem;
   flex: 0 0 auto;
   /* var(--frame-tint-color) (khai báo ở .playerRow, xem khối CONFIG hiệu ứng VIP phía trên) —
      mặc định = --primary-light, tự đổi theo màu riêng của khung info (frame_color) khi có, cùng
@@ -2281,8 +2302,8 @@
 .playerAvatarFrameWrap {
   position: relative;
   z-index: 2;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 1.8rem;
+  height: 1.8rem;
   flex: 0 0 auto;
 }
 
@@ -2295,9 +2316,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  /* 145% của avatar 2.5rem (xem comment .playerAvatarFrameWrap) */
-  width: 3.625rem;
-  height: 3.625rem;
+  /* 145% của avatar 1.8rem (xem comment .playerAvatarFrameWrap) */
+  width: 2.61rem;
+  height: 2.61rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -2308,7 +2329,8 @@
   display: grid;
   min-width: 0;
   flex: 1;
-  gap: 0.2rem;
+  /* 0.2rem -> 0.05rem: kéo dòng tên và dòng trạng thái ("Đã sẵn sàng") sát nhau hơn theo yêu cầu. */
+  gap: 0.05rem;
 }
 
 .playerNameLine {
@@ -2335,6 +2357,11 @@
   min-width: 0;
   color: var(--text);
   overflow-wrap: anywhere;
+  /* Giảm cỡ chữ + line-height tên để sát với dòng trạng thái "Đã sẵn sàng" bên dưới hơn (theo
+     yêu cầu) — mặc định trước đây kế thừa font-size gốc của trang (~1rem), khá to so với hàng
+     giờ đã hẹp hơn (2 người/hàng). */
+  font-size: 0.72rem;
+  line-height: 1.15;
 }
 
 .playerNameActions .connectionBadge {
@@ -2360,7 +2387,12 @@
   min-height: 2.75rem;
   align-items: center;
   justify-content: center;
-  margin: -0.75rem -0.65rem;
+  /* margin âm CHIỀU DỌC tăng từ -0.75rem lên -1.375rem (hủy hết 44px chiều cao touch target)
+     — ở chế độ 2 người/hàng hiện tại, hàng chỉ còn ~28-32px chiều cao nội dung, -0.75rem cũ
+     (footprint dọc còn 20px) vẫn đủ ép .playerNameLine cao hơn nhu cầu thật của chữ, đẩy hàng
+     tràn khỏi aspect-ratio 3:1 (đã gặp lỗi chữ tràn ra ngoài viền hàng). Giữ 44px touch target
+     thật (yêu cầu cứng ở AGENTS.md) nhưng để nó không chiếm chỗ layout theo chiều dọc nữa. */
+  margin: -1.375rem -0.65rem;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -2397,20 +2429,16 @@
     0 2px 0 rgba(0, 0, 0, 0.2);
 }
 
-.playerRow .connectionBadgeOnline {
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-  color: var(--success);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 0 rgba(0, 0, 0, 0.2);
-}
-
+/* Online/Offline chỉ còn hiện chấm tròn (.connectionDot tự đổi màu xanh/đỏ), không còn chữ bên
+   trong (bỏ theo yêu cầu) — reset hết phần khung/pill (padding, nền, bóng, min-height) kế thừa
+   từ .connectionBadge vốn dựng ra để chứa TEXT, nếu không chấm sẽ nằm giữa 1 viên nền tròn to
+   thừa thãi xung quanh. aria-label/title vẫn giữ ở phần tử cha để hỗ trợ đọc màn hình. */
+.playerRow .connectionBadgeOnline,
 .playerRow .connectionBadgeOffline {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-  color: var(--danger);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 0 rgba(0, 0, 0, 0.2);
+  min-height: 0;
+  padding-inline: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .playerRow .connectionDot {
@@ -2429,9 +2457,14 @@
 
 .kickButton {
   display: inline-flex;
-  width: 2.35rem;
-  min-width: 2.35rem;
-  min-height: 2.35rem;
+  /* 2.35rem -> 1.6rem: giảm size nút kick theo yêu cầu, đồng thời khớp .hostBadge (2 icon này
+     dùng chung 1 "khe" trong .playerLineActions) — 2rem từng khiến khe này cao hơn cả avatar
+     (1.8rem/28.8px), ép hàng phải cao vượt aspect-ratio 3:1 để chứa đủ nội dung (đã gặp lỗi
+     tràn chữ ra ngoài viền hàng ở chế độ 2 người/hàng). 1.6rem thấp hơn avatar nên không còn ép
+     hàng cao thêm nữa. */
+  width: 1.6rem;
+  min-width: 1.6rem;
+  min-height: 1.6rem;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -2451,29 +2484,20 @@
 }
 
 .kickButton svg {
-  width: 0.95rem;
+  width: 0.8rem;
 }
 
-/* position:absolute (neo theo .playerRow, ancestor position:relative gần nhất) thay vì nằm
-   trong flex-flow của .playerLineActions — kích thước 4.35rem (tăng 3x theo yêu cầu) vượt xa
-   chiều cao nội dung còn lại của hàng (đặc biệt hàng có khung, padding 50px chỉ còn ~49px ở
-   giữa), nếu vẫn theo flex-flow sẽ ép cả .playerRow cao vượt aspect-ratio 3:1, làm ảnh khung
-   info (contain) bị lệch tỉ lệ (đã gặp lỗi này). Tách khỏi flow để phóng to icon thoải mái mà
-   không ảnh hưởng layout/kích thước hàng.
-   top:50% + translateY(-50%): căn giữa dọc đúng bằng tâm hàng, cùng "hàng" với avatar/text
-   (avatar/text cũng được .playerRow căn giữa dọc qua align-items:center).
-   right: khớp đúng padding-left của .playerRow (15%) để khoảng cách phải bằng khoảng cách
-   avatar cách trái — hàng có khung dùng giá trị literal riêng, override bên dưới.
-*/
+/* Cùng cấu trúc/vị trí với .kickButton (nằm trong flex-flow của .playerLineActions, KHÔNG còn
+   position:absolute riêng như trước) theo yêu cầu — 2 icon này không bao giờ hiện cùng lúc trên
+   1 hàng (hàng của chính host hiện crown, hàng host nhìn người khác hiện nút kick), nên dùng
+   chung 1 "khe" vị trí (cuối hàng, giữa dọc nhờ .playerRow align-items:center) giúp icon luôn
+   nằm đúng 1 chỗ dù đổi qua lại giữa 2 trạng thái, không cần toạ độ riêng theo %/px nữa. */
 .hostBadge {
-  position: absolute;
-  top: 50%;
-  right: 15%;
-  transform: translateY(-50%);
-  z-index: 3;
   display: inline-flex;
-  width: 2rem;
-  height: 2rem;
+  /* Khớp .kickButton (xem comment ở đó về lý do 1.6rem thay vì 2rem). */
+  width: 1.6rem;
+  min-width: 1.6rem;
+  min-height: 1.6rem;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -2481,11 +2505,6 @@
   background: transparent;
   color: var(--host-badge);
   box-shadow: none;
-}
-
-/* Hàng có khung dùng giá trị literal (px) riêng thay vì 15% kế thừa từ .playerRow. */
-.playerRowFramed .hostBadge {
-  right: 20px;
 }
 
 /* Icon crown thật (public/images/crown.webp, nền đã tách trong suốt) thay cho lucide Crown —
@@ -2499,9 +2518,10 @@
    phát sáng nhẹ. rgba đen ở lớp bóng là màu trung tính (không phải màu thương hiệu) nên không
    vi phạm rule chỉ dùng token — cùng cách kickButton/connectionBadge trong file này đã dùng. */
 .hostBadge img {
-  width: 2rem;
-  min-width: 2rem;
-  height: 2rem;
+  /* 1.6rem -> 1.3rem: giảm size icon chủ phòng thêm 1 chút theo yêu cầu. */
+  width: 1.3rem;
+  min-width: 1.3rem;
+  height: 1.3rem;
   object-fit: contain;
   filter:
     drop-shadow(0 0.2rem 0.15rem rgba(0, 0, 0, 0.45))

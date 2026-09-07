@@ -256,18 +256,25 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     }
 
     if (connectionStatus !== "Đang kết nối Người chơi..." && connectionStatus !== "Người chơi đã kết nối") {
-      return <span className={styles.connectionBadge}>{connectionStatus}</span>;
+      return (
+        <span aria-label={connectionStatus} className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title={connectionStatus}>
+          <span aria-hidden="true" className={styles.connectionDot} />
+        </span>
+      );
     }
 
     if (!isPresenceReady) {
-      return <span className={styles.connectionBadge}>Kiểm tra kết nối</span>;
+      return (
+        <span aria-label="Kiểm tra kết nối" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Kiểm tra kết nối">
+          <span aria-hidden="true" className={styles.connectionDot} />
+        </span>
+      );
     }
 
     if (onlinePlayerIds.includes(playerId)) {
       return (
         <span aria-label="Online" className={`${styles.connectionBadge} ${styles.connectionBadgeOnline}`} title="Online">
           <span aria-hidden="true" className={styles.connectionDot} />
-          Online
         </span>
       );
     }
@@ -275,7 +282,6 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
     return (
       <span aria-label="Đã thoát game" className={`${styles.connectionBadge} ${styles.connectionBadgeOffline}`} title="Đã thoát game">
         <span aria-hidden="true" className={styles.connectionDot} />
-        Offline
       </span>
     );
   }
