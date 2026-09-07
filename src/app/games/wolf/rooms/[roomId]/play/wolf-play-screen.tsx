@@ -1642,7 +1642,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         </section>
       )}
 
-      {isDiscussionPhase && roleDeckSummary.length > 0 && (
+      {(isDiscussionPhase || isNightPhase) && roleDeckSummary.length > 0 && (
         <section className={`${styles.discussionRoleDeck} ${styles.discussionPanel}`}>
           <div className={styles.discussionSectionTitle}>
             <span>Vai trò trong ván</span>
