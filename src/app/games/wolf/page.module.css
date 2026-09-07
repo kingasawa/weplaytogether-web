@@ -1914,7 +1914,7 @@
 .playerRowFrameOverlay {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
@@ -2227,16 +2227,10 @@
   padding: 28px;
 }
 
-/* position:relative + z-index cao hơn mọi lớp phủ (frameOverlay/innerGlass/glow/flash/sparkle,
-   z-index 1-3) — bắt buộc phải có, không thì .playerIdentity (không position, chỉ ở luồng bố
-   cục bình thường) sẽ bị CSS xếp painting order phía DƯỚI mọi phần tử position:absolute dù
-   z-index chúng chỉ là 1 (quy tắc CSS: positioned descendant luôn vẽ sau/non-positioned
-   descendant trong cùng 1 stacking context, bất kể z-index dương lớn hay nhỏ) — khiến lớp kính
-   .playerRowFrameInnerGlass đè lên TRÊN avatar/tên rồi backdrop-filter làm mờ luôn nội dung
-   (đã gặp lỗi này). */
+/* Chỉ tạo khung layout cho avatar + text/action. Không set z-index ở parent: avatar cần nằm dưới
+   frame info, còn text/action được nâng riêng bên dưới để vẫn rõ và bấm được. */
 .playerIdentity {
   position: relative;
-  z-index: 4;
   display: flex;
   min-width: 0;
   flex: 1;
@@ -2286,6 +2280,7 @@
    (đã gặp lỗi này) — mỗi lần đổi size avatar phải đổi đồng bộ cả 2 nơi. */
 .playerAvatarFrameWrap {
   position: relative;
+  z-index: 2;
   width: 2.5rem;
   height: 2.5rem;
   flex: 0 0 auto;
@@ -2308,6 +2303,8 @@
 }
 
 .playerIdentity > div {
+  position: relative;
+  z-index: 4;
   display: grid;
   min-width: 0;
   flex: 1;
@@ -2346,6 +2343,8 @@
 }
 
 .playerLineActions {
+  position: relative;
+  z-index: 4;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;

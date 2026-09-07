@@ -45,6 +45,13 @@ Purpose:
 - Depends on `202608250001_wolf_scoring_currency.sql` và `202608260001_shop_items.sql`; apply sau các migration đó.
 - Same manual-apply limitation as the other pending migrations — paste the file into the app's Supabase SQL Editor manually.
 
+**Diagnostic note (2026-09-07)**: User reported "Không thể trang bị vật phẩm" when equipping a newly-purchased `profile_frame` from `/profile`, even though the item was owned and `purchase_shop_item` had worked fine moments earlier. Root-cause hypothesis (could not confirm directly — this workspace's DB introspection/writes to the live project are blocked by the sandbox's auto-mode classifier, same blocker documented in "Remote Execution Status" below):
+  - `equipShopItem` (`src/lib/shop.ts`) does a plain `update users set equipped_profile_frame_id = ...` with no trusted flag.
+  - Trigger `protect_user_progression_stats` (this migration, step 5) only early-returns on the trusted-flag/service-role/admin branch; otherwise it evaluates `new.level_xp is distinct from old.level_xp`, which requires the `level_xp` column to exist on the row.
+  - `purchase_shop_item` (step 6, same migration) calls `set_config('app.user_stat_update', 'trusted', true)` before its `update`, so it hits the early-return branch and never touches `level_xp` — this is why purchase succeeds even if `level_xp` is missing, while the unprotected equip update does not.
+  - If only part of this migration was ever pasted into the SQL Editor (e.g. the trigger/function statements ran but the `alter table public.users add column if not exists level_xp ...` from step 1 did not), every plain `users` update that isn't flagged trusted/admin — including equip and "Lưu hồ sơ" — would fail with a generic Postgres error, which the app's `catch` blocks flatten into "Không thể trang bị vật phẩm. Vui lòng thử lại." / "Không thể lưu hồ sơ." with no detail.
+  - **Suggested fix**: re-run `alter table public.users add column if not exists level_xp integer not null default 0;` (idempotent, safe — step 1 of this file) in the Supabase SQL Editor, then confirm both `select column_name from information_schema.columns where table_name = 'users' and column_name = 'level_xp';` returns a row and equip works again. If that isn't the cause, re-paste this whole file (all statements are `create or replace` / `if not exists` guarded, safe to re-run) and check the SQL Editor's error output directly — it will show the real exception instead of the app's generic message.
+
 ## 202608310001_shop_items_frame_color.sql
 
 Status: pending manual remote apply (not yet run in Supabase SQL Editor).

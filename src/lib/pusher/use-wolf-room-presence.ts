@@ -400,7 +400,7 @@ export function useWolfRoomPresence({
 
       if (stuckForMs >= SOFT_RECOVERY_THRESHOLD_MS && !isSoftRecoveringRef.current) {
         isSoftRecoveringRef.current = true;
-        setConnectionStatus("Mất đồng bộ, đang tự khôi phục...");
+        setConnectionStatus("Đã thoát");
         void reconnectPusherBrowserClient()
           .catch(() => undefined)
           .then(() => refetchState())
