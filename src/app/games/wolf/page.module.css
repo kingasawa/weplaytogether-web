@@ -2254,7 +2254,7 @@
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: 0;
+  gap: 0.2rem;
 }
 
 /* padding-inline riêng cho hàng có khung: .playerIdentity là flex item flex:1 DUY NHẤT trong
