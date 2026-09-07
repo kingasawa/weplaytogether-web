@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isMissingTableError } from "@/lib/supabase/errors";
+import { isMissingTableError, isNetworkBlockedError } from "@/lib/supabase/errors";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { ShopItemRow, ShopItemType, UserShopItemRow } from "@/lib/supabase/types";
 
@@ -17,6 +17,12 @@ export const SHOP_ITEM_TYPE_LABELS: Record<ShopItemType, string> = {
 
 const SHOP_NOT_READY_MESSAGE =
   "Cửa hàng chưa sẵn sàng (dữ liệu shop chưa được khởi tạo). Vui lòng thử lại sau.";
+
+// Hiện khi request bị chặn trước khi tới Supabase — thường do tiện ích chặn quảng cáo/quyền
+// riêng tư trên trình duyệt. Gợi ý cụ thể để user tự xử lý được thay vì chỉ "thử lại" vô nghĩa.
+const NETWORK_BLOCKED_MESSAGE =
+  "Trình duyệt có thể đang chặn kết nối tới máy chủ dữ liệu (thường do tiện ích chặn quảng cáo/" +
+  "quyền riêng tư). Hãy thử tắt tiện ích đó hoặc dùng cửa sổ ẩn danh, rồi thử lại.";
 
 function client() {
   return createSupabaseBrowserClient() as unknown as SupabaseClient;
@@ -161,7 +167,7 @@ export async function purchaseShopItem(itemId: string): Promise<ShopResult<{ rem
   const { data, error } = await client().rpc("purchase_shop_item", { p_item_id: itemId });
 
   if (error) {
-    return { data: null, error: mapPurchaseError(error.message) };
+    return { data: null, error: isNetworkBlockedError(error) ? NETWORK_BLOCKED_MESSAGE : mapPurchaseError(error.message) };
   }
 
   const remainingCoins = typeof data?.remaining_coins === "number" ? data.remaining_coins : 0;
@@ -204,7 +210,10 @@ export async function equipShopItem(
     .eq("id", userId);
 
   if (error) {
-    return { data: null, error: "Không thể trang bị vật phẩm. Vui lòng thử lại." };
+    return {
+      data: null,
+      error: isNetworkBlockedError(error) ? NETWORK_BLOCKED_MESSAGE : "Không thể trang bị vật phẩm. Vui lòng thử lại.",
+    };
   }
 
   return { data: null, error: null };

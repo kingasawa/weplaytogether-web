@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getAuthDisplayName, getGmailAvatarUrl } from "@/lib/supabase/auth-client";
+import { isNetworkBlockedError } from "@/lib/supabase/errors";
 import { MAX_GUEST_PLAYER_NAME_LENGTH } from "@/lib/guest-player";
 import {
   DEFAULT_PLAYER_AVATAR_KEY,
@@ -214,7 +215,11 @@ export async function updateMyProfile(input: {
 
   if (error || !data) {
     console.error("[profile] Lưu hồ sơ thất bại:", error);
-    return { profile: null, error: error?.message ?? "Không thể lưu hồ sơ." };
+    const message = isNetworkBlockedError(error)
+      ? "Trình duyệt có thể đang chặn kết nối tới máy chủ dữ liệu (thường do tiện ích chặn quảng cáo/" +
+        "quyền riêng tư). Hãy thử tắt tiện ích đó hoặc dùng cửa sổ ẩn danh, rồi thử lại."
+      : (error?.message ?? "Không thể lưu hồ sơ.");
+    return { profile: null, error: message };
   }
 
   return { profile: persistProfile(mapProfile(data as UserRow)), error: null };
