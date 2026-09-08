@@ -15,16 +15,25 @@ export function frameMaskStyle(profileFrameUrl: string): CSSProperties {
 // do ở frameMaskStyle: mỗi khung 1 màu khác nhau. profileFrameColor null (khung chưa set màu
 // riêng, hoặc khung mặc định) -> trả về undefined, để CSS module tự dùng background mặc định
 // (màu solid --primary-light) đã khai báo sẵn trên .playerRowFrameInnerGlass.
-// Bỏ hẳn linear-gradient (trước fade đậm -> nhạt giữa 2 mép) theo yêu cầu — chỉ 1 màu SOLID duy
-// nhất (mix 40% với transparent) trải đều cả lớp kính, dùng đúng màu riêng của khung
-// (profileFrameColor), không pha thêm --primary-light.
+// Từng bỏ hẳn linear-gradient (đổi sang màu solid đồng nhất) rồi thêm lại theo yêu cầu — mép
+// dưới đục 55%, mép trên đục 45% (đảo lại so với lần trước). Hướng gradient lệch nhẹ 8deg khỏi
+// phương thẳng đứng (0deg = "to top" tuyệt đối) theo yêu cầu "cho line méo qua 1 tí đừng thẳng
+// đứng" — vẫn về cơ bản là dưới -> trên, chỉ nghiêng nhẹ.
+// Opacity qua nhiều lần chỉnh: 40% -> 85% -> 65% -> 45%/55% -> 55%/45% — mix thấp khiến lớp kính
+// LỘ RÕ backdrop phía sau (page background), mà backdrop lại khác nhau tuỳ nơi hiển thị (lobby
+// thật = ảnh wolf_game_bg đã backdrop-filter blur, modal xem trước ở /shop = nền phẳng --bg-card)
+// nên CÙNG 1 khung từng trông 2 màu khác hẳn nhau giữa preview và lobby dù code y hệt — tăng
+// opacity giúp màu riêng của khung áp đảo backdrop phía sau, sau đó giảm dần lại theo yêu cầu.
 export function frameGlassStyle(profileFrameColor: string | null): CSSProperties | undefined {
   if (!profileFrameColor) {
     return undefined;
   }
 
+  const colorBottom = `color-mix(in srgb, ${profileFrameColor} 55%, transparent)`;
+  const colorTop = `color-mix(in srgb, ${profileFrameColor} 45%, transparent)`;
+
   return {
-    background: `color-mix(in srgb, ${profileFrameColor} 40%, transparent)`,
+    background: `linear-gradient(8deg, ${colorBottom} 0%, ${colorTop} 100%)`,
   };
 }
 

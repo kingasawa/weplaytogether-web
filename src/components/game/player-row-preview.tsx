@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
-import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
+import { frameAvatarGlowStyle, frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 // Dùng LẠI đúng CSS module của hàng người chơi trong phòng chờ (wolf/page.module.css, dùng
 // chung cho cả 3 game) — không copy riêng class nào sang đây, để khung/kính/glow/sparkle trong
@@ -83,6 +83,7 @@ export default function PlayerRowPreview({
               alt=""
               aria-hidden="true"
               className={avatarFrameUrl ? `${lobbyStyles.playerAvatar} ${lobbyStyles.playerAvatarFramed}` : lobbyStyles.playerAvatar}
+              style={hasProfileFrame && profileFrameColor ? frameAvatarGlowStyle(profileFrameColor) : undefined}
               width={48}
               height={48}
               src={getPlayerAvatarSrc(avatarKey, avatarUrl)}
@@ -100,13 +101,13 @@ export default function PlayerRowPreview({
               />
             )}
           </span>
-          <div>
+          <div className={lobbyStyles.playerTextBlock}>
             <div className={lobbyStyles.playerNameLine}>
               <span className={lobbyStyles.playerNameActions}>
-                <strong title={name}>{name.length > 12 ? `${name.slice(0, 12)}...` : name}</strong>
+                <strong title={name}>{name.length > 10 ? `${name.slice(0, 10)}...` : name}</strong>
               </span>
             </div>
-            <span>Đã sẵn sàng</span>
+            <span className={lobbyStyles.playerReadyStatus}>Đã sẵn sàng</span>
           </div>
         </div>
       </article>

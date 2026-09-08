@@ -312,7 +312,11 @@
   overscroll-behavior: contain;
   border: 1px solid color-mix(in srgb, var(--primary-light) 22%, transparent);
   border-radius: 1.1rem;
-  background: var(--bg-card);
+  /* Đổi từ --bg-card (navy sáng hơn) sang --bg-primary (navy rất tối) — khớp với màu nền/fallback
+     thật của phòng chờ (.avalonTheme.wolfThemeBg dùng chính --bg-primary làm màu nền base, xem
+     wolf/page.module.css) để phần xem trước PlayerRowPreview trông giống bối cảnh thật hơn, mà
+     không cần chèn nguyên ảnh wolf_game_bg.webp vào modal (theo yêu cầu chỉ đổi màu nền). */
+  background: var(--bg-primary);
   box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 16%, transparent);
 }
 

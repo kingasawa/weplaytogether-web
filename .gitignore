@@ -53,3 +53,8 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/scripts/
+/frames/
+/test-results/
+/.idea/
+/.claude/

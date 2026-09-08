@@ -1,15 +1,33 @@
 .stage {
   display: flex;
   justify-content: center;
-  padding: 0.5rem 0 0.25rem;
+  /* Padding trên/dưới chừa chỗ cho phần tràn ra ngoài box gốc của transform:scale ở .row (xem
+     bên dưới) — scale không đổi kích thước box trong layout, chỉ "vẽ to hơn" quanh tâm, nên phần
+     vẽ thêm sẽ tràn đối xứng ra ngoài .row nếu không có đủ khoảng trống. Box gốc (chưa scale) cao
+     8.2rem*1.25=10.25rem, scale(1.05) -> cao hiển thị 10.7625rem, phần tràn ra mỗi bên =
+     (10.7625-10.25)/2 ≈ 0.26rem — padding chỉ cần vừa đủ lớn hơn mức này. */
+  padding: 0.75rem 0 0.5rem;
 }
 
-/* .row ghi đè flex-basis của .playerRow (page.module.css) — bản gốc tính theo 1/3 bề rộng
-   .playerList (layout 3 thẻ/hàng trong phòng chờ), ở đây chỉ hiển thị 1 thẻ độc lập nên phóng to
-   cho dễ nhìn rõ chi tiết khung. Mọi thứ khác (border, khung, kính, glow/sparkle, avatar, tên) giữ
-   nguyên class thật của phòng chờ nên không đổi giao diện, chỉ đổi kích thước hiển thị. */
+/* .row ghi đè width của .playerRow (page.module.css) về gần bề rộng 1 thẻ thật trong lobby rồi
+   phóng to bằng transform:scale thay vì set thẳng 1 width lớn — trước đây set width lớn
+   (min(60vw,13rem)) làm chiều cao tự tính theo aspect-ratio 4/5 phình to theo, nhưng avatar/tên
+   bên trong vẫn cố định theo rem như card nhỏ thật, gây khoảng trống giữa avatar và tên bị kéo
+   dãn bất thường (lệch tỉ lệ so với lobby thật). transform:scale phóng to ĐỀU mọi thứ bên trong
+   (avatar, tên, khoảng cách, viền khung...) nên tỉ lệ luôn khớp y hệt card thật trong lobby, chỉ
+   khác kích thước hiển thị.
+   width 8.2rem — .playerAvatar/.playerIdentity dùng media query theo VIEWPORT (không phải theo
+   bề rộng .row, CSS container query không áp dụng ở đây), nên ở viewport rộng (>=450px)
+   avatar/padding lớn hơn hẳn bản mobile trong khi .row vẫn width cố định. Đã đo thực tế bằng
+   scrollHeight/clientHeight của .playerIdentity: ở breakpoint >=450px, nội dung (avatar + gap +
+   tên + badge trạng thái + padding) cần .playerRow cao tối thiểu ~161px (145px cho
+   .playerIdentity + 16px padding của .playerRowFramed) — ứng với width tối thiểu 161/1.25=
+   128.8px=8.05rem mới không bị .playerIdentity (overflow:hidden) cắt mất badge trạng thái phía
+   dưới. 8.2rem có thêm biên an toàn. */
 .row {
   flex: 0 0 auto;
-  width: min(60vw, 13rem);
+  width: 8.2rem;
   margin-bottom: 0;
+  /* Giảm 1/2 so với trước (2.1 -> 1.05) theo yêu cầu thu nhỏ frame xem trước lại. */
+  transform: scale(1.05);
 }
