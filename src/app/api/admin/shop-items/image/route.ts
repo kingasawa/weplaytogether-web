@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { isAdminEmail } from "@/lib/admin";
-import { putAvatarObject } from "@/lib/avatar-storage";
+import { deleteAvatarObject, putAvatarObject } from "@/lib/avatar-storage";
 
 export const runtime = "nodejs";
 
@@ -93,4 +93,45 @@ export async function POST(request: Request) {
     .join("/")}`;
 
   return Response.json({ imageUrl });
+}
+
+// Dọn ảnh vừa tải lên nếu admin huỷ/thoát form mà không lưu vật phẩm (xem
+// admin-items/item-form-screen.tsx) — chỉ nhận imageUrl thuộc đúng prefix "shop/" của bucket này
+// (không cho xoá object bất kỳ qua route này) và luôn dùng ignoreNotFound nên gọi lại nhiều lần
+// vẫn an toàn.
+export async function DELETE(request: Request) {
+  const adminEmail = await getRequestAdminEmail(request);
+
+  if (!adminEmail) {
+    return Response.json({ error: "Không có quyền quản trị." }, { status: 403 });
+  }
+
+  const body = (await request.json().catch(() => null)) as { imageUrl?: string } | null;
+  const imageUrl = body?.imageUrl?.trim();
+
+  if (!imageUrl) {
+    return Response.json({ error: "Thiếu imageUrl." }, { status: 400 });
+  }
+
+  const publicBaseUrl = process.env.NEXT_PUBLIC_AVATAR_PUBLIC_URL?.trim().replace(/\/+$/, "");
+
+  if (!publicBaseUrl) {
+    return Response.json({ error: "Chưa cấu hình public URL cho ảnh." }, { status: 503 });
+  }
+
+  const prefix = `${publicBaseUrl}/shop/`;
+
+  if (!imageUrl.startsWith(prefix)) {
+    return Response.json({ error: "URL ảnh không hợp lệ." }, { status: 400 });
+  }
+
+  const objectKey = decodeURIComponent(imageUrl.slice(publicBaseUrl.length + 1));
+
+  try {
+    await deleteAvatarObject(objectKey);
+  } catch {
+    return Response.json({ error: "Không thể xoá ảnh. Vui lòng thử lại." }, { status: 503 });
+  }
+
+  return Response.json({ ok: true });
 }

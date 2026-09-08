@@ -1,60 +1,19 @@
 "use client";
 
-import { Frame, IdCard, LoaderCircle, Package, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Frame, IdCard, LoaderCircle, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import {
-  createShopItem,
-  deleteShopItem,
-  listAllShopItems,
-  updateShopItem,
-  uploadShopItemImage,
-  type ShopItemInput,
-} from "@/lib/admin-shop";
-import { SHOP_ITEM_IMAGE_ACCEPT } from "@/lib/shop-item-image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { deleteShopItem, listAllShopItems } from "@/lib/admin-shop";
 import { SHOP_ITEM_TYPE_LABELS } from "@/lib/shop";
 import type { ShopItemRow, ShopItemType } from "@/lib/supabase/types";
 import styles from "../admin.module.css";
-
-type FormMode = { mode: "create" } | { mode: "edit"; item: ShopItemRow };
-
-// Spec ảnh khuyến nghị để khung hiển thị đúng khi ghép vào avatar/thanh thông tin người chơi.
-// Ảnh tải lên sẽ TỰ ĐỘNG được nén + chuyển sang WebP ngay ở trình duyệt (bất kể định dạng/
-// kích thước gốc) trước khi lưu lên Google Cloud Storage — không cần tự resize trước.
-const IMAGE_SPEC_HINTS: Record<ShopItemType, string> = {
-  avatar_frame:
-    "Khuyến nghị: nền trong suốt, ảnh vuông, lỗ tròn trong suốt ở giữa ~60-65% canvas để không che avatar. Tự động nén còn tối đa 512×512px.",
-  profile_frame:
-    "Khuyến nghị: nền trong suốt, ảnh dạng chữ nhật dài (~3:1), phần giữa để trống cho tên/avatar hiện xuyên qua. Tự động nén còn tối đa cạnh dài 960px.",
-};
-
-const EMPTY_FORM: ShopItemInput = {
-  itemType: "avatar_frame",
-  name: "",
-  description: "",
-  priceCoins: 0,
-  imageUrl: "",
-  frameColor: null,
-  isActive: true,
-  sortOrder: 0,
-};
-
-// Màu mặc định điền sẵn vào <input type="color"> khi khung chưa có frame_color — input type
-// color luôn cần 1 giá trị hex hợp lệ để hiển thị (không nhận null/rỗng), --primary-light hiện
-// tại (#8EA8FF) làm chuẩn để khớp đúng cảm giác "màu mặc định" trước khi admin chọn màu riêng.
-const DEFAULT_COLOR_PICKER_VALUE = "#8EA8FF";
 
 export default function AdminItemsScreen() {
   const [items, setItems] = useState<ShopItemRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [formMode, setFormMode] = useState<FormMode | null>(null);
-  const [formInput, setFormInput] = useState<ShopItemInput>(EMPTY_FORM);
-  const [formError, setFormError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     setIsLoading(true);
@@ -73,104 +32,6 @@ export default function AdminItemsScreen() {
   useEffect(() => {
     void refresh();
   }, []);
-
-  function openCreateForm() {
-    setFormInput(EMPTY_FORM);
-    setFormError("");
-    setFormMode({ mode: "create" });
-  }
-
-  function openEditForm(item: ShopItemRow) {
-    setFormInput({
-      itemType: item.item_type,
-      name: item.name,
-      description: item.description ?? "",
-      priceCoins: item.price_coins,
-      imageUrl: item.image_url,
-      frameColor: item.frame_color,
-      isActive: item.is_active,
-      sortOrder: item.sort_order,
-    });
-    setFormError("");
-    setFormMode({ mode: "edit", item });
-  }
-
-  function closeForm() {
-    setFormMode(null);
-    setFormError("");
-  }
-
-  async function handleImageFileSelected(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // cho phép chọn lại đúng file cũ lần sau
-
-    if (!file) {
-      return;
-    }
-
-    setIsUploadingImage(true);
-    setFormError("");
-
-    const { data: imageUrl, error } = await uploadShopItemImage(formInput.itemType, file);
-
-    setIsUploadingImage(false);
-
-    if (error || !imageUrl) {
-      setFormError(error ?? "Tải ảnh lên thất bại.");
-      return;
-    }
-
-    setFormInput((current) => ({ ...current, imageUrl }));
-  }
-
-  async function submitForm(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const trimmedName = formInput.name.trim();
-    const trimmedImageUrl = formInput.imageUrl.trim();
-
-    if (!trimmedName) {
-      setFormError("Vui lòng nhập tên vật phẩm.");
-      return;
-    }
-
-    if (!trimmedImageUrl) {
-      setFormError("Vui lòng nhập URL ảnh vật phẩm.");
-      return;
-    }
-
-    if (!Number.isFinite(formInput.priceCoins) || formInput.priceCoins < 0) {
-      setFormError("Giá Xu phải là số không âm.");
-      return;
-    }
-
-    const input: ShopItemInput = {
-      ...formInput,
-      name: trimmedName,
-      imageUrl: trimmedImageUrl,
-      description: formInput.description?.trim() || null,
-      priceCoins: Math.trunc(formInput.priceCoins),
-      sortOrder: Math.trunc(formInput.sortOrder) || 0,
-    };
-
-    setIsSaving(true);
-    setFormError("");
-
-    const result =
-      formMode?.mode === "edit"
-        ? await updateShopItem(formMode.item.id, input)
-        : await createShopItem(input);
-
-    setIsSaving(false);
-
-    if (result.error) {
-      setFormError(result.error);
-      return;
-    }
-
-    closeForm();
-    void refresh();
-  }
 
   async function handleDelete(item: ShopItemRow) {
     if (!window.confirm(`Xóa vật phẩm "${item.name}"? Hành động này không thể hoàn tác.`)) {
@@ -196,10 +57,10 @@ export default function AdminItemsScreen() {
           <h1>Vật phẩm shop</h1>
           <p>Quản lý khung avatar và khung thông tin người chơi bán trong shop.</p>
         </div>
-        <button className={styles.primaryButton} type="button" onClick={openCreateForm}>
+        <Link className={styles.primaryButton} href="/admin/items/new">
           <Plus aria-hidden="true" />
           Thêm vật phẩm
-        </button>
+        </Link>
       </div>
 
       {loadError && <p className={styles.errorText}>{loadError}</p>}
@@ -259,14 +120,9 @@ export default function AdminItemsScreen() {
                     <td>{item.sort_order}</td>
                     <td>
                       <div className={styles.rowActions}>
-                        <button
-                          className={styles.iconOnlyButton}
-                          type="button"
-                          aria-label={`Sửa ${item.name}`}
-                          onClick={() => openEditForm(item)}
-                        >
+                        <Link className={styles.iconOnlyButton} aria-label={`Sửa ${item.name}`} href={`/admin/items/${item.id}`}>
                           <Pencil aria-hidden="true" />
-                        </button>
+                        </Link>
                         <button
                           className={`${styles.iconOnlyButton} ${styles.danger}`}
                           type="button"
@@ -288,178 +144,6 @@ export default function AdminItemsScreen() {
             </table>
           </div>
         )
-      )}
-
-      {formMode && (
-        <div className={styles.formBackdrop} role="presentation" onClick={closeForm}>
-          <section
-            aria-labelledby="admin-item-form-title"
-            aria-modal="true"
-            className={styles.formModal}
-            role="dialog"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 id="admin-item-form-title">
-              {formMode.mode === "create" ? "Thêm vật phẩm" : `Sửa vật phẩm: ${formMode.item.name}`}
-            </h2>
-
-            <form className={styles.formGrid} onSubmit={submitForm}>
-              <div className={styles.formField}>
-                <label htmlFor="item-name">Tên vật phẩm</label>
-                <input
-                  id="item-name"
-                  maxLength={60}
-                  type="text"
-                  value={formInput.name}
-                  onChange={(event) => setFormInput((current) => ({ ...current, name: event.target.value }))}
-                />
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="item-type">Loại vật phẩm</label>
-                <select
-                  id="item-type"
-                  value={formInput.itemType}
-                  onChange={(event) =>
-                    setFormInput((current) => ({ ...current, itemType: event.target.value as ShopItemType }))
-                  }
-                >
-                  <option value="avatar_frame">{SHOP_ITEM_TYPE_LABELS.avatar_frame}</option>
-                  <option value="profile_frame">{SHOP_ITEM_TYPE_LABELS.profile_frame}</option>
-                </select>
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="item-image-url">Ảnh vật phẩm</label>
-                <input
-                  ref={fileInputRef}
-                  accept={SHOP_ITEM_IMAGE_ACCEPT}
-                  className={styles.hiddenFileInput}
-                  type="file"
-                  onChange={handleImageFileSelected}
-                />
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  disabled={isUploadingImage}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {isUploadingImage ? <LoaderCircle aria-hidden="true" /> : <Upload aria-hidden="true" />}
-                  {isUploadingImage ? "Đang tải lên..." : "Tải ảnh lên"}
-                </button>
-                <input
-                  id="item-image-url"
-                  placeholder="hoặc dán URL ảnh có sẵn"
-                  type="text"
-                  value={formInput.imageUrl}
-                  onChange={(event) => setFormInput((current) => ({ ...current, imageUrl: event.target.value }))}
-                />
-                <p className={styles.formHint}>{IMAGE_SPEC_HINTS[formInput.itemType]}</p>
-                {formInput.imageUrl.trim() && (
-                  <span className={styles.previewThumb}>
-                    <Image alt="" fill sizes="200px" src={formInput.imageUrl.trim()} unoptimized />
-                  </span>
-                )}
-              </div>
-
-              {formInput.itemType === "profile_frame" && (
-                <div className={styles.formField}>
-                  <div className={styles.formCheckboxRow}>
-                    <input
-                      checked={formInput.frameColor !== null}
-                      id="item-frame-color-enabled"
-                      type="checkbox"
-                      onChange={(event) =>
-                        setFormInput((current) => ({
-                          ...current,
-                          frameColor: event.target.checked ? DEFAULT_COLOR_PICKER_VALUE : null,
-                        }))
-                      }
-                    />
-                    <label htmlFor="item-frame-color-enabled">Dùng màu riêng cho lớp kính bên trong khung</label>
-                  </div>
-                  {formInput.frameColor !== null && (
-                    <>
-                      <input
-                        id="item-frame-color"
-                        type="color"
-                        value={formInput.frameColor}
-                        onChange={(event) =>
-                          setFormInput((current) => ({ ...current, frameColor: event.target.value }))
-                        }
-                      />
-                      <p className={styles.formHint}>
-                        Bỏ trống (tắt checkbox trên) để lớp kính dùng màu mặc định của hệ thống.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className={styles.formField}>
-                <label htmlFor="item-description">Mô tả (tùy chọn)</label>
-                <textarea
-                  id="item-description"
-                  maxLength={200}
-                  value={formInput.description ?? ""}
-                  onChange={(event) =>
-                    setFormInput((current) => ({ ...current, description: event.target.value }))
-                  }
-                />
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="item-price">Giá (Xu)</label>
-                <input
-                  id="item-price"
-                  min={0}
-                  type="number"
-                  value={formInput.priceCoins}
-                  onChange={(event) =>
-                    setFormInput((current) => ({ ...current, priceCoins: Number(event.target.value) }))
-                  }
-                />
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="item-sort-order">Thứ tự hiển thị</label>
-                <input
-                  id="item-sort-order"
-                  type="number"
-                  value={formInput.sortOrder}
-                  onChange={(event) =>
-                    setFormInput((current) => ({ ...current, sortOrder: Number(event.target.value) }))
-                  }
-                />
-              </div>
-
-              <div className={styles.formCheckboxRow}>
-                <input
-                  checked={formInput.isActive}
-                  id="item-is-active"
-                  type="checkbox"
-                  onChange={(event) =>
-                    setFormInput((current) => ({ ...current, isActive: event.target.checked }))
-                  }
-                />
-                <label htmlFor="item-is-active">Đang mở bán (hiện trên shop)</label>
-              </div>
-
-              {formError && <p className={styles.errorText}>{formError}</p>}
-
-              <div className={styles.formActions}>
-                <button className={styles.secondaryButton} type="button" onClick={closeForm}>
-                  <X aria-hidden="true" />
-                  Hủy
-                </button>
-                <button className={styles.primaryButton} type="submit" disabled={isSaving}>
-                  {isSaving && <LoaderCircle aria-hidden="true" />}
-                  {formMode.mode === "create" ? "Tạo vật phẩm" : "Lưu thay đổi"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
       )}
     </div>
   );

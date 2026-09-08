@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-03 -->
+﻿<!-- Last updated: 2026-09-08 -->
 
 # RLS Policies
 
@@ -119,5 +119,5 @@ On 2026-08-26, `202608260001_shop_items.sql` (shop RLS policies above) hit the s
 
 ## Admin Whitelist (is_shop_admin())
 
-`public.is_shop_admin()` (defined in `202608260001_shop_items.sql`) grants elevated RLS access by comparing `auth.jwt() ->> 'email'` against a hardcoded array, currently `['trancatkhanh@gmail.com']`. This is a deliberate choice (the user asked for an email whitelist instead of an `is_admin` column) mirrored client-side in `ADMIN_EMAILS` in `src/lib/admin.ts` for hiding/showing the `/admin` UI. **The two lists must be kept in sync by hand** — adding an admin means editing both the SQL function (new migration + re-apply) and the TS constant.
+`public.is_shop_admin()` (defined in `202608260001_shop_items.sql`, whitelist extended by `202609080001_shop_admin_emails.sql`) grants elevated RLS access by comparing `auth.jwt() ->> 'email'` against a hardcoded array, currently `['trancatkhanh@gmail.com', 'triph@icd-vn.com', 'khanhtc@icd-vn.com']`. This is a deliberate choice (the user asked for an email whitelist instead of an `is_admin` column) mirrored client-side in `ADMIN_EMAILS` in `src/lib/admin.ts` for hiding/showing the `/admin` UI. **The two lists must be kept in sync by hand** — adding an admin means editing both the SQL function (new migration + re-apply) and the TS constant.
 

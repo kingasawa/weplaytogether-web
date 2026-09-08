@@ -1,7 +1,8 @@
 import type { ShopItemType } from "@/lib/supabase/types";
 
 // Kích thước tối đa (cạnh dài nhất) theo loại vật phẩm — khớp spec đã chốt khi thiết kế khung:
-// avatar_frame vuông 512px, profile_frame 9-slice chiều ngang tối đa 960px.
+// avatar_frame vuông 512px, profile_frame khung dọc (~4:5) cạnh dài tối đa 960px. Resize giữ
+// nguyên tỉ lệ gốc (fit "inside", không crop vuông) nên áp dụng được cho mọi tỉ lệ ảnh.
 export const SHOP_ITEM_IMAGE_MAX_DIMENSION: Record<ShopItemType, number> = {
   avatar_frame: 512,
   profile_frame: 960,

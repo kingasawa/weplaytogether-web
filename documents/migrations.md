@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-07 -->
+﻿<!-- Last updated: 2026-09-08 -->
 
 # Migrations
 
@@ -476,4 +476,8 @@ Required next action:
 - If starting from a clean database, apply all SQL files manually in filename order, or provide a Management API token / database connection string with permission to run migrations.
 - On 2026-08-26, `202608260001_shop_items.sql` (shop feature) was created for this same reason: this workspace could not `supabase link`/`db push` (blocked by the sandbox's auto-mode classifier before even reaching the network) or reach the Supabase Management API/session pooler directly. The migration is written to be self-sufficient (creates `public.users` + points/coins columns if missing) so it can be pasted into the SQL Editor regardless of which earlier pending migrations were already applied.
 - On 2026-08-26 (same day, separate task), `202608260002_rename_shared_game_tables.sql` hit the same blocker: the Supabase MCP tool connected in this workspace belongs to an unrelated project ("Map Buddy", not this app's `tvwofffcpjgfyxxbvpsi`). Paste it into the SQL Editor manually like the rest.
+
+### `202609080001_shop_admin_emails.sql`
+
+On 2026-09-08, user asked to grant admin (`/admin` UI + `is_shop_admin()` RLS) access to two more accounts: `triph@icd-vn.com` and `khanhtc@icd-vn.com`. `create or replace function public.is_shop_admin()` redefined with the extended whitelist `['trancatkhanh@gmail.com', 'triph@icd-vn.com', 'khanhtc@icd-vn.com']` — idempotent, safe to re-run. `ADMIN_EMAILS` in `src/lib/admin.ts` updated in the same change to keep the client-side UI-visibility list in sync, per the mandatory-sync rule documented in `documents/rls-policies.md` (Admin Whitelist section) and `documents/schema.md` (`public.is_shop_admin()` entry) — both updated too. Same Supabase MCP wrong-project blocker as every other migration this workspace has hit — pending manual apply via Supabase SQL Editor.
 

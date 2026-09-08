@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-07 -->
+﻿<!-- Last updated: 2026-09-08 -->
 
 # Database Schema
 
@@ -300,7 +300,8 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 
 - **Pending apply**: thêm bởi `202608260001_shop_items.sql`.
 - Also redefined by `202609030002_game_bug_reports.sql` so report RLS can be applied even if the shop migration has not been run yet.
-- `language sql stable`, so sánh `auth.jwt() ->> 'email'` với whitelist hardcode (hiện chỉ `trancatkhanh@gmail.com`).
+- Whitelist extended by `202609080001_shop_admin_emails.sql` (thêm `triph@icd-vn.com`, `khanhtc@icd-vn.com`).
+- `language sql stable`, so sánh `auth.jwt() ->> 'email'` với whitelist hardcode (hiện `trancatkhanh@gmail.com`, `triph@icd-vn.com`, `khanhtc@icd-vn.com`).
 - Dùng làm điều kiện trong RLS policy của `shop_items`, `user_shop_items`, và mở rộng của `users` — thay cho cột `is_admin` riêng (theo yêu cầu người dùng).
 - Đồng bộ tay với `ADMIN_EMAILS` trong `src/lib/admin.ts` (dùng để ẩn/hiện UI `/admin`, không phải lớp bảo mật chính — `is_shop_admin()` ở Postgres mới là lớp chặn ghi thật sự).
 

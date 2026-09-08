@@ -619,8 +619,14 @@
 }
 
 .formField {
+  /* min-width:0 — .formField là grid item (trong .formGrid/.formLayoutFields), mặc định grid
+     item có min-width:auto (co theo kích thước nội dung con, KHÔNG co nhỏ hơn được) — input/
+     select bên trong có độ rộng riêng theo trình duyệt nên đẩy cả cột tràn ra ngoài
+     .formScreenCard khi cột hẹp lại (3 cột trong .formLayoutFields). min-width:0 cho phép grid
+     item co đúng theo track đã chia, không tràn. */
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .formField label {
@@ -632,6 +638,7 @@
 .formField input,
 .formField select,
 .formField textarea {
+  width: 100%;
   min-height: 2.6rem;
   padding: 0 0.75rem;
   border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
@@ -664,10 +671,39 @@
   white-space: nowrap;
 }
 
+/* Nút "Tải ảnh lên" + ô chọn màu khung (profile_frame) nằm cùng 1 hàng — nút Tải ảnh lên chiếm
+   hết phần còn lại (flex:1), ô màu ghim sát bên phải với kích thước cố định (.colorSwatch). */
+.uploadRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.uploadRow .secondaryButton {
+  flex: 1;
+  justify-content: center;
+}
+
+/* Ô vuông nhỏ chọn màu — ghi đè padding/kích thước chung của .formField input (vốn cho input
+   text/select, quá to/có padding ngang cho input type=color). min-height khớp .secondaryButton
+   (2.6rem) để thẳng hàng với nút Tải ảnh lên bên cạnh. width phải !important — .formField input
+   (đặc hiệu (0,1,1)) đè cao hơn .colorSwatch (0,1,0) nên width:100% thêm sau (fix tràn ô input)
+   từng làm ô màu bị kéo giãn to hết chỗ trống, ăn luôn phần của nút Tải ảnh lên. */
+.colorSwatch {
+  flex: 0 0 auto;
+  width: 2.6rem !important;
+  min-height: 2.6rem !important;
+  padding: 0.3rem !important;
+  cursor: pointer;
+}
+
 .formCheckboxRow {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* min-width:0 — cùng lý do ở .formField, .formCheckboxRow cũng đứng thẳng làm grid item
+     (.formLayoutFields, hàng "Đang mở bán") nên cần co được theo track thay vì tràn. */
+  min-width: 0;
 }
 
 .formCheckboxRow input {
@@ -683,17 +719,71 @@
   margin-top: 1.4rem;
 }
 
-.previewThumb {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-primary));
+/* Màn hình riêng cho thêm/sửa vật phẩm (/admin/items/new, /admin/items/[id]) — thay cho modal
+   .formBackdrop/.formModal cũ (2 class đó vẫn giữ, admin-reports-screen.tsx còn dùng riêng).
+   Cùng tông với .tableWrapper (card nền tối, viền mỏng) để khớp phong cách phần danh sách. Rộng
+   hơn hẳn .formModal cũ (34rem -> không giới hạn, chỉ set max-width lớn) vì trang admin chỉ chạy
+   ở màn hình >=1024px (xem .desktopOnlyNotice) — tận dụng bề ngang thay vì để trống 2 bên. */
+.formScreenCard {
+  max-width: 68rem;
+  padding: 1.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
 }
 
-.previewThumb img {
-  object-fit: contain;
+.formScreenTitle {
+  margin-bottom: 1.1rem;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+}
+
+/* Layout NGANG cho form thêm/sửa vật phẩm — cột trái là ảnh/preview (vốn cao do
+   PlayerRowPreview), cột phải là các field text/số gọn hơn, đặt song song thay vì xếp chồng dọc
+   để đỡ phải cuộn trang, tận dụng .formScreenCard rộng. */
+.formLayout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22rem) 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.formLayoutPreview {
+  display: grid;
+  gap: 0.9rem;
+  /* min-width:0 — .formLayoutPreview/.formLayoutFields là 2 grid item của .formLayout, cùng lý
+     do ở .formField: mặc định min-width:auto khiến cột không co nhỏ hơn nội dung con (ảnh
+     preview, các input), tràn ra ngoài .formScreenCard. */
+  min-width: 0;
+}
+
+/* Cột phải tự chia 3 cột con cho field ngắn (loại/giá/thứ tự hiển thị nằm chung 1 hàng) — field
+   dài (tên, mô tả) dùng thêm .formFieldWide để chiếm trọn cả 3 cột con. */
+.formLayoutFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.9rem 1rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.formFieldWide {
+  grid-column: 1 / -1;
+}
+
+/* Khung nền cho PlayerRowPreview — dùng ĐÚNG ảnh nền thật của phòng chờ (wolf_game_bg.webp) thay
+   vì nền phẳng/trong suốt của trang admin, để lớp kính bán trong suốt bên trong khung (color-mix
+   với nền phía sau) hiện đúng màu như lúc lên phòng chờ thật, không lệch màu do khác bối cảnh
+   nền phía sau (xem giải thích ở frameGlassStyle, src/lib/frame-mask-style.ts). Không dùng
+   background-attachment:fixed (khác .avalonTheme.wolfThemeBg) vì box này nhỏ, cuộn theo trang là
+   đủ, fixed chỉ hợp với nền toàn màn hình. */
+.previewViewbox {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
+  border-radius: 0.65rem;
+  background: url("/images/ui/wolf_game_bg.webp") center / cover no-repeat, var(--bg-primary);
 }
 
 /* ---- Desktop-only notice ---- */

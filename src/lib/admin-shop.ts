@@ -83,6 +83,42 @@ export async function uploadShopItemImage(itemType: ShopItemType, file: File): P
   return { data: body.imageUrl, error: null };
 }
 
+// Xoá ảnh vừa upload qua uploadShopItemImage() khỏi GCS khi admin huỷ/thoát form thêm/sửa vật
+// phẩm mà không lưu — xem item-form-screen.tsx. Best-effort: lỗi ở đây không nên chặn việc admin
+// thoát form, caller tự quyết định có báo lỗi hay lặng lẽ bỏ qua.
+export async function deleteShopItemImage(imageUrl: string): Promise<AdminResult<null>> {
+  const supabase = client();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { data: null, error: "Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang." };
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch("/api/admin/shop-items/image", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ imageUrl }),
+    });
+  } catch {
+    return { data: null, error: "Không thể kết nối máy chủ. Vui lòng thử lại." };
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    return { data: null, error: body?.error ?? "Xoá ảnh thất bại." };
+  }
+
+  return { data: null, error: null };
+}
+
 // shop_items.frame_color (202608310001_shop_items_frame_color.sql) có thể chưa được apply thủ
 // công lên remote — fallback về select không có cột đó (frame_color luôn null ở client) để
 // KHÔNG làm gãy toàn bộ trang /admin/items (kể cả vật phẩm avatar_frame không liên quan) trong
@@ -111,6 +147,46 @@ export async function listAllShopItems(): Promise<AdminResult<ShopItemRow[]>> {
 
     const rows = (fallback.data ?? []).map((row) => ({ ...row, frame_color: null }));
     return { data: rows, error: null };
+  }
+
+  return { data: null, error: isMissingTableError(error, "shop_items") ? NOT_READY_ERROR : error.message };
+}
+
+// Dùng cho màn hình sửa vật phẩm ở route riêng (/admin/items/[id]) — trang đó chỉ nhận id qua
+// URL nên phải tự fetch lại đúng row này khi mount, không nhận qua state/props như trước (khi
+// còn là modal mở từ danh sách đã tải sẵn). Cùng fallback thiếu cột frame_color như
+// listAllShopItems, lý do y hệt.
+export async function getShopItemById(itemId: string): Promise<AdminResult<ShopItemRow>> {
+  const { data, error } = await client()
+    .from("shop_items")
+    .select(ADMIN_SHOP_ITEMS_COLUMNS)
+    .eq("id", itemId)
+    .maybeSingle();
+
+  if (!error) {
+    if (!data) {
+      return { data: null, error: "Không tìm thấy vật phẩm." };
+    }
+
+    return { data: data as ShopItemRow, error: null };
+  }
+
+  if (isMissingFrameColorColumnError(error)) {
+    const fallback = await client()
+      .from("shop_items")
+      .select(ADMIN_SHOP_ITEMS_COLUMNS_NO_FRAME_COLOR)
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (fallback.error) {
+      return { data: null, error: fallback.error.message };
+    }
+
+    if (!fallback.data) {
+      return { data: null, error: "Không tìm thấy vật phẩm." };
+    }
+
+    return { data: { ...fallback.data, frame_color: null } as ShopItemRow, error: null };
   }
 
   return { data: null, error: isMissingTableError(error, "shop_items") ? NOT_READY_ERROR : error.message };
