@@ -2020,11 +2020,11 @@
   inset: 16px 12px;
   z-index: 1;
   border-radius: 0.75rem;
-  /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 55%, mép trên đục 45% —
+  /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 25%, mép trên đục 45% —
      nếu khung có frame_color riêng, frameGlassStyle() (src/lib/frame-mask-style.ts) override
      đúng background này qua inline style (cùng công thức/hướng), base ở đây chỉ là fallback khi
      khung chưa set màu riêng. */
-  background: linear-gradient(8deg, color-mix(in srgb, var(--primary-light) 55%, transparent) 0%, color-mix(in srgb, var(--primary-light) 45%, transparent) 100%);
+  background: linear-gradient(8deg, color-mix(in srgb, var(--primary-light) 25%, transparent) 0%, color-mix(in srgb, var(--primary-light) 45%, transparent) 100%);
   /* Tăng blur (4px -> 7px) để nền phía sau lớp kính mờ nhoè rõ hơn hẳn — bỏ hẳn vệt sáng chéo
      ::after thử trước đó (không đúng ý, chỉ cần mờ nền, không cần vệt phản chiếu). Giữ
      saturate/brightness tăng nhẹ từ trước để màu nền phía sau không bị bệt/xỉn khi blur mạnh. */
@@ -5041,6 +5041,10 @@
    hiển thị wolf_game_bg rõ ràng, đúng như ảnh gốc, không qua bất kỳ lớp chỉnh màu nào. */
 .avalonTheme.wolfThemeBg {
   background: url("/images/ui/wolf_game_bg.webp") center / cover fixed no-repeat, var(--bg-primary);
+  /* Đảm bảo bề rộng tối thiểu 390px cho riêng trang phòng chờ Ma Sói Một Đêm (chỉ .page kết hợp
+     đủ cả 4 class .page.roomPage.avalonTheme.wolfThemeBg mới khớp selector này — không đụng
+     .page dùng chung cho toàn app) — theo yêu cầu, không phụ thuộc bề rộng thật của viewport. */
+  min-width: 390px;
 }
 
 /* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt — RIÊNG phòng chờ Ma Sói Một Đêm

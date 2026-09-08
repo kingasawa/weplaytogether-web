@@ -19,17 +19,18 @@ export function frameMaskStyle(profileFrameUrl: string): CSSProperties {
 // dưới đục 55%, mép trên đục 45% (đảo lại so với lần trước). Hướng gradient lệch nhẹ 8deg khỏi
 // phương thẳng đứng (0deg = "to top" tuyệt đối) theo yêu cầu "cho line méo qua 1 tí đừng thẳng
 // đứng" — vẫn về cơ bản là dưới -> trên, chỉ nghiêng nhẹ.
-// Opacity qua nhiều lần chỉnh: 40% -> 85% -> 65% -> 45%/55% -> 55%/45% — mix thấp khiến lớp kính
-// LỘ RÕ backdrop phía sau (page background), mà backdrop lại khác nhau tuỳ nơi hiển thị (lobby
-// thật = ảnh wolf_game_bg đã backdrop-filter blur, modal xem trước ở /shop = nền phẳng --bg-card)
-// nên CÙNG 1 khung từng trông 2 màu khác hẳn nhau giữa preview và lobby dù code y hệt — tăng
-// opacity giúp màu riêng của khung áp đảo backdrop phía sau, sau đó giảm dần lại theo yêu cầu.
+// Opacity qua nhiều lần chỉnh: 40% -> 85% -> 65% -> 45%/55% -> 55%/45% -> 35%/45% -> 25%/45% —
+// mix thấp khiến lớp kính LỘ RÕ backdrop phía sau (page background), mà backdrop lại khác nhau
+// tuỳ nơi hiển thị (lobby thật = ảnh wolf_game_bg đã backdrop-filter blur, modal xem trước ở
+// /shop = nền phẳng --bg-card) nên CÙNG 1 khung từng trông 2 màu khác hẳn nhau giữa preview và
+// lobby dù code y hệt — tăng opacity giúp màu riêng của khung áp đảo backdrop phía sau, sau đó
+// giảm dần lại theo yêu cầu.
 export function frameGlassStyle(profileFrameColor: string | null): CSSProperties | undefined {
   if (!profileFrameColor) {
     return undefined;
   }
 
-  const colorBottom = `color-mix(in srgb, ${profileFrameColor} 55%, transparent)`;
+  const colorBottom = `color-mix(in srgb, ${profileFrameColor} 25%, transparent)`;
   const colorTop = `color-mix(in srgb, ${profileFrameColor} 45%, transparent)`;
 
   return {
