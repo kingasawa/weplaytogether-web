@@ -97,7 +97,7 @@ export default function AdminItemsScreen() {
                   <tr key={item.id}>
                     <td>
                       <span className={styles.thumb}>
-                        <Image alt="" fill sizes="44px" src={item.image_url} unoptimized />
+                        <Image alt="" width={44} height={44} src={item.image_url} unoptimized />
                       </span>
                     </td>
                     <td>{item.name}</td>

@@ -297,6 +297,15 @@
   border-collapse: collapse;
 }
 
+/* Cột "Ảnh" (đầu tiên) cần width tường minh — .thumb bên trong chỉ chứa 1 <Image fill>
+   (position:absolute, không góp phần vào kích thước tự nhiên của phần tử cha theo thuật toán
+   table-layout:auto mặc định), nên nếu không ép width ở đây, trình duyệt có thể tính cột này
+   gần như 0 width, làm mất hẳn khoảng hiển thị cho .thumb dù CSS của .thumb vẫn đúng. */
+.table th:first-child,
+.table td:first-child {
+  width: 4.75rem;
+}
+
 .table th {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
@@ -336,7 +345,10 @@
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 0.4rem;
-  background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-primary));
+  /* Bỏ nền màu (trước là color-mix --bg-secondary/--bg-primary) — ảnh khung phần lớn trong suốt
+     (chỉ có viền hoạ tiết mỏng), nền màu đó lấp gần hết ô thumbnail nhỏ 44px, nhìn như 1 khối màu
+     lạ ngay dưới/quanh icon thay vì thấy rõ hình khung. */
+  background: transparent;
 }
 
 .thumb img {
