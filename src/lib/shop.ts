@@ -4,7 +4,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { ShopItemRow, ShopItemType, UserShopItemRow } from "@/lib/supabase/types";
 
 const SHOP_ITEMS_COLUMNS =
-  "id, item_type, name, description, price_coins, image_url, is_active, sort_order, created_at, updated_at";
+  "id, item_type, name, description, price_coins, image_url, frame_color, is_active, sort_order, created_at, updated_at";
 
 export type ShopItem = ShopItemRow;
 
@@ -116,12 +116,17 @@ export async function listMyOwnedShopItems(): Promise<ShopResult<MyOwnedShopItem
 export type MyShopProfile = {
   userId: string;
   totalCoins: number;
+  displayName: string | null;
+  avatarKey: string | null;
+  avatarObjectKey: string | null;
   equippedAvatarFrameId: string | null;
   equippedProfileFrameId: string | null;
 };
 
-// Hồ sơ rút gọn phục vụ trang shop: Xu hiện có + vật phẩm đang trang bị. Trả về null nếu
-// chưa đăng nhập (RLS chỉ cho đọc hàng của chính mình nên không cần lọc thêm ở client).
+// Hồ sơ rút gọn phục vụ trang shop: Xu hiện có + vật phẩm đang trang bị + tên/avatar (dùng cho
+// tính năng xem trước khung — hiển thị đúng avatar/tên của chính user thay vì hình mẫu chung
+// chung, xem player-row-preview.tsx). Trả về null nếu chưa đăng nhập (RLS chỉ cho đọc hàng của
+// chính mình nên không cần lọc thêm ở client).
 export async function getMyShopProfile(): Promise<ShopResult<MyShopProfile | null>> {
   const supabase = client();
   const {
@@ -134,7 +139,7 @@ export async function getMyShopProfile(): Promise<ShopResult<MyShopProfile | nul
 
   const { data, error } = await supabase
     .from("users")
-    .select("id, total_coins, equipped_avatar_frame_id, equipped_profile_frame_id")
+    .select("id, total_coins, display_name, avatar_key, avatar_object_key, equipped_avatar_frame_id, equipped_profile_frame_id")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -154,6 +159,9 @@ export async function getMyShopProfile(): Promise<ShopResult<MyShopProfile | nul
     data: {
       userId: data.id,
       totalCoins: data.total_coins ?? 0,
+      displayName: data.display_name ?? null,
+      avatarKey: data.avatar_key ?? null,
+      avatarObjectKey: data.avatar_object_key ?? null,
       equippedAvatarFrameId: data.equipped_avatar_frame_id ?? null,
       equippedProfileFrameId: data.equipped_profile_frame_id ?? null,
     },

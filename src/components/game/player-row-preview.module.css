@@ -1,0 +1,15 @@
+.stage {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.25rem;
+}
+
+/* .row ghi đè flex-basis của .playerRow (page.module.css) — bản gốc tính theo 1/3 bề rộng
+   .playerList (layout 3 thẻ/hàng trong phòng chờ), ở đây chỉ hiển thị 1 thẻ độc lập nên phóng to
+   cho dễ nhìn rõ chi tiết khung. Mọi thứ khác (border, khung, kính, glow/sparkle, avatar, tên) giữ
+   nguyên class thật của phòng chờ nên không đổi giao diện, chỉ đổi kích thước hiển thị. */
+.row {
+  flex: 0 0 auto;
+  width: min(60vw, 13rem);
+  margin-bottom: 0;
+}

@@ -16,6 +16,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { buildAuthPath } from "@/lib/auth-redirect";
+import PlayerRowPreview from "@/components/game/player-row-preview";
+import FrameEffects from "@/components/ui/frame-effects";
+import { getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
@@ -30,6 +33,10 @@ import {
 } from "@/lib/shop";
 import type { ShopItemType } from "@/lib/supabase/types";
 import styles from "./shop.module.css";
+
+// Tên hiển thị trong preview khi khách chưa đăng nhập (không có hồ sơ thật để hiện) — khớp cách
+// gọi khách "Bạn" ở các nơi khác trong app thay vì bịa 1 cái tên ngẫu nhiên.
+const GUEST_PREVIEW_NAME = "Bạn";
 
 type ShopStatus = "loading" | "guest" | "ready";
 type FilterTab = "all" | ShopItemType;
@@ -99,6 +106,28 @@ export default function ShopScreen() {
     () => (filterTab === "all" ? items : items.filter((item) => item.item_type === filterTab)),
     [items, filterTab]
   );
+
+  // Khung avatar/khung thông tin user ĐANG trang bị thật (nếu có) — lấy thẳng từ danh sách
+  // items đã tải, không query thêm. Dùng để ghép cùng vật phẩm đang xem trước, để preview cho
+  // thấy đúng cả 2 khung cùng lúc giống hệt hàng người chơi thật trong phòng chờ, thay vì chỉ
+  // hiện mỗi vật phẩm đang xem mà bỏ trống khung còn lại.
+  const equippedAvatarFrameItem = useMemo(
+    () => items.find((item) => item.id === profile?.equippedAvatarFrameId) ?? null,
+    [items, profile?.equippedAvatarFrameId]
+  );
+  const equippedProfileFrameItem = useMemo(
+    () => items.find((item) => item.id === profile?.equippedProfileFrameId) ?? null,
+    [items, profile?.equippedProfileFrameId]
+  );
+
+  // Danh tính hiển thị trong preview: dùng đúng tên/avatar thật của user đã đăng nhập (để preview
+  // không lệch với hàng thật của họ trong phòng chờ); khách chưa đăng nhập thấy avatar mặc định +
+  // tên "Bạn".
+  const previewIdentity = {
+    name: profile?.displayName?.trim() || GUEST_PREVIEW_NAME,
+    avatarKey: profile?.avatarKey ?? null,
+    avatarUrl: profile ? getUploadedPlayerAvatarUrl(profile.avatarObjectKey) : null,
+  };
 
   function openPreview(item: ShopItem) {
     setActionError("");
@@ -284,9 +313,23 @@ export default function ShopScreen() {
               <X aria-hidden="true" />
             </button>
 
-            <div className={styles.previewImage}>
-              <Image alt="" aria-hidden="true" fill sizes="(max-width: 768px) 100vw, 28rem" src={previewItem.image_url} unoptimized />
-            </div>
+            <FrameEffects />
+            <PlayerRowPreview
+              name={previewIdentity.name}
+              avatarKey={previewIdentity.avatarKey}
+              avatarUrl={previewIdentity.avatarUrl}
+              avatarFrameUrl={
+                previewItem.item_type === "avatar_frame" ? previewItem.image_url : equippedAvatarFrameItem?.image_url ?? null
+              }
+              profileFrameUrl={
+                previewItem.item_type === "profile_frame" ? previewItem.image_url : equippedProfileFrameItem?.image_url ?? null
+              }
+              profileFrameColor={
+                previewItem.item_type === "profile_frame"
+                  ? previewItem.frame_color
+                  : equippedProfileFrameItem?.frame_color ?? null
+              }
+            />
 
             <div className={styles.previewBody}>
               <span className={styles.previewTypeChip}>
