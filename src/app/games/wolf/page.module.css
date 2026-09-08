@@ -1671,6 +1671,18 @@
   margin-top: auto;
 }
 
+/* Thu ngắn bề rộng nút hành động chính ở đáy phòng chờ còn 2/3 so với mặc định (100%, kế thừa từ
+   .primaryButton/.secondaryButton/.ghostButton dùng chung toàn app) — giữ nguyên chiều cao
+   (min-height không đổi, chỉ override width) — canh giữa bằng margin-inline:auto vì .actions là
+   flex-direction:column, cross-axis (ngang) mặc định stretch nên cần margin auto để tự căn giữa
+   khi có width cố định thay vì dính sát lề trái. */
+.roomPanel > .actions .primaryButton,
+.roomPanel > .actions .secondaryButton,
+.roomPanel > .actions .ghostButton {
+  width: calc(200% / 3);
+  margin-inline: auto;
+}
+
 .roomPanel .description {
   margin-top: var(--spacing-md);
 }
@@ -1841,8 +1853,8 @@
   line-height: 1.15;
 }
 
-/* Trạng thái "Đã sẵn sàng" — hiện dạng label/badge nền xanh lá (--success) chữ trắng (--text),
-   kèm icon Check (lucide-react), thay vì chỉ đổi màu chữ trên nền trong suốt. Selector phải là
+/* Trạng thái "Đã sẵn sàng" — hiện dạng label/badge nền xanh lá đậm hơn 1 tí so với --success gốc
+   (mix thêm --bg-primary) chữ trắng (--text), không icon. Selector phải là
    .playerRow span.playerReadyStatus (không chỉ .playerReadyStatus) để độ đặc hiệu cao hơn
    .playerRow span ở trên — nếu không, color: var(--text-secondary) của rule đó vẫn thắng dù
    đứng trước trong file, vì (0,1,1) > (0,1,0). */
@@ -1852,14 +1864,28 @@
   gap: 0.15rem;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  background: var(--success);
+  background: color-mix(in srgb, var(--success) 85%, var(--bg-primary));
   color: var(--text);
 }
 
-.playerReadyStatus svg {
-  width: 0.7rem;
-  height: 0.7rem;
-  flex: 0 0 auto;
+/* Trạng thái "Chưa sẵn sàng" — bọc dạng label/badge giống .playerReadyStatus (cùng
+   display/gap/padding/border-radius) nhưng nền xám đen (mix --medal-silver + --bg-primary, không
+   có token "gray" riêng trong tokens.css) thay vì xanh lá, không kèm icon. Cùng lý do cần
+   selector .playerRow span.playerNotReadyStatus (không chỉ .playerNotReadyStatus) để thắng
+   .playerRow span mặc định — xem comment ở .playerReadyStatus.
+   Mix 30% --medal-silver ban đầu quá tối (~rgb(68,74,91)), gần như hoà lẫn vào nền card/kính tối
+   phía sau — không thấy rõ dạng badge. Tăng lên 65% để có độ tương phản rõ ràng với nền tối xung
+   quanh, giống cách badge xanh lá nổi bật hẳn lên. Chữ trắng (--text) trên nền xám sáng cũng khó
+   đọc (tương phản thấp hơn hẳn so với nền xanh lá đậm) — đổi sang xám đen đậm (--bg-primary) để
+   dễ đọc hơn. */
+.playerRow span.playerNotReadyStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--medal-silver) 65%, var(--bg-primary));
+  color: var(--bg-primary);
 }
 
 .lobbyHeader strong {
@@ -1885,7 +1911,9 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  column-gap: 0.4rem;
+  column-gap: 0;
+  padding-block: 0.6rem;
+  padding-inline: 1.2rem;
   /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
   margin-top: calc(0.4rem - var(--spacing-md));
 }
@@ -1912,9 +1940,9 @@
    trái) vì avatar giờ nằm giữa, không còn lệch trái. */
 .playerRow {
   position: relative;
-  /* flex: 0 0 <basis>: không co/giãn, basis cố định = đúng 1/3 bề rộng .playerList sau khi trừ
-     2 khoảng column-gap (0.4rem × 2) giữa 3 card/hàng — khớp với column-gap ở .playerList. */
-  flex: 0 0 calc((100% - 0.8rem) / 3);
+  /* flex: 0 0 <basis>: không co/giãn, basis cố định = đúng 1/3 bề rộng .playerList — không cần
+     trừ column-gap nữa vì .playerList đã bỏ hết column-gap (column-gap: 0) theo yêu cầu. */
+  flex: 0 0 calc(100% / 3);
   display: flex;
   flex-direction: column;
   aspect-ratio: 4 / 5;
@@ -1967,6 +1995,14 @@
   pointer-events: none;
 }
 
+/* Ô placeholder "Chờ người chơi" dùng lại đúng ảnh khung "Khung Hoàng Kim Rực Rỡ" đang bán
+   trong shop (public/images/frames/info/default.webp, xem scripts/optimize-default-frame.mjs)
+   nhưng hiển thị đen trắng qua filter, KHÔNG chỉnh xám sẵn trên file ảnh — để card thật (có
+   người chơi trang bị khung này) vẫn hiển thị đúng màu vàng-đỏ gốc. */
+.playerRowFrameOverlayGray {
+  filter: grayscale(100%);
+}
+
 /* Lớp nền kính (glassmorphism) nằm GỌN TRONG cửa sổ trong suốt của khung — không lan ra đè lên
    viền hoạ tiết — inset là ranh giới "an toàn" (né hoạ tiết khung) riêng cho lớp kính, độc lập
    với padding của .playerRowFramed (28px) và padding riêng của .playerRowFramed .playerIdentity
@@ -1984,30 +2020,26 @@
   inset: 16px 12px;
   z-index: 1;
   border-radius: 0.75rem;
-  /* Gradient thay vì màu đặc đồng nhất: đậm nhất ở mép dưới, tan dần về trong suốt hoàn toàn ở
-     mép trên (đổi từ trái/phải sang dưới/trên theo yêu cầu) — nếu khung có frame_color riêng,
-     frameGlassStyle() (src/lib/frame-mask-style.ts) override đúng gradient này qua inline style,
-     base ở đây chỉ là fallback khi khung chưa set màu riêng (giữ cùng 1 công thức, không phân
-     nhánh 2 nơi — đổi hướng thì phải đổi đồng bộ cả 2 chỗ). */
-  background: linear-gradient(to top, color-mix(in srgb, var(--primary-light) 10%, transparent) 0%, transparent 100%);
-  -webkit-backdrop-filter: blur(3px) saturate(140%);
-  backdrop-filter: blur(3px) saturate(140%);
+  /* Màu SOLID đồng nhất (bỏ hẳn linear-gradient trước đây fade đậm/nhạt 2 mép theo yêu cầu) —
+     nếu khung có frame_color riêng, frameGlassStyle() (src/lib/frame-mask-style.ts) override
+     đúng background này qua inline style (cùng công thức: 1 màu solid duy nhất), base ở đây chỉ
+     là fallback khi khung chưa set màu riêng. */
+  background: color-mix(in srgb, var(--primary-light) 15%, transparent);
+  /* Tăng blur (4px -> 7px) để nền phía sau lớp kính mờ nhoè rõ hơn hẳn — bỏ hẳn vệt sáng chéo
+     ::after thử trước đó (không đúng ý, chỉ cần mờ nền, không cần vệt phản chiếu). Giữ
+     saturate/brightness tăng nhẹ từ trước để màu nền phía sau không bị bệt/xỉn khi blur mạnh. */
+  -webkit-backdrop-filter: blur(7px) saturate(170%) brightness(1.1);
+  backdrop-filter: blur(7px) saturate(170%) brightness(1.1);
   pointer-events: none;
 }
 
-/* Lớp kính riêng cho ô placeholder "Chờ người chơi" — tông xanh (--bg-card, navy) - xám
-   (--medal-silver) - đen (--bg-primary) khớp với khung xám/đen (frames/info, xem
-   .playerRowFrameOverlay ở placeholder trong wolf-room-lobby.tsx), thay vì tông --primary-light
-   mặc định của .playerRowFrameInnerGlass (dành cho khung có màu riêng qua frameGlassStyle()).
-   Toàn bộ màu lấy từ design-system/tokens.css, không hardcode hex mới. Cùng selector đặc hiệu
-   (0,1,0) như .playerRowFrameInnerGlass nên đứng SAU trong file để thắng theo thứ tự nguồn. */
+/* Lớp kính riêng cho ô placeholder "Chờ người chơi" — nền phẳng #091830 theo yêu cầu (token
+   --frame-placeholder-navy, design-system/tokens.css — KHÔNG hardcode hex thẳng ở đây, đúng quy
+   tắc "màu phải qua tokens.css"). Bỏ hẳn color-mix/gradient (từng dùng để pha nhạt màu) theo yêu
+   cầu — chỉ 1 màu đặc duy nhất, giống demo người dùng gửi. Cùng selector đặc hiệu (0,1,0) như
+   .playerRowFrameInnerGlass nên đứng SAU trong file để thắng theo thứ tự nguồn. */
 .playerRowPlaceholderGlass {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg-primary) 85%, transparent) 0%,
-    color-mix(in srgb, var(--bg-card) 60%, transparent) 55%,
-    color-mix(in srgb, var(--medal-silver) 45%, transparent) 100%
-  );
+  background: var(--frame-placeholder-navy);
 }
 
 /* ============================================================================
@@ -2334,22 +2366,22 @@
 
   .playerAvatar,
   .playerAvatarFrameWrap {
-    width: 3.4rem;
-    height: 3.4rem;
+    width: 3.6rem;
+    height: 3.6rem;
   }
 
   .playerAvatarFrameImg {
-    /* 145% của avatar 3.4rem */
-    width: 4.93rem;
-    height: 4.93rem;
+    /* 145% của avatar 3.6rem */
+    width: 5.22rem;
+    height: 5.22rem;
   }
 }
 
 .playerAvatar {
-  /* 2.5rem -> 1.8rem -> 2rem -> 3.6rem -> 3rem -> 2.8rem -> 3rem. Mọi kích thước liên quan (wrap,
-     ảnh khung 145%) đổi cùng tỉ lệ bên dưới. */
-  width: 3rem;
-  height: 3rem;
+  /* 2.5rem -> 1.8rem -> 2rem -> 3.6rem -> 3rem -> 2.8rem -> 3rem -> 3.2rem. Mọi kích thước liên
+     quan (wrap, ảnh khung 145%) đổi cùng tỉ lệ bên dưới. */
+  width: 3.2rem;
+  height: 3.2rem;
   flex: 0 0 auto;
   /* var(--frame-tint-color) (khai báo ở .playerRow, xem khối CONFIG hiệu ứng VIP phía trên) —
      mặc định = --primary-light, tự đổi theo màu riêng của khung info (frame_color) khi có, cùng
@@ -2377,8 +2409,8 @@
 .playerAvatarFrameWrap {
   position: relative;
   z-index: 2;
-  width: 3rem;
-  height: 3rem;
+  width: 3.2rem;
+  height: 3.2rem;
   flex: 0 0 auto;
 }
 
@@ -2387,13 +2419,27 @@
   inset: 0;
 }
 
+/* Riêng ảnh avatar trong ô placeholder "Chờ người chơi" — bỏ viền tròn (border, vốn dùng
+   --frame-tint-color cho avatar người chơi thật) và phóng to bằng transform:scale thay vì đổi
+   width/height (tránh phải khai lại kích thước ở cả 3 breakpoint của .playerAvatar/
+   .playerAvatarFrameWrap) — scale phóng quanh tâm nên không cần chỉnh .playerAvatarFrameWrap.
+   Thêm translateY (theo %, tự co giãn cùng scale) để đẩy ảnh xuống thấp hơn 1 chút trong wrap.
+   1.15 -> 1.3 theo yêu cầu to thêm. Selector
+   .playerAvatarFrameWrap .playerAvatar.playerAvatarPlaceholder (đặc hiệu (0,3,0)) để chắc chắn
+   thắng .playerAvatarFrameWrap .playerAvatar (0,2,0) phía trên, không phụ thuộc thứ tự khai báo
+   trong file. */
+.playerAvatarFrameWrap .playerAvatar.playerAvatarPlaceholder {
+  border: none;
+  transform: scale(1.3) translateY(10%);
+}
+
 .playerAvatarFrameImg {
   position: absolute;
   top: 50%;
   left: 50%;
-  /* 145% của avatar 3rem (xem comment .playerAvatarFrameWrap) */
-  width: 4.35rem;
-  height: 4.35rem;
+  /* 145% của avatar 3.2rem (xem comment .playerAvatarFrameWrap) */
+  width: 4.64rem;
+  height: 4.64rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -2408,14 +2454,14 @@
 
   .playerAvatar,
   .playerAvatarFrameWrap {
-    width: 2.7rem;
-    height: 2.7rem;
+    width: 2.9rem;
+    height: 2.9rem;
   }
 
   .playerAvatarFrameImg {
-    /* 145% của avatar 2.7rem */
-    width: 3.915rem;
-    height: 3.915rem;
+    /* 145% của avatar 2.9rem */
+    width: 4.205rem;
+    height: 4.205rem;
   }
 
   .playerNameActions strong {
@@ -2451,6 +2497,13 @@
   gap: 0.45rem;
 }
 
+/* Đẩy khối tên + trạng thái xuống thấp hơn 1 xíu so với avatar phía trên — .playerIdentity dùng
+   justify-content:space-between nên margin-top ở đây lấy bớt phần khoảng trống co giãn giữa
+   avatar/text, không ảnh hưởng vị trí avatar (vẫn dính top). */
+.playerTextBlock {
+  margin-top: 0.35rem;
+}
+
 .playerNameActions {
   display: inline-flex;
   flex: 1 1 auto;
@@ -2483,9 +2536,13 @@
 
 /* Ô "trống" hiển thị sẵn cho số ghế chưa có người, đến khi đủ MAX_PLAYERS — dùng chung khung
    default.webp cho cả .playerRowFrameOverlay lẫn ảnh avatar, không có glow/sparkle/flash/click
-   (không phải người chơi thật). opacity giảm nhẹ để phân biệt trực quan với ghế đã có người. */
+   (không phải người chơi thật).
+   opacity 0.6 trước đây là NGUỒN GỐC THẬT của việc "vẫn thấy xuyên qua nền phía sau" dù đã chỉnh
+   .playerRowPlaceholderGlass thành màu đặc 100% — opacity đặt trên cả .playerRow (bao toàn bộ
+   frame/avatar/text) làm TOÀN BỘ card bị render như 1 lớp trong suốt chung, bất kể nền con bên
+   trong đặc cỡ nào. Bỏ hẳn (về 1, tức không còn opacity riêng) theo yêu cầu loại bỏ hiệu ứng
+   trong suốt. */
 .playerRowPlaceholder {
-  opacity: 0.6;
   pointer-events: none;
 }
 
@@ -4979,20 +5036,23 @@
   --bg-card: color-mix(in srgb, var(--bg-primary) 64%, transparent);
 }
 
-/* Lobby Ma Sói dùng look glass của avalonTheme nhưng GIỮ nền wolf_game_bg */
+/* Lobby Ma Sói dùng look glass của avalonTheme nhưng GIỮ nền wolf_game_bg — bỏ hẳn lớp
+   linear-gradient tối phủ lên trên (trước đây làm ảnh nền bị dim/tối dần xuống đáy) theo yêu cầu
+   hiển thị wolf_game_bg rõ ràng, đúng như ảnh gốc, không qua bất kỳ lớp chỉnh màu nào. */
 .avalonTheme.wolfThemeBg {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-primary) 40%, transparent),
-      color-mix(in srgb, var(--bg-primary) 72%, transparent) 82%,
-      var(--bg-primary)
-    ),
-    url("/images/ui/wolf_game_bg.webp") center / cover fixed no-repeat,
-    var(--bg-primary);
+  background: url("/images/ui/wolf_game_bg.webp") center / cover fixed no-repeat, var(--bg-primary);
 }
 
-/* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt. */
+/* Kính mờ cho box lớn để chữ vẫn đọc rõ khi nền đã trong suốt — RIÊNG phòng chờ Ma Sói Một Đêm
+   (.wolfThemeBg) bỏ hẳn blur này theo yêu cầu, để nền wolf_game_bg phía sau .roomPanel hiển thị
+   sắc nét thay vì bị backdrop-filter làm mờ nhoè. Chỉ scope .avalonTheme.wolfThemeBg .roomPanel
+   (đặc hiệu hơn .avalonTheme .roomPanel bên dưới) nên KHÔNG ảnh hưởng wolf-classic/avalon (dùng
+   .avalonTheme nhưng không có .wolfThemeBg). */
+.avalonTheme.wolfThemeBg .roomPanel {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .avalonTheme .modal,
 .avalonTheme .joinIdentityPanel,
 .avalonTheme .joinRoomScreenPanel,

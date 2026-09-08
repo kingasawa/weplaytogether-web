@@ -10,6 +10,9 @@
   --bg-secondary: #1B2440;
   --bg-card:      #202B4A;
   --bg-mask:      #100c0c;
+  /* Nền lớp kính ô placeholder "Chờ người chơi" ở lobby wolf (page.module.css,
+     .playerRowPlaceholderGlass) — yêu cầu đúng mã màu này, không suy ra từ token khác. */
+  --frame-placeholder-navy: #091830;
 
   /* --- Brand / Interactive --- */
   --primary:       #5D7CFF;

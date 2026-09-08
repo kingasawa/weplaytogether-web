@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import {
-  Check,
   Link as LinkIcon,
   LogOut,
   Play,
@@ -12,7 +11,7 @@ import Link from "next/link";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
 import PlayerActionMenuModal from "@/components/game/player-action-menu-modal";
-import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
+import { frameAvatarGlowStyle, frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import RoomJoinScreen from "@/app/games/room-join-screen";
@@ -810,7 +809,12 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                   />
                   <span
                     aria-hidden="true"
-                    className={styles.playerRowFrameOverlay}
+                    className={[
+                      styles.playerRowFrameOverlay,
+                      !player.hasEquippedProfileFrame ? styles.playerRowFrameOverlayGray : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
                   />
                 </>
@@ -876,6 +880,11 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                         ? `${styles.playerAvatar} ${styles.playerAvatarFramed}`
                         : styles.playerAvatar
                     }
+                    style={
+                      player.hasEquippedProfileFrame && player.profileFrameColor
+                        ? frameAvatarGlowStyle(player.profileFrameColor)
+                        : undefined
+                    }
                     width={48}
                     height={48}
                     src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}
@@ -898,16 +907,15 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                     </span>
                   )}
                 </span>
-                <div>
+                <div className={styles.playerTextBlock}>
                   <div className={styles.playerNameLine}>
                     <span className={styles.playerNameActions}>
                       <strong title={player.name}>
-                        {player.name.length > 12 ? `${player.name.slice(0, 12)}...` : player.name}
+                        {player.name.length > 10 ? `${player.name.slice(0, 10)}...` : player.name}
                       </strong>
                     </span>
                   </div>
-                  <span className={player.isReady ? styles.playerReadyStatus : undefined}>
-                    {player.isReady && <Check aria-hidden="true" />}
+                  <span className={player.isReady ? styles.playerReadyStatus : styles.playerNotReadyStatus}>
                     {player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}
                   </span>
                 </div>
@@ -927,7 +935,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               />
               <span
                 aria-hidden="true"
-                className={styles.playerRowFrameOverlay}
+                className={`${styles.playerRowFrameOverlay} ${styles.playerRowFrameOverlayGray}`}
                 style={{ backgroundImage: "url(/images/frames/info/default.webp)" }}
               />
               <div className={styles.playerIdentity}>
@@ -935,13 +943,13 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                   <Image
                     alt=""
                     aria-hidden="true"
-                    className={styles.playerAvatar}
+                    className={`${styles.playerAvatar} ${styles.playerAvatarPlaceholder}`}
                     width={48}
                     height={48}
                     src="/images/frames/avatar/default.webp"
                   />
                 </span>
-                <div>
+                <div className={styles.playerTextBlock}>
                   <div className={styles.playerNameLine}>
                     <span className={styles.playerNameActions}>
                       <strong>&nbsp;</strong>

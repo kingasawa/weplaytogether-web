@@ -9,7 +9,7 @@ import {
   readStoredGuestPlayerName,
 } from "@/lib/guest-player";
 import FrameEffects from "@/components/ui/frame-effects";
-import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
+import { frameAvatarGlowStyle, frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { WOLF_MAX_PLAYERS, WOLF_PHASE_LABELS } from "@/lib/wolf-game";
@@ -128,7 +128,12 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
                   />
                   <span
                     aria-hidden="true"
-                    className={styles.playerRowFrameOverlay}
+                    className={[
+                      styles.playerRowFrameOverlay,
+                      !player.hasEquippedProfileFrame ? styles.playerRowFrameOverlayGray : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                     style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
                   />
                 </>
@@ -193,6 +198,11 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
                       player.avatarFrameUrl
                         ? `${styles.playerAvatar} ${styles.playerAvatarFramed}`
                         : styles.playerAvatar
+                    }
+                    style={
+                      player.hasEquippedProfileFrame && player.profileFrameColor
+                        ? frameAvatarGlowStyle(player.profileFrameColor)
+                        : undefined
                     }
                     height={48}
                     src={getPlayerAvatarSrc(player.avatarKey, player.avatarUrl)}

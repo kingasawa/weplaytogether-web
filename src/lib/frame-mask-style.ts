@@ -14,23 +14,26 @@ export function frameMaskStyle(profileFrameUrl: string): CSSProperties {
 // admin chọn ở /admin/items) — set qua inline style (không hardcode trong CSS module) giống lý
 // do ở frameMaskStyle: mỗi khung 1 màu khác nhau. profileFrameColor null (khung chưa set màu
 // riêng, hoặc khung mặc định) -> trả về undefined, để CSS module tự dùng background mặc định
-// (color-mix với --primary-light) đã khai báo sẵn trên .playerRowFrameInnerGlass.
-// Công thức màu: 0% --primary-light của hệ thống (không pha, chỉ giữ cú pháp color-mix lồng để
-// dễ chỉnh lại sau) + trộn thêm màu riêng của khung ở mức 40% (tức "60% trong suốt") để lớp
-// kính nhẹ nhàng, không bị màu khung lấn át. Bọc trong linear-gradient (dưới -> trên, đậm ->
-// trong suốt hẳn) thay vì tô đặc đồng nhất cả lớp kính — cùng công thức/hướng với background
-// mặc định khai báo sẵn trên .playerRowFrameInnerGlass (page.module.css), chỉ khác màu gốc dùng
-// ở mép dưới.
+// (màu solid --primary-light) đã khai báo sẵn trên .playerRowFrameInnerGlass.
+// Bỏ hẳn linear-gradient (trước fade đậm -> nhạt giữa 2 mép) theo yêu cầu — chỉ 1 màu SOLID duy
+// nhất (mix 40% với transparent) trải đều cả lớp kính, dùng đúng màu riêng của khung
+// (profileFrameColor), không pha thêm --primary-light.
 export function frameGlassStyle(profileFrameColor: string | null): CSSProperties | undefined {
   if (!profileFrameColor) {
     return undefined;
   }
 
-  const color = `color-mix(in srgb, var(--primary-light) 0%, color-mix(in srgb, ${profileFrameColor} 40%, transparent))`;
-
   return {
-    background: `linear-gradient(to top, ${color} 0%, transparent 100%)`,
+    background: `color-mix(in srgb, ${profileFrameColor} 40%, transparent)`,
   };
+}
+
+// box-shadow phát sáng quanh avatar — CHỈ áp dụng cho người chơi đang trang bị 1 khung THẬT đã
+// mua từ shop (caller tự kiểm tra hasEquippedProfileFrame trước khi gọi hàm này, không tự kiểm
+// tra ở đây), dùng đúng frame_color đã khai báo lúc thêm khung vào shop (shop_items.frame_color)
+// — mỗi khung 1 màu khác nhau nên phải set qua inline style, không hardcode trong CSS module.
+export function frameAvatarGlowStyle(profileFrameColor: string): CSSProperties {
+  return { boxShadow: `0px 0px 15px 0px ${profileFrameColor}` };
 }
 
 // Đặt custom property --frame-tint-color trên chính .playerRow (article, KHÔNG phải trên từng
