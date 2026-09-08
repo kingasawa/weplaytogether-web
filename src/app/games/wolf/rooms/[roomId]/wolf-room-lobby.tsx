@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import {
+  Check,
   Link as LinkIcon,
   LogOut,
   Play,
@@ -35,7 +36,7 @@ import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile } from "@/lib/user-profile";
 import type { WolfRole } from "@/lib/supabase/types";
-import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
+import { WOLF_MAX_PLAYERS, WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 import {
   getWolfLobbyState,
   joinWolfRoom,
@@ -762,7 +763,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
 
         <div className={styles.playerListHeader}>
           <span>Danh sách</span>
-          <span>{lobbyState.players.length}/10</span>
+          <span>{lobbyState.players.length}/{WOLF_MAX_PLAYERS}</span>
         </div>
         <FrameEffects />
         <div className={styles.playerList} aria-label="Danh sách người chơi">
@@ -905,12 +906,52 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                       </strong>
                     </span>
                   </div>
-                  <span>{player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}</span>
+                  <span className={player.isReady ? styles.playerReadyStatus : undefined}>
+                    {player.isReady && <Check aria-hidden="true" />}
+                    {player.isReady ? "Đã sẵn sàng" : "Chưa sẵn sàng"}
+                  </span>
                 </div>
               </div>
             </article>
             );
           })}
+          {Array.from({ length: Math.max(0, WOLF_MAX_PLAYERS - lobbyState.players.length) }).map((_, index) => (
+            <article
+              aria-hidden="true"
+              className={`${styles.playerRow} ${styles.playerRowFramed} ${styles.playerRowPlaceholder}`}
+              key={`placeholder-${index}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`${styles.playerRowFrameInnerGlass} ${styles.playerRowPlaceholderGlass}`}
+              />
+              <span
+                aria-hidden="true"
+                className={styles.playerRowFrameOverlay}
+                style={{ backgroundImage: "url(/images/frames/info/default.webp)" }}
+              />
+              <div className={styles.playerIdentity}>
+                <span className={styles.playerAvatarFrameWrap}>
+                  <Image
+                    alt=""
+                    aria-hidden="true"
+                    className={styles.playerAvatar}
+                    width={48}
+                    height={48}
+                    src="/images/frames/avatar/default.webp"
+                  />
+                </span>
+                <div>
+                  <div className={styles.playerNameLine}>
+                    <span className={styles.playerNameActions}>
+                      <strong>&nbsp;</strong>
+                    </span>
+                  </div>
+                  <span>Chờ người chơi</span>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
 
         {errorMessage && <p className={styles.inlineError}>{errorMessage}</p>}

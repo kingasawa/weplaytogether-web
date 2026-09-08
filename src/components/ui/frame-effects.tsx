@@ -140,7 +140,8 @@ function buildFlashSweep(): FlashSweep {
  *    [data-frame-flash], bật data-flash="on" để chạy 1 lượt rồi tắt.
  *
  * Quét lại DOM định kỳ để bắt sparkle/hàng của người chơi mới join (list phòng đổi động) mà
- * không cần MutationObserver — nhẹ, đủ dùng cho danh sách tối đa 10 người.
+ * không cần MutationObserver — nhẹ, đủ dùng cho danh sách tối đa 12 người (Ma Sói Một Đêm) hay
+ * 10 người (Ma Sói Nhiều Đêm/Avalon).
  */
 export default function FrameEffects() {
   useEffect(() => {

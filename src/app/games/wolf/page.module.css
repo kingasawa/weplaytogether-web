@@ -1841,6 +1841,27 @@
   line-height: 1.15;
 }
 
+/* Trạng thái "Đã sẵn sàng" — hiện dạng label/badge nền xanh lá (--success) chữ trắng (--text),
+   kèm icon Check (lucide-react), thay vì chỉ đổi màu chữ trên nền trong suốt. Selector phải là
+   .playerRow span.playerReadyStatus (không chỉ .playerReadyStatus) để độ đặc hiệu cao hơn
+   .playerRow span ở trên — nếu không, color: var(--text-secondary) của rule đó vẫn thắng dù
+   đứng trước trong file, vì (0,1,1) > (0,1,0). */
+.playerRow span.playerReadyStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--success);
+  color: var(--text);
+}
+
+.playerReadyStatus svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 auto;
+}
+
 .lobbyHeader strong {
   font-size: 1rem;
 }
@@ -1880,12 +1901,15 @@
   font-weight: 700;
 }
 
-/* Card VUÔNG (1:1, trước là 3:1 ngang) theo yêu cầu hiển thị 3 người chơi/hàng — layout đổi từ
-   hàng ngang (avatar trái, tên phải) sang CỘT DỌC căn giữa (avatar trên, tên/trạng thái dưới),
-   xem .playerIdentity. Ảnh khung info (profile_frame, vốn thiết kế 3:1 nằm ngang) sẽ tạm hiển
-   thị co lại thành dải mỏng giữa card cho tới khi thay bằng ảnh khung vuông mới — chấp nhận theo
-   yêu cầu, không phải bug. Bỏ padding-left 15% (từng dùng để né hoạ tiết khung nằm ngang che
-   avatar bên trái) vì avatar giờ nằm giữa, không còn lệch trái. */
+/* Card DỌC (4:5, khớp đúng tỉ lệ pixel ảnh khung trang trí frames/info/default.png thật —
+   1122x1402 = 0.8003 ≈ 4/5 — trước là 1:1 vuông, trước nữa là 3:1 ngang) theo yêu cầu đổi theo
+   tỉ lệ khung kiểu thẻ bài (đỏ-vàng) người dùng cung cấp — vẫn giữ CỘT DỌC căn giữa (avatar trên,
+   tên/trạng thái dưới), xem .playerIdentity. Ảnh khung info dạng dọc (như frames/info/default.png)
+   giờ khít gần sát card; ảnh khung vuông cũ (1254x1254, các profile_frame đã bán trong shop) thì
+   ngược lại co lại thành dải hẹp ở giữa card (background-size:contain, xem
+   .playerRowFrameOverlay) — chấp nhận theo yêu cầu, không phải bug, cùng logic contain đã áp
+   dụng từ trước. Bỏ padding-left 15% (từng dùng để né hoạ tiết khung nằm ngang che avatar bên
+   trái) vì avatar giờ nằm giữa, không còn lệch trái. */
 .playerRow {
   position: relative;
   /* flex: 0 0 <basis>: không co/giãn, basis cố định = đúng 1/3 bề rộng .playerList sau khi trừ
@@ -1893,12 +1917,12 @@
   flex: 0 0 calc((100% - 0.8rem) / 3);
   display: flex;
   flex-direction: column;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 5;
   /* min-height:0: .playerRow là flex item trong .playerList, mặc định có "automatic minimum
      size" theo min-content của nội dung con (avatar+tên+trạng thái) — nếu nội dung cần nhiều chỗ
-     hơn khung vuông, trình duyệt sẽ ÉP box này cao hơn aspect-ratio (đã gặp lỗi tràn viền/tràn
-     chữ trước đây). min-height:0 tắt hẳn cơ chế đó, đảm bảo box LUÔN vuông đúng tỉ lệ 1:1 ở mọi
-     kích thước màn hình. KHÔNG đặt overflow:hidden ở đây (khác bản trước) — glow/sparkle "VIP"
+     hơn khung cố định, trình duyệt sẽ ÉP box này cao hơn aspect-ratio (đã gặp lỗi tràn viền/tràn
+     chữ trước đây). min-height:0 tắt hẳn cơ chế đó, đảm bảo box LUÔN đúng tỉ lệ 4:5 ở mọi kích
+     thước màn hình. KHÔNG đặt overflow:hidden ở đây (khác bản trước) — glow/sparkle "VIP"
      dùng filter:drop-shadow toả sáng RA NGOÀI viền hàng (xem .playerRowFrameGlow), overflow:hidden
      ở .playerRow sẽ cắt mất phần toả sáng đó. Phần clip nội dung tràn (nếu có) chuyển xuống
      .playerIdentity thay vì clip cả hàng. */
@@ -1957,7 +1981,7 @@
   /* inset riêng trên/dưới (16px) lớn hơn trái/phải (8px) — card giờ là hình vuông, viền hoạ tiết
      khung ở mép trên/dưới mỏng hơn mép trái/phải trên nhiều ảnh khung, 8px đều 4 cạnh khiến lớp
      kính lấn ra ngoài, lộ hẳn ra khỏi viền hoạ tiết ở trên/dưới. */
-  inset: 16px 8px;
+  inset: 16px 12px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient thay vì màu đặc đồng nhất: đậm nhất ở mép dưới, tan dần về trong suốt hoàn toàn ở
@@ -1969,6 +1993,21 @@
   -webkit-backdrop-filter: blur(3px) saturate(140%);
   backdrop-filter: blur(3px) saturate(140%);
   pointer-events: none;
+}
+
+/* Lớp kính riêng cho ô placeholder "Chờ người chơi" — tông xanh (--bg-card, navy) - xám
+   (--medal-silver) - đen (--bg-primary) khớp với khung xám/đen (frames/info, xem
+   .playerRowFrameOverlay ở placeholder trong wolf-room-lobby.tsx), thay vì tông --primary-light
+   mặc định của .playerRowFrameInnerGlass (dành cho khung có màu riêng qua frameGlassStyle()).
+   Toàn bộ màu lấy từ design-system/tokens.css, không hardcode hex mới. Cùng selector đặc hiệu
+   (0,1,0) như .playerRowFrameInnerGlass nên đứng SAU trong file để thắng theo thứ tự nguồn. */
+.playerRowPlaceholderGlass {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg-primary) 85%, transparent) 0%,
+    color-mix(in srgb, var(--bg-card) 60%, transparent) 55%,
+    color-mix(in srgb, var(--medal-silver) 45%, transparent) 100%
+  );
 }
 
 /* ============================================================================
@@ -2281,7 +2320,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  padding-top: 20px;
+  padding-top: 24px;
   padding-bottom: 24px;
 }
 
@@ -2289,28 +2328,28 @@
    một chút cho thoáng, theo yêu cầu. */
 @media (min-width: 450px) {
   .playerIdentity {
-    padding-top: 26px;
+    padding-top: 30px;
     padding-bottom: 26px;
   }
 
   .playerAvatar,
   .playerAvatarFrameWrap {
-    width: 3.2rem;
-    height: 3.2rem;
+    width: 3.4rem;
+    height: 3.4rem;
   }
 
   .playerAvatarFrameImg {
-    /* 145% của avatar 3.2rem */
-    width: 4.64rem;
-    height: 4.64rem;
+    /* 145% của avatar 3.4rem */
+    width: 4.93rem;
+    height: 4.93rem;
   }
 }
 
 .playerAvatar {
-  /* 2.5rem -> 1.8rem -> 2rem -> 3.6rem -> 3rem -> 2.8rem. Mọi kích thước liên quan (wrap, ảnh
-     khung 145%) đổi cùng tỉ lệ bên dưới. */
-  width: 2.8rem;
-  height: 2.8rem;
+  /* 2.5rem -> 1.8rem -> 2rem -> 3.6rem -> 3rem -> 2.8rem -> 3rem. Mọi kích thước liên quan (wrap,
+     ảnh khung 145%) đổi cùng tỉ lệ bên dưới. */
+  width: 3rem;
+  height: 3rem;
   flex: 0 0 auto;
   /* var(--frame-tint-color) (khai báo ở .playerRow, xem khối CONFIG hiệu ứng VIP phía trên) —
      mặc định = --primary-light, tự đổi theo màu riêng của khung info (frame_color) khi có, cùng
@@ -2338,8 +2377,8 @@
 .playerAvatarFrameWrap {
   position: relative;
   z-index: 2;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 3rem;
+  height: 3rem;
   flex: 0 0 auto;
 }
 
@@ -2352,9 +2391,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  /* 145% của avatar 2.8rem (xem comment .playerAvatarFrameWrap) */
-  width: 4.06rem;
-  height: 4.06rem;
+  /* 145% của avatar 3rem (xem comment .playerAvatarFrameWrap) */
+  width: 4.35rem;
+  height: 4.35rem;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -2364,19 +2403,19 @@
    tên/trạng thái, tránh bị overflow:hidden ở .playerRow cắt mất nội dung. */
 @media (max-width: 419px) {
   .playerIdentity {
-    padding-top: 16px;
+    padding-top: 20px;
   }
 
   .playerAvatar,
   .playerAvatarFrameWrap {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.7rem;
+    height: 2.7rem;
   }
 
   .playerAvatarFrameImg {
-    /* 145% của avatar 2.5rem */
-    width: 3.625rem;
-    height: 3.625rem;
+    /* 145% của avatar 2.7rem */
+    width: 3.915rem;
+    height: 3.915rem;
   }
 
   .playerNameActions strong {
@@ -2440,6 +2479,14 @@
 .playerRowOffline {
   filter: saturate(0.4) brightness(1.15);
   opacity: 0.5;
+}
+
+/* Ô "trống" hiển thị sẵn cho số ghế chưa có người, đến khi đủ MAX_PLAYERS — dùng chung khung
+   default.webp cho cả .playerRowFrameOverlay lẫn ảnh avatar, không có glow/sparkle/flash/click
+   (không phải người chơi thật). opacity giảm nhẹ để phân biệt trực quan với ghế đã có người. */
+.playerRowPlaceholder {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 /* Nằm trong .playerAvatarFrameWrap (position:relative, xem trên) thay vì neo theo cả .playerRow

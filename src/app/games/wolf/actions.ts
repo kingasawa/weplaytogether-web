@@ -17,11 +17,11 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { WolfGamePhase, WolfRole, WolfRoomStatus } from "@/lib/supabase/types";
 import { WOLF_PLAYER_SESSION_COOKIE } from "@/lib/wolf-session";
-import { WOLF_ROLE_LABELS } from "@/lib/wolf-game";
+import { WOLF_MAX_PLAYERS, WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 
 const ROOM_CODE_PATTERN = /^[a-z]{4}$/;
 const WOLF_GAME_KEY = "wolf";
-const MAX_PLAYERS = 10;
+const MAX_PLAYERS = WOLF_MAX_PLAYERS;
 
 const ROLE_DECK_ORDER: WolfRole[] = [
   "werewolf",

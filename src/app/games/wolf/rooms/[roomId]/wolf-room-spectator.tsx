@@ -12,7 +12,7 @@ import FrameEffects from "@/components/ui/frame-effects";
 import { frameGlassStyle, frameMaskStyle, frameTintStyle } from "@/lib/frame-mask-style";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
-import { WOLF_PHASE_LABELS } from "@/lib/wolf-game";
+import { WOLF_MAX_PLAYERS, WOLF_PHASE_LABELS } from "@/lib/wolf-game";
 import {
   getWolfSpectatorState,
   joinWolfRoom,
@@ -89,7 +89,7 @@ export default function WolfRoomSpectator({ initialState }: WolfRoomSpectatorPro
           <article>
             <Users aria-hidden="true" />
             <span>Người chơi</span>
-            <strong>{spectatorState.players.length}/10</strong>
+            <strong>{spectatorState.players.length}/{WOLF_MAX_PLAYERS}</strong>
           </article>
           <article>
             <Trophy aria-hidden="true" />

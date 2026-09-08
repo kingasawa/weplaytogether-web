@@ -1,5 +1,7 @@
 import type { WolfGamePhase, WolfRole } from "@/lib/supabase/types";
 
+export const WOLF_MAX_PLAYERS = 12;
+
 export const WOLF_ROLE_LABELS: Record<WolfRole, string> = {
   werewolf: "Ma Sói",
   werewolf_seer: "Sói Tiên Tri",
