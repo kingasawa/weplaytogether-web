@@ -80,8 +80,15 @@ type RoleCardProps = {
   isFocusedReveal?: boolean;
 };
 
+// Chỉ card_reveal (lần đầu nhận bài, cần thao tác kéo lên chủ động để tránh lộ bài khi vừa
+// chuyển màn) mới cần lớp phủ riêng tư. night_review TỪNG dùng chung cơ chế này (renderPrivateCover()
+// phủ inset:0 lên toàn bộ .privateRevealBox, gồm cả .nightReviewRevealStack chứa nightReviewMessages)
+// — nhưng dòng chữ tường thuật kết quả (vd "Bài bạn nhận được lúc đổi là Ma Sói.") đã nói rõ thông
+// tin nhạy cảm ngay trong text, nên phủ kín cả text lẫn bài chỉ khiến người chơi phải kéo lên mới
+// đọc được, trong khi vai không có bài hiện (troublemaker/witch/drunk...) bị che luôn dòng text vô
+// hại không cần che. Bỏ night_review khỏi đây để cả bài lẫn text hiện đầy đủ ngay, không cần kéo.
 function isPrivateRevealPhase(phase: WolfPlayState["game"]["phase"]) {
-  return phase === "card_reveal" || phase === "night_review";
+  return phase === "card_reveal";
 }
 
 function RoleCard({ role, label, isHidden = false, isFocusedReveal = false }: RoleCardProps) {
@@ -498,7 +505,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       }
 
       return playState.isNightTurnInProgress
-        ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
+        ? "Đang chờ người chơi khác"
         : "Tất cả lượt ban đêm đã hoàn tất.";
     }
 
@@ -1008,6 +1015,15 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   }
 
   function renderPrivateCover() {
+    // privateRevealKey null nghĩa là phase hiện tại không cần lớp phủ riêng tư (xem
+    // isPrivateRevealPhase) — không render div phủ inset:0 nữa, để nội dung bên dưới (bài + text)
+    // hiện đầy đủ ngay, không bị che dù privateRevealUnlocked đã true (true chỉ đổi được
+    // aria-hidden, KHÔNG tự ẩn/dời div phủ đi — div vẫn đứng nguyên transform:translateY(0) nếu
+    // còn render, vẫn che kín phần bên dưới).
+    if (!privateRevealKey) {
+      return null;
+    }
+
     return (
       <div
         aria-hidden={privateRevealUnlocked}
@@ -1100,15 +1116,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     }
 
     if (!isMyNightTurn) {
-      return (
-        <div className={styles.nightTurnWaiting}>
-          <span>Lượt hiện tại</span>
-          <strong>
-            {activeNightTurn ? "Đến lượt bạn" : "Đang chờ lượt ban đêm"}
-          </strong>
-          <p>Người chơi đang hành động được giữ kín cho đến khi ván kết thúc.</p>
-        </div>
-      );
+      return null;
     }
 
     if (playState.isCurrentNightTurnActionSubmitted) {

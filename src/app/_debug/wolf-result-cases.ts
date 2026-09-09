@@ -1,6 +1,11 @@
 // FILE NÀY ĐƯỢC SINH TỪ ENGINE THẬT — không sửa tay.
 // Mỗi case là output nguyên vẹn của simulateNightResolution + buildGameResult + buildAllPlayersSummary
 // với bộ bài và hành động dựng sẵn, dùng để xem UI màn kết quả của Ma Sói Một Đêm.
+// Ngoại lệ: case "robber-basic" (2026-09-09) được thêm tay vì không tìm thấy lại script sinh file
+// này trong repo (không nằm trong scripts/, có thể đã bị xoá sau khi chạy 1 lần) — case này chỉ có
+// 1 bước Kẻ Trộm đơn giản, không qua Copy Cat/Nhân Bản, đã đối chiếu kỹ với logic thật ở
+// simulateNightResolution (src/app/games/wolf/actions.ts, nhánh role === "robber") trước khi thêm.
+// Nếu tìm lại được script gốc, nên chạy lại và thay case này bằng output thật.
 import type { WolfRole } from "@/lib/supabase/types";
 import type { WolfPlayState } from "../games/wolf/actions";
 
@@ -825,6 +830,108 @@ export const DEBUG_WOLF_RESULT_CASES: DebugWolfResultCase[] = [
         "originalRole": "robber",
         "finalRole": "robber",
         "finalTeamRole": "robber"
+      }
+    ]
+  },
+  {
+    "key": "robber-basic",
+    "label": "Kẻ Trộm trộm bài thành công",
+    "note": "Đại Chúa (Kẻ Trộm) đổi bài với Trí (Dân Làng): Đại Chúa trộm được vai Dân Làng, để lại lá Kẻ Trộm cho Trí. Case đơn giản, không qua Copy Cat/Nhân Bản.",
+    "roleDeck": [
+      "werewolf",
+      "werewolf",
+      "seer",
+      "robber",
+      "troublemaker",
+      "insomniac",
+      "villager",
+      "villager"
+    ],
+    "myOriginalRole": "seer",
+    "myFinalRole": "seer",
+    "voteTargetByPlayerId": {
+      "p1": "p2",
+      "p2": "p1",
+      "p3": "p2",
+      "p4": "p2",
+      "p5": "p2"
+    },
+    "result": {
+      "eliminatedPlayerIds": [
+        "p2"
+      ],
+      "winnerTeam": "villagers",
+      "winnerText": "Có Ma Sói bị treo. Dân làng thắng.",
+      "skippedVoteCount": 0,
+      "voteCounts": [
+        {
+          "playerId": "p1",
+          "votes": 1
+        },
+        {
+          "playerId": "p2",
+          "votes": 4
+        },
+        {
+          "playerId": "p3",
+          "votes": 0
+        },
+        {
+          "playerId": "p4",
+          "votes": 0
+        },
+        {
+          "playerId": "p5",
+          "votes": 0
+        }
+      ]
+    },
+    "cardMovementSummary": {
+      "orderText": "Log được xử lý theo thứ tự hành động trong đêm: 1. Copy Cat → 2. Nhân Bản → 3. Ma Sói → 4. Sói Tiên Tri → 5. Tiên Tri → 6. Kẻ Trộm → 7. Phù Thuỷ → 8. Say Rượu → 9. Kẻ Gây Rối → 10. Mất Ngủ. Copy Cat copy trước, rồi chức năng đã copy chạy ở đúng lượt của role đó.",
+      "steps": [
+        {
+          "id": "robber-p5-1",
+          "title": "Bước 1: Đại Chúa hành động bằng vai ban đầu Kẻ Trộm",
+          "logText": "Đại Chúa (Kẻ Trộm) đổi bài với Trí (Dân Làng)",
+          "description": "Trước bước này, Đại Chúa đang giữ lá Kẻ Trộm và Trí đang giữ lá Dân Làng. Đại Chúa đổi bài với Trí: lá Kẻ Trộm chuyển sang Trí, còn lá Dân Làng chuyển sang Đại Chúa."
+        }
+      ]
+    },
+    "allPlayersSummary": [
+      {
+        "playerId": "p1",
+        "playerName": "Khánh",
+        "originalRole": "seer",
+        "finalRole": "seer",
+        "finalTeamRole": "seer"
+      },
+      {
+        "playerId": "p2",
+        "playerName": "Yun",
+        "originalRole": "werewolf",
+        "finalRole": "werewolf",
+        "finalTeamRole": "werewolf"
+      },
+      {
+        "playerId": "p3",
+        "playerName": "Trí",
+        "originalRole": "villager",
+        "finalRole": "robber",
+        "finalTeamRole": "robber"
+      },
+      {
+        "playerId": "p4",
+        "playerName": "Lan Nè",
+        "originalRole": "troublemaker",
+        "finalRole": "troublemaker",
+        "finalTeamRole": "troublemaker"
+      },
+      {
+        "playerId": "p5",
+        "playerName": "Đại Chúa",
+        "originalRole": "robber",
+        "finalRole": "villager",
+        "finalTeamRole": "villager"
       }
     ]
   }

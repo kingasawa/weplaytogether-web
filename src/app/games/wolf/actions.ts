@@ -1592,6 +1592,165 @@ function buildNightReviewMessages(
       ];
     }
 
+    // Từ đây trở xuống: các chức năng copy được mà TRƯỚC ĐÂY bị rơi vào nhánh chung ở cuối
+    // (chỉ ghi "Bạn đã copy lá giữa X: {role}." mà KHÔNG có kết quả bước 2) — đúng bug user báo:
+    // "copy được role xong có lưu kết quả, nhưng thực hiện chức năng sau đó thì phần xem lại
+    // không thể hiện ra". Field nhận từ action ở đây khớp đúng chỗ Copy Cat lưu khi submit chức
+    // năng đã copy (xem các nhánh `copiedRole === "..."` trong validate submit action ở dưới):
+    // target_player_id (không có _2/_3 vì slot đó copycat chưa dùng cho bước copy) cho robber/
+    // werewolf_seer/troublemaker bước 1, target_player_id_2 cho troublemaker bước 2,
+    // target_center_index_2 cho center thứ 2 (witch/drunk/sói đơn xem thêm).
+    if (copiedCard?.original_role === "werewolf_seer" && action.target_player_id) {
+      const targetCard = getPlayerCard(cards, action.target_player_id);
+      const messages = [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã soi ${getPlayerName(
+          players,
+          action.target_player_id
+        )}: ${getRoleReviewLabel(targetCard?.original_role)}.`,
+      ];
+
+      if (
+        validateCenterIndex(action.target_center_index_2) &&
+        action.target_center_index_2 !== action.target_center_index
+      ) {
+        const centerCard = getCenterCard(cards, action.target_center_index_2 as number);
+
+        messages.push(
+          `Bạn là Ma Sói duy nhất nên được xem lá giữa ${(action.target_center_index_2 as number) + 1}: ${getRoleReviewLabel(
+            centerCard?.original_role
+          )}.`
+        );
+      }
+
+      return messages;
+    }
+
+    if (copiedCard?.original_role === "troublemaker" && action.target_player_id && action.target_player_id_2) {
+      return [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã đổi bài của ${getPlayerName(
+          players,
+          action.target_player_id
+        )} và ${getPlayerName(players, action.target_player_id_2)}. Bạn không được xem hai lá đó.`,
+      ];
+    }
+
+    if (copiedCard?.original_role === "witch" && validateCenterIndex(action.target_center_index_2) && action.target_player_id) {
+      return [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã mở lá giữa ${(action.target_center_index_2 as number) + 1} và đổi lá đó với ${getPlayerName(
+          players,
+          action.target_player_id
+        )}.`,
+      ];
+    }
+
+    if (copiedCard?.original_role === "drunk" && validateCenterIndex(action.target_center_index_2)) {
+      return [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã đổi bài với lá giữa ${(action.target_center_index_2 as number) + 1}. Bạn không được xem lá mới.`,
+      ];
+    }
+
+    if (copiedCard?.original_role === "insomniac") {
+      const myCard = getPlayerCard(cards, currentPlayer.id);
+      const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+      return [
+        `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(
+          myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null
+        )}.`,
+      ];
+    }
+
+    if (copiedCard?.original_role === "doppelganger" && action.target_player_id) {
+      const nestedCopiedRole = getCopycatDoppelgangerCopiedRole(cards, action);
+      const nestedTargetName = getPlayerName(players, action.target_player_id);
+      const prefix = `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã nhân bản ${nestedTargetName} (${getRoleReviewLabel(nestedCopiedRole)})`;
+
+      if (!nestedCopiedRole) {
+        return [`${prefix}.`];
+      }
+
+      if (nestedCopiedRole === "robber" && action.target_player_id_2) {
+        const { immediateRoleRevealByPlayerId } = simulateNightResolution(cards, actions, players);
+
+        return [
+          `${prefix} và đổi bài với ${getPlayerName(players, action.target_player_id_2)}. Bài bạn nhận được lúc đổi là ${getRoleReviewLabel(
+            immediateRoleRevealByPlayerId.get(currentPlayer.id)
+          )}.`,
+        ];
+      }
+
+      if (nestedCopiedRole === "seer") {
+        const centerIndexes = getSeerCenterIndexesForAction(
+          cards,
+          action.target_center_index_2,
+          action.target_center_index_3,
+          action.target_center_index
+        );
+        const revealedCards = centerIndexes.map((centerIndex) => {
+          return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+        });
+
+        return [`${prefix} và soi ${revealedCards.join(", ")}.`];
+      }
+
+      if (nestedCopiedRole === "werewolf_seer" && action.target_player_id_2) {
+        const targetCard = getPlayerCard(cards, action.target_player_id_2);
+
+        return [
+          `${prefix} và soi ${getPlayerName(players, action.target_player_id_2)}: ${getRoleReviewLabel(
+            targetCard?.original_role
+          )}.`,
+        ];
+      }
+
+      if (nestedCopiedRole === "troublemaker" && action.target_player_id_2 && action.target_player_id_3) {
+        return [
+          `${prefix} và đổi bài của ${getPlayerName(players, action.target_player_id_2)} và ${getPlayerName(
+            players,
+            action.target_player_id_3
+          )}. Bạn không được xem hai lá đó.`,
+        ];
+      }
+
+      if (nestedCopiedRole === "witch" && validateCenterIndex(action.target_center_index_2) && action.target_player_id_2) {
+        return [
+          `${prefix} và đổi lá giữa ${(action.target_center_index_2 as number) + 1} với ${getPlayerName(
+            players,
+            action.target_player_id_2
+          )}.`,
+        ];
+      }
+
+      if (nestedCopiedRole === "drunk" && validateCenterIndex(action.target_center_index_2)) {
+        return [`${prefix} và đổi bài với lá giữa ${(action.target_center_index_2 as number) + 1}. Bạn không được xem lá mới.`];
+      }
+
+      if (nestedCopiedRole === "insomniac") {
+        const myCard = getPlayerCard(cards, currentPlayer.id);
+        const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+        return [
+          `${prefix}. Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(
+            myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null
+          )}.`,
+        ];
+      }
+
+      if (nestedCopiedRole === "werewolf") {
+        const werewolfTeammateNames = getWerewolfPlayerIdsAfterCopycat(cards, actions)
+          .filter((playerId) => playerId !== currentPlayer.id)
+          .map((playerId) => getPlayerName(players, playerId));
+
+        return [
+          werewolfTeammateNames.length > 0
+            ? `${prefix}. Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}.`
+            : `${prefix}. Bạn không thấy Ma Sói cùng phe.`,
+        ];
+      }
+
+      return [`${prefix}.`];
+    }
+
     return [`Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}.`];
   }
 
@@ -1653,6 +1812,61 @@ function buildNightReviewMessages(
       }
 
       return messages;
+    }
+
+    // Cùng lý do với nhánh copycat ở trên: troublemaker/witch/drunk/insomniac/werewolf copy được
+    // qua Nhân Bản trước đây rơi vào nhánh chung cuối hàm (chỉ báo "đã nhân bản X: {role}.", không
+    // có kết quả chức năng đã thực hiện). Field khớp đúng validate submit action Nhân Bản: center
+    // dùng lại target_center_index (slot đó Nhân Bản không cần cho bước copy), target_player_id_2/
+    // _3 cho 2 người bị đổi bài (troublemaker) hoặc người nhận (witch).
+    const copiedRoleLabel = getRoleReviewLabel(copiedRole);
+    const doppelgangerTargetName = getPlayerName(players, action.target_player_id);
+
+    if (copiedRole === "troublemaker" && action.target_player_id_2 && action.target_player_id_3) {
+      return [
+        `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}) và đổi bài của ${getPlayerName(
+          players,
+          action.target_player_id_2
+        )} và ${getPlayerName(players, action.target_player_id_3)}. Bạn không được xem hai lá đó.`,
+      ];
+    }
+
+    if (copiedRole === "witch" && validateCenterIndex(action.target_center_index) && action.target_player_id_2) {
+      return [
+        `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}) và mở lá giữa ${(action.target_center_index as number) + 1} rồi đổi lá đó với ${getPlayerName(
+          players,
+          action.target_player_id_2
+        )}.`,
+      ];
+    }
+
+    if (copiedRole === "drunk" && validateCenterIndex(action.target_center_index)) {
+      return [
+        `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}) và đổi bài với lá giữa ${(action.target_center_index as number) + 1}. Bạn không được xem lá mới.`,
+      ];
+    }
+
+    if (copiedRole === "insomniac") {
+      const myCard = getPlayerCard(cards, currentPlayer.id);
+      const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+      return [
+        `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}). Sau ban đêm, bài hiện tại của bạn là ${getRoleReviewLabel(
+          myCard ? currentRoleByCardId.get(myCard.id) ?? myCard.current_role : null
+        )}.`,
+      ];
+    }
+
+    if (copiedRole === "werewolf") {
+      const werewolfTeammateNames = getWerewolfPlayerIdsAfterCopycat(cards, actions)
+        .filter((playerId) => playerId !== currentPlayer.id)
+        .map((playerId) => getPlayerName(players, playerId));
+
+      return [
+        werewolfTeammateNames.length > 0
+          ? `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}). Ma Sói cùng phe: ${werewolfTeammateNames.join(", ")}.`
+          : `Bạn đã nhân bản ${doppelgangerTargetName} (${copiedRoleLabel}). Bạn không thấy Ma Sói cùng phe.`,
+      ];
     }
 
     return [

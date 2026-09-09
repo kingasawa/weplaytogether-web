@@ -2852,32 +2852,31 @@
 }
 
 .roleImageCard {
+  /* Tăng từ clamp(0.75rem, 3vw, 1.1rem) theo yêu cầu — biến riêng để .roleCardImage bên dưới
+     đọc lại cùng giá trị, ảnh không chạm sát viền thẻ. */
+  --role-card-padding: clamp(1.1rem, 4vw, 1.6rem);
   isolation: isolate;
-  padding: clamp(0.75rem, 3vw, 1.1rem);
+  padding: var(--role-card-padding);
   background: var(--bg-card);
 }
 
-.roleImageCard::after {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    transparent 48%,
-    color-mix(in srgb, var(--bg-primary) 64%, transparent) 74%,
-    color-mix(in srgb, var(--bg-primary) 88%, transparent)
-  );
-  content: "";
-  pointer-events: none;
-}
+/* Đã bỏ .roleImageCard::after (lớp gradient tối dần ở đáy thẻ, từng dùng để chữ tên role dễ đọc
+   đè lên ảnh) theo yêu cầu — ảnh role đã in sẵn tên ngay trong ảnh (xem RoleCard trong
+   wolf-play-screen.tsx: <strong>{roleLabel}</strong> chỉ render khi ẢNH LỖI/không có, không bao
+   giờ chạy chung với ảnh đang hiển thị tốt), nên gradient này chỉ làm mờ đáy ảnh vô ích, không che
+   chữ nào cả. .cardRevealRoleCard::after { display:none } (ghi đè riêng cho thẻ lật bài lớn) theo
+   đó cũng bỏ luôn vì rule gốc không còn tồn tại để ghi đè. */
 
 .playCard .roleCardImage {
+  inset: var(--role-card-padding, 0);
   z-index: 0;
   object-fit: contain;
 }
 
-.cardRevealRoleCard::after {
-  display: none;
+/* Thẻ lật bài lớn (card_reveal, isFocusedReveal) giữ ảnh tràn sát viền như cũ — không áp dụng
+   inset theo --role-card-padding ở trên (chỉ dành cho thẻ nhỏ trong lưới vai trò/xem lại đêm). */
+.cardRevealRoleCard .roleCardImage {
+  inset: 0;
 }
 
 .playCard span,
@@ -4497,9 +4496,12 @@
 
 .roleDeckTile .roleDeckTileCount {
   position: absolute;
-  top: 0.15rem;
-  left: 0.15rem;
+  /* Căn giữa theo chiều ngang + đè lên viền trên lá bài (translate -50% cả 2 trục quanh điểm
+     top:0/left:50%, tức tâm mép trên) thay vì góc trên-trái như trước. */
+  top: 0;
+  left: 50%;
   z-index: 2;
+  transform: translate(-50%, -50%);
   display: grid;
   min-width: 1.35rem;
   min-height: 1.35rem;
@@ -4642,6 +4644,24 @@
 
 .focusedPlayPage.nightReviewPage .nightReviewContent {
   min-height: 0;
+  height: auto;
+}
+
+/* Cùng lý do với .nightReviewContent ở trên, nhưng cho nhánh CÓ bài (.nightReviewRevealStack,
+   xem renderKnownNightCards() trong wolf-play-screen.tsx) — trước đây bị bỏ sót nên grid-template-
+   rows: minmax(0, 1fr) auto của .nightReviewRevealStack (định nghĩa gốc) khiến hàng đầu (lưới bài)
+   bị ép co lại gần 0 khi có nhiều dòng text review bên dưới, ảnh lá bài chỉ còn cao vài chục px
+   (không đọc được). height:auto + bỏ hẳn grid-template-rows (rơi về grid-auto-rows mặc định =
+   auto, giống cách 2 dòng text tự set kích thước theo nội dung) để hàng lưới bài cũng tự cao theo
+   đúng min-height của .playCard, không bị ép theo khoảng trống còn lại. */
+.focusedPlayPage.nightReviewPage .nightReviewRevealStack {
+  min-height: 0;
+  height: auto;
+  grid-template-rows: none;
+}
+
+.focusedPlayPage.nightReviewPage .playerRevealGrid .playCard {
+  min-height: clamp(9.5rem, 42vw, 16rem);
   height: auto;
 }
 
