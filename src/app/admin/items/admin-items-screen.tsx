@@ -111,7 +111,9 @@ export default function AdminItemsScreen() {
                         {SHOP_ITEM_TYPE_LABELS[item.item_type as ShopItemType]}
                       </span>
                     </td>
-                    <td className={styles.coinCell}>{item.price_coins.toLocaleString("vi-VN")} Xu</td>
+                    <td>
+                      <span className={styles.coinCell}>{item.price_coins.toLocaleString("vi-VN")} Xu</span>
+                    </td>
                     <td>
                       <span className={`${styles.badge} ${item.is_active ? styles.badgeActive : styles.badgeInactive}`}>
                         {item.is_active ? "Đang bán" : "Đã ẩn"}
