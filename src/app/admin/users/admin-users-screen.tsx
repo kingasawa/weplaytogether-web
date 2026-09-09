@@ -127,8 +127,8 @@ export default function AdminUsersScreen() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Người chơi</th>
-                  <th>Email</th>
+                  <th className={styles.nameColumn}>Người chơi</th>
+                  <th className={styles.emailColumn}>Email</th>
                   <th>Điểm</th>
                   <th>Xu</th>
                   <th>Ngày tham gia</th>
@@ -145,13 +145,13 @@ export default function AdminUsersScreen() {
 
                   return (
                     <tr key={user.id}>
-                      <td>
+                      <td className={styles.nameColumn}>
                         <div className={styles.userCell}>
                           <span className={`${styles.thumb} ${styles.userAvatar}`}>
                             <Image
                               alt=""
-                              fill
-                              sizes="44px"
+                              width={44}
+                              height={44}
                               src={avatarSrc}
                               unoptimized={isRemotePlayerAvatarSrc(avatarSrc)}
                             />
@@ -159,7 +159,7 @@ export default function AdminUsersScreen() {
                           {user.display_name || "(Chưa đặt tên)"}
                         </div>
                       </td>
-                      <td>{user.email ?? "—"}</td>
+                      <td className={styles.emailColumn}>{user.email ?? "—"}</td>
                       <td>
                         <span className={styles.coinCell}>
                           <Trophy aria-hidden="true" />

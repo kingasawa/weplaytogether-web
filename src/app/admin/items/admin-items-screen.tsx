@@ -83,7 +83,7 @@ export default function AdminItemsScreen() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Ảnh</th>
+                  <th className={styles.imageColumn}>Ảnh</th>
                   <th>Tên</th>
                   <th>Loại</th>
                   <th>Giá</th>
@@ -95,7 +95,7 @@ export default function AdminItemsScreen() {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td>
+                    <td className={styles.imageColumn}>
                       <span className={styles.thumb}>
                         <Image alt="" width={44} height={44} src={item.image_url} unoptimized />
                       </span>

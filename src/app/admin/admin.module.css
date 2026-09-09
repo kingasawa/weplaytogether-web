@@ -297,13 +297,20 @@
   border-collapse: collapse;
 }
 
-/* Cột "Ảnh" (đầu tiên) cần width tường minh — .thumb bên trong chỉ chứa 1 <Image fill>
-   (position:absolute, không góp phần vào kích thước tự nhiên của phần tử cha theo thuật toán
-   table-layout:auto mặc định), nên nếu không ép width ở đây, trình duyệt có thể tính cột này
-   gần như 0 width, làm mất hẳn khoảng hiển thị cho .thumb dù CSS của .thumb vẫn đúng. */
-.table th:first-child,
-.table td:first-child {
+/* Cột "Ảnh" của riêng bảng vật phẩm (admin-items-screen.tsx) — KHÔNG dùng
+   .table th:first-child/.table td:first-child chung (từng làm vậy, nhưng .table còn được dùng ở
+   bảng người dùng/report, cột đầu tiên của 2 bảng đó cần rộng để hiện tên/email dài, ép cứng
+   4.75rem ở đó sẽ cắt cụt chữ — đúng lỗi người dùng báo). Giờ chỉ .imageColumn mới bị ép width,
+   gắn className riêng vào đúng <th>/<td> "Ảnh" thay vì :first-child dùng chung toàn .table. */
+.imageColumn {
   width: 4.75rem;
+}
+
+/* Cột "Người chơi" và "Email" của bảng người dùng — ép cùng 1 min-width để 2 cột dài bằng nhau
+   (theo yêu cầu), đủ chỗ cho tên/email dài không bị bó hẹp như trước. */
+.nameColumn,
+.emailColumn {
+  min-width: 14rem;
 }
 
 .table th {
