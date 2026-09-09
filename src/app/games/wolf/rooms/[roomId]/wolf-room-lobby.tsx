@@ -162,6 +162,15 @@ function saveStoredRoleOptionIds(optionIds: string[]) {
   }
 }
 
+// Số slot hiển thị (người thật + placeholder) tăng dần theo bậc thay vì hiện sẵn WOLF_MAX_PLAYERS
+// (12) ngay từ đầu — mặc định chỉ 6, đầy 6 thì mở thêm 3 thành 9, đầy 9 thì mở thêm 3 thành 12
+// (WOLF_MAX_PLAYERS), để phòng ít người không bị trống hoác cả dãy placeholder không cần thiết.
+const LOBBY_SLOT_STEPS = [6, 9, WOLF_MAX_PLAYERS] as const;
+
+function getVisibleLobbySlotCount(playerCount: number) {
+  return LOBBY_SLOT_STEPS.find((step) => playerCount < step) ?? WOLF_MAX_PLAYERS;
+}
+
 type WolfRoomLobbyProps = {
   initialState: WolfLobbyState;
   initialSpectatorState: WolfSpectatorState | null;
@@ -732,17 +741,9 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
           </div>
         ) : (
           <>
-        <header className={styles.roomHeaderBar}>
-          <div className={styles.roomHeaderIdentity}>
-            <strong className={styles.roomHeaderCode}>{lobbyState.room.code}</strong>
-            <button
-              className={styles.roomHeaderIconButton}
-              type="button"
-              aria-label="Copy URL phòng"
-              onClick={copyRoomUrl}
-            >
-              <LinkIcon aria-hidden="true" />
-            </button>
+        <header className={styles.lobbyTopBanner}>
+          <div className={styles.lobbyTopBannerCodeWrap}>
+            <strong className={styles.lobbyTopBannerCode}>{lobbyState.room.code}</strong>
             {copyFeedback && (
               <p className={styles.copyFeedback} aria-live="polite">
                 {copyFeedback}
@@ -750,7 +751,15 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
             )}
           </div>
           <button
-            className={`${styles.roomHeaderIconButton} ${styles.roomHeaderExitButton}`}
+            className={`${styles.lobbyTopBannerButton} ${styles.lobbyTopBannerCopyButton}`}
+            type="button"
+            aria-label="Copy URL phòng"
+            onClick={copyRoomUrl}
+          >
+            <LinkIcon aria-hidden="true" />
+          </button>
+          <button
+            className={`${styles.lobbyTopBannerButton} ${styles.lobbyTopBannerExitButton}`}
             type="button"
             aria-label="Thoát phòng"
             disabled={isPending}
@@ -760,10 +769,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
           </button>
         </header>
 
-        <div className={styles.playerListHeader}>
-          <span>Danh sách</span>
-          <span>{lobbyState.players.length}/{WOLF_MAX_PLAYERS}</span>
-        </div>
         <FrameEffects />
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {lobbyState.players.map((player) => {
@@ -923,7 +928,9 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
             </article>
             );
           })}
-          {Array.from({ length: Math.max(0, WOLF_MAX_PLAYERS - lobbyState.players.length) }).map((_, index) => (
+          {Array.from({
+            length: Math.max(0, getVisibleLobbySlotCount(lobbyState.players.length) - lobbyState.players.length),
+          }).map((_, index) => (
             <article
               aria-hidden="true"
               className={`${styles.playerRow} ${styles.playerRowFramed} ${styles.playerRowPlaceholder}`}

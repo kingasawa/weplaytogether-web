@@ -25,6 +25,7 @@
 | ---------------- | --------- | -------------------------------- |
 | `--primary`      | `#5D7CFF` | Buttons, links, active states    |
 | `--primary-light`| `#8EA8FF` | Hover states, highlights         |
+| `--primary-dark` | `#0C2075` | Strong outlines/borders (e.g. wolf lobby primary button) |
 
 ### Text
 
@@ -32,6 +33,7 @@
 | ----------------- | --------- | -------------------------------- |
 | `--text`          | `#FFFFFF` | Primary body text                |
 | `--text-secondary`| `#B7C0D8` | Subtext, placeholders, metadata  |
+| `--text-accent`   | `#98B9E6` | Bold text over metallic/art backgrounds (e.g. wolf lobby room code) |
 
 ### Semantic
 
@@ -39,6 +41,7 @@
 | ----------- | --------- | ------------------------------ |
 | `--success` | `#2ECC71` | Score gain, win state, confirm |
 | `--danger`  | `#E74C3C` | Error, lose state, destructive |
+| `--danger-dark` | `#8C0D00` | Exit-button icon on the wolf lobby banner |
 
 ### Shadows
 

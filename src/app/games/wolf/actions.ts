@@ -2333,6 +2333,29 @@ async function maybeAutoAdvancePhase(
     // mỗi lần client fetch lại — đây là nơi duy nhất còn được gọi sau khi người chơi cuối cùng đã
     // hành động xong (không còn ai submit gì thêm để kích hoạt hàm này nữa).
     const rawActiveTurn = getActiveNightTurn(players, cards, actions, confirmedNightPlayerIds);
+
+    // BUG đã gặp: Kẻ Trộm (và Sói Tiên Tri/Nhân Bản/Copy Cat copy trúng 2 role đó — mọi role mà
+    // doesNightTurnRequireResultConfirmation() trả về true) phải tự bấm "OK, tôi đã biết kết quả"
+    // mới thực sự hết lượt (xem game_phase_confirmations, KHÔNG tự confirm ngay lúc submit như các
+    // role khác — xem submitWolfNightAction). Trong lúc rawActiveTurn vẫn là CHÍNH họ (chưa tự xác
+    // nhận) thì đây KHÔNG phải một lượt mới đang chuyển sang cho ai khác — vẫn là lượt cũ, chỉ đang
+    // chờ họ đọc xong kết quả. Trước đây code arm delay 2-5s ở đây bất kể trường hợp nào, khiến
+    // ngay sau khi họ submit xong, activeNightTurn bị null tạm thời (settleNightTurnDelay) — client
+    // của CHÍNH họ rơi vào UI "đang chờ người chơi khác" một lúc rồi mới quay lại thấy đúng kết quả
+    // của mình. Bỏ qua việc arm delay trong trường hợp này để họ thấy kết quả ngay, không ảnh hưởng
+    // mục đích gốc của delay (giãn nhịp giữa các lượt THẬT SỰ khác nhau, tránh dồn request) vì đây
+    // vẫn là cùng 1 lượt, không có ai khác đang chờ lộ lượt tiếp theo.
+    const activeTurnAction = rawActiveTurn
+      ? actions.find((action) => action.player_id === rawActiveTurn.playerId) ?? null
+      : null;
+    const activeTurnAwaitingOwnConfirmation = Boolean(
+      rawActiveTurn && doesNightTurnRequireResultConfirmation(rawActiveTurn, activeTurnAction, cards)
+    );
+
+    if (activeTurnAwaitingOwnConfirmation) {
+      return phase;
+    }
+
     const delayMs = rawActiveTurn
       ? randomDelayMs(NIGHT_TURN_DELAY_MIN_MS, NIGHT_TURN_DELAY_MAX_MS)
       : randomDelayMs(NIGHT_END_DELAY_MIN_MS, NIGHT_END_DELAY_MAX_MS);
