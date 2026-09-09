@@ -24,7 +24,15 @@
    .playerIdentity + 16px padding của .playerRowFramed) — ứng với width tối thiểu 161/1.25=
    128.8px=8.05rem mới không bị .playerIdentity (overflow:hidden) cắt mất badge trạng thái phía
    dưới. 8.2rem có thêm biên an toàn. */
-.row {
+/* Selector nhân đôi .row.row (đặc hiệu (0,2,0)) — CHỈ dùng .row (0,1,0) từng bị .playerRow
+   (page.module.css, cũng (0,1,0): flex: 0 0 calc(100% / 3)) đè mất flex/margin-bottom trên
+   production do 2 CSS module nằm ở 2 chunk khác nhau, thứ tự nạp <link> giữa các chunk không
+   đảm bảo giống thứ tự import trong file .tsx (localhost/Turbopack dev tình cờ giữ đúng thứ tự
+   nên không lộ bug, webpack production build tách chunk khác thứ tự nên .playerRow thắng —
+   flex/margin-bottom bị gạch trong DevTools, .row co lại theo 100%/3 của .previewViewbox thay vì
+   8.2rem cố định, khiến .playerIdentity (overflow:hidden) cắt mất tên/trạng thái). Nhân đôi class
+   thắng chắc chắn bất kể thứ tự nạp CSS. */
+.row.row {
   flex: 0 0 auto;
   width: 8.2rem;
   margin-bottom: 0;
