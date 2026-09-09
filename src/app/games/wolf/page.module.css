@@ -2014,10 +2014,10 @@
    vẫn nằm trên cả 2 lớp này do đứng sau trong DOM/z-index cao hơn. */
 .playerRowFrameInnerGlass {
   position: absolute;
-  /* inset riêng trên/dưới (16px) lớn hơn trái/phải (8px) — card giờ là hình vuông, viền hoạ tiết
-     khung ở mép trên/dưới mỏng hơn mép trái/phải trên nhiều ảnh khung, 8px đều 4 cạnh khiến lớp
-     kính lấn ra ngoài, lộ hẳn ra khỏi viền hoạ tiết ở trên/dưới. */
-  inset: 16px 12px;
+  /* inset 3 giá trị (trên 20px / trái-phải 14px / dưới 24px) — mép dưới chừa rộng hơn mép trên vì
+     viền hoạ tiết khung ở đáy card thường dày hơn đỉnh trên nhiều ảnh khung, giữ đều 16px/12px cũ
+     khiến lớp kính lấn ra ngoài, lộ ra khỏi viền hoạ tiết ở đáy. */
+  inset: 20px 14px 24px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 25%, mép trên đục 45% —
