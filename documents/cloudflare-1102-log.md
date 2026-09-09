@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-28 (entry #11) -->
+<!-- Last updated: 2026-09-09 (entry #12) -->
 
 # Nhật ký lỗi Cloudflare 1102 (Worker exceeded resource limits)
 
@@ -570,6 +570,62 @@ xuất ở Entry #10 — nhưng vì lý do KHÁC: giảm đỉnh bộ nhớ/th�
 
 ---
 
+### 2026-09-09 — Entry #12: Rà soát trước deploy — bug thật đã sửa + 1 nguồn trễ khác chưa sửa (poll fallback 8s)
+
+**User yêu cầu:** trước khi deploy, rà soát lại xem còn phần fix nào cho 1102 đang vô tình làm thời
+gian chờ lượt ban đêm lâu.
+
+**Bug đã sửa trong phiên này (KHÔNG PHẢI 1102, nhưng cùng khu vực code):** `maybeAutoAdvancePhase`
+nhánh `"night"` (`actions.ts` dòng ~2335) trước đây arm delay 2-5s (Entry #9) VÔ ĐIỀU KIỆN mỗi khi có
+người submit action đêm — kể cả khi người vừa submit vẫn là chủ nhân của lượt đang active (role thuộc
+nhóm `doesNightTurnRequireResultConfirmation` = true: Kẻ Trộm, Sói Tiên Tri có target, Nhân Bản/Copy
+Cat copy trúng 2 role đó — nhóm này KHÔNG tự confirm ngay lúc submit, phải tự bấm "OK" mới hết lượt).
+Hậu quả: người chơi vừa hành động xong bị rơi vào UI "đang chờ người khác" một lúc rồi mới quay lại
+thấy đúng kết quả của chính mình — dù đây không phải một lượt mới đang chuyển cho ai khác. Đã sửa:
+chỉ arm delay khi lượt active THẬT SỰ không phải đang chờ chính người đó tự xác nhận (dùng lại
+`doesNightTurnRequireResultConfirmation` làm điều kiện, không viết logic riêng).
+
+**Phát hiện MỚI (CHƯA SỬA) — khoảng trống tới ~8s SAU KHI delay 2-5s (Entry #9) đã hết hạn, trước khi
+client biết để fetch lại:**
+
+Đọc `use-wolf-room-presence.ts`: cơ chế thông báo client fetch lại có 2 nguồn — (a) Pusher broadcast
+`WOLF_PLAY_UPDATED_EVENT` (server gọi `safeBroadcastWolfPlayUpdate` NGAY LÚC action được submit, tức
+NGAY LÚC delay được arm — không phải lúc delay hết hạn), qua throttle 2.5s+jitter0.5s (Entry #9); (b)
+poll dự phòng định kỳ `HEALTHY_POLL_INTERVAL_MS = 8000`.
+
+Vấn đề: KHÔNG có cơ chế nào chủ động báo client đúng lúc `night_turn_reveal_at` hết hạn — thời điểm
+đó thuần tuý là thời gian trôi qua, không phải một sự kiện (không ai submit gì để kích hoạt broadcast
+mới). Broadcast duy nhất liên quan (lúc action được submit) thường đến TRƯỚC KHI delay kịp hết hạn
+(broadcast ~2.5-3s sau submit do throttle, trong khi delay có thể dài tới 5s) → client fetch, vẫn thấy
+`activeNightTurn: null`, rồi im lặng chờ tiếp. Người chơi có lượt kế tiếp chỉ phát hiện ra lượt của
+mình đã sẵn sàng khi lần poll 8 giây kế tiếp tự chạy tới (không đồng bộ với lúc delay hết hạn, worst
+case gần đủ 8s). **Tổng cộng: chờ thực tế có thể lên tới ~(5s delay + 8s poll gap) ≈ 13 giây "im
+lặng"/lượt chuyển, dù độ trễ CHỦ Ý theo thiết kế (Entry #9) chỉ là 2-5s.** Đây rất có thể là phần
+chính khiến "thời gian chờ lượt ban đêm lâu lắc" mà user hỏi tới — cộng dồn qua nhiều lượt liên tiếp
+trong 1 đêm (mỗi role active 1 lượt) sẽ nhân lên đáng kể.
+
+**Hướng sửa khả thi (chưa code, cần xác nhận trước khi làm):** đưa `night_turn_reveal_at` (hoặc số ms
+còn lại) vào `WolfPlayState` trả về cho client (hiện chỉ có tác dụng phái sinh qua `isNightTurnInProgress`,
+bản thân mốc thời gian KHÔNG lộ ra client) — client dùng giá trị này đặt đúng 1 `setTimeout` một lần
+để fetch lại chính xác lúc delay hết hạn, thay vì phải chờ poll 8s. Không làm tăng tần suất
+polling/broadcast tổng thể (vẫn đúng tinh thần giảm tải của Entry #3/#9) — chỉ thêm đúng 1 lần fetch
+tại đúng thời điểm cần, thay vì đoán mò qua interval cố định.
+
+**QUAN TRỌNG — trạng thái migration vẫn chưa xác nhận lại được:** theo `documents/migrations.md`,
+`202608270001_wolf_night_turn_delay.sql` (cột `night_turn_reveal_at`) ghi "pending manual remote
+apply" — nếu đúng vậy thì TOÀN BỘ tính năng độ trễ lượt đêm (Entry #9) đang KHÔNG có hiệu lực trên
+production (code tự fallback an toàn khi thiếu cột — xem `isMissingNightTurnRevealAtColumnError`).
+Không thể tự kiểm tra lại schema remote thật từ phiên này (Supabase MCP trong workspace trỏ nhầm dự
+án khác — xem memory `reference-supabase-mcp-wrong-project`). User đã tự quan sát được đúng hành vi
+"chờ rồi mới hiện kết quả" trong lúc test — nghĩa là migration NHIỀU KHẢ NĂNG đã được áp (ít nhất ở
+môi trường user đang test), nhưng **cần user tự xác nhận lại (Supabase SQL Editor) trước khi dựa vào
+kết luận của entry này**, và cập nhật `documents/migrations.md` cho khớp nếu đã áp thật.
+
+**File đã sửa ở entry này:** `src/app/games/wolf/actions.ts` (`maybeAutoAdvancePhase`, bug thật đã
+sửa). Chưa sửa gì cho phát hiện "khoảng trống 8s" — đang chờ user xác nhận hướng đi.
+
+---
+
 ## Việc cần làm tiếp (chưa làm, ghi lại để không quên)
 
 1. **[Entry #10, đính chính mức độ ở Entry #11 — vẫn CHƯA FIX, nghi vấn ngang hàng CPU/memory]**
@@ -620,6 +676,9 @@ xuất ở Entry #10 — nhưng vì lý do KHÁC: giảm đỉnh bộ nhớ/th�
    — tính năng độ trễ lượt đêm (Entry #9 commit `8840920`) đang ở trạng thái tắt/fallback dù code đã
    live từ 2026-08-27T10:05:43Z. Không khẩn cấp cho riêng vấn đề 1102, nhưng cần nhớ để không tưởng
    nhầm tính năng đã hoạt động khi theo dõi log/hành vi game.
+9. **[Entry #12, 2026-09-09 — CHƯA SỬA]** Khoảng trống tới ~8s sau khi delay 2-5s (Entry #9) hết hạn
+   trước khi client biết để fetch lại (poll fallback `HEALTHY_POLL_INTERVAL_MS`, xem chi tiết + hướng
+   sửa đề xuất ở Entry #12) — cộng dồn với delay chủ ý, mỗi lượt chuyển có thể "im lặng" tới ~13s.
 
 ## Việc phụ phát hiện được (không phải 1102, nhưng liên quan trong lúc điều tra)
 

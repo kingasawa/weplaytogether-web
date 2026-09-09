@@ -970,6 +970,23 @@ function getDoppelgangerCopiedRole(cards: CardRow[], action: ActionRow | null) {
   return getPlayerCard(cards, action.target_player_id)?.original_role ?? null;
 }
 
+// Trả về BẢN SAO cards với original_role thay bằng role HIỆN TẠI (đã tính hết mọi swap từ các action
+// đã submit tính tới thời điểm gọi — robber/witch/drunk/troublemaker, kể cả qua chuỗi copycat/
+// doppelganger, dùng simulateNightResolution() để tính). Dùng cho MỌI chỗ cần biết "lá này đang thực
+// sự là gì NGAY BÂY GIỜ" (peek giữa đêm, validate lúc submit, dựng lại log kết quả) — KHÁC với
+// original_role tĩnh lúc chia bài (đúng cho các chỗ cần biết "ai/gì đã bị copy" như
+// getDoppelgangerCopiedRole/getCopiedRoleFromAction, KHÔNG được patch những chỗ đó).
+// KHÔNG gọi hàm này bên trong computeNightResolution/simulateNightResolution (gây đệ quy vô hạn) —
+// trong đó dùng thẳng roleOfCard() cục bộ của vòng lặp, vốn đã phản ánh đúng state tới thời điểm đó.
+function withCurrentRoles(cards: CardRow[], actions: ActionRow[], players: PlayerRow[]): CardRow[] {
+  const { currentRoleByCardId } = simulateNightResolution(cards, actions, players);
+
+  return cards.map((card) => ({
+    ...card,
+    original_role: currentRoleByCardId.get(card.id) ?? card.original_role,
+  }));
+}
+
 function getCenterIsWerewolf(cards: CardRow[], centerIndex: number | null) {
   if (!validateCenterIndex(centerIndex)) {
     return null;
@@ -1237,24 +1254,36 @@ function needsCopycatCopiedRoleTurn(copiedRole: WolfRole | null) {
   );
 }
 
-function isNightTurnActionSubmitted(activeNightTurn: NightTurnState | null, action: ActionRow | null, cards: CardRow[]) {
+function isNightTurnActionSubmitted(
+  activeNightTurn: NightTurnState | null,
+  action: ActionRow | null,
+  cards: CardRow[],
+  actions: ActionRow[],
+  players: PlayerRow[]
+) {
   if (!activeNightTurn) {
     return false;
   }
 
+  // Xem comment ở getActiveNightTurn — nhánh Tiên Tri của các hàm complete này cần biết đúng "lá
+  // giữa hiện đang là gì" (đã tính hết swap trước lượt này), không phải original_role tĩnh.
+  const liveCards = withCurrentRoles(cards, actions, players);
+
   return activeNightTurn.isCopycatCopiedRole
-    ? isCopycatCopiedRoleComplete(activeNightTurn.activeRole, action, cards)
+    ? isCopycatCopiedRoleComplete(activeNightTurn.activeRole, action, liveCards)
     : activeNightTurn.activeRole === "doppelganger" && activeNightTurn.copiedRole
-      ? isDoppelgangerCopiedRoleComplete(activeNightTurn.copiedRole, action, cards)
-    : isOriginalNightActionComplete(activeNightTurn.activeRole, action, cards);
+      ? isDoppelgangerCopiedRoleComplete(activeNightTurn.copiedRole, action, liveCards)
+    : isOriginalNightActionComplete(activeNightTurn.activeRole, action, liveCards);
 }
 
 function doesNightTurnRequireResultConfirmation(
   activeNightTurn: NightTurnState,
   action: ActionRow | null,
-  cards: CardRow[]
+  cards: CardRow[],
+  actions: ActionRow[],
+  players: PlayerRow[]
 ) {
-  if (!isNightTurnActionSubmitted(activeNightTurn, action, cards)) {
+  if (!isNightTurnActionSubmitted(activeNightTurn, action, cards, actions, players)) {
     return false;
   }
 
@@ -1289,6 +1318,16 @@ function getActiveNightTurn(
   const playerCardById = new Map(
     cards.filter((card) => card.player_id).map((card) => [card.player_id as string, card])
   );
+  // Dùng cho các hàm "đã submit đủ chưa" (isOriginalNightActionComplete/isCopycatCopiedRoleComplete/
+  // isDoppelgangerCopiedRoleComplete) — riêng nhánh Tiên Tri của các hàm đó tự hỏi "lá giữa đầu tiên
+  // đã chọn có phải Sói không" để biết có cần lá thứ 2 hay không; nếu lá đó đã bị role khác đổi
+  // (swap) TRƯỚC lượt Tiên Tri trong cùng đêm, dùng cards gốc sẽ hỏi sai câu đó → tưởng lượt CHƯA
+  // xong dù người chơi đã chọn đúng số lá theo luật (kẹt lượt, không tự chuyển sang người kế tiếp).
+  // KHÔNG dùng liveCards cho getDoppelgangerCopiedRole/getCopiedRoleFromAction/
+  // getCopycatDoppelgangerCopiedRole bên dưới — xác định "đang copy chức năng gì" luôn đi TRƯỚC mọi
+  // role có khả năng swap trong resolution order (copycat/nhân bản luôn ở vị trí #1-#2), nên original_role
+  // ở đó luôn đúng, không cần patch.
+  const liveCards = withCurrentRoles(cards, actions, players);
 
   for (const role of ROLE_RESOLUTION_ORDER) {
     for (const player of players) {
@@ -1304,7 +1343,7 @@ function getActiveNightTurn(
       if (card.original_role === "doppelganger") {
         const copiedRole = getDoppelgangerCopiedRole(cards, action);
         const isDoppelgangerComplete = copiedRole
-          ? isDoppelgangerCopiedRoleComplete(copiedRole, action, cards)
+          ? isDoppelgangerCopiedRoleComplete(copiedRole, action, liveCards)
           : false;
 
         if (!isDoppelgangerComplete || !isNightResultConfirmed) {
@@ -1322,7 +1361,7 @@ function getActiveNightTurn(
       if (
         card.original_role === role &&
         card.original_role !== "doppelganger" &&
-        (!isOriginalNightActionComplete(role, action, cards) || !isNightResultConfirmed)
+        (!isOriginalNightActionComplete(role, action, liveCards) || !isNightResultConfirmed)
       ) {
         return {
           playerId: player.id,
@@ -1345,7 +1384,7 @@ function getActiveNightTurn(
       if (
         copiedRole === role &&
         needsCopycatCopiedRoleTurn(copiedRole) &&
-        (!isCopycatCopiedRoleComplete(copiedRole, action, cards) || !isNightResultConfirmed)
+        (!isCopycatCopiedRoleComplete(copiedRole, action, liveCards) || !isNightResultConfirmed)
       ) {
         return {
           playerId: player.id,
@@ -1434,14 +1473,19 @@ function buildNightReviewMessages(
     return ["Bạn chưa gửi hành động ban đêm."];
   }
 
+  // Lá giữa có thể đã bị role khác đổi (swap) TRƯỚC lượt này trong cùng đêm (Copy Cat/Nhân Bản copy
+  // trúng Kẻ Trộm/Phù Thuỷ/Say Rượu...) — dùng liveCards (role hiện tại) thay vì cards gốc cho MỌI
+  // chỗ soi lá giữa/kiểm tra Sói bên dưới, để câu chữ review khớp đúng cái người chơi ĐÃ THẤY lúc đó.
+  const liveCards = withCurrentRoles(cards, actions, players);
+
   if (action.action_type === "seer") {
     const centerIndexes = getSeerCenterIndexesForAction(
-      cards,
+      liveCards,
       action.target_center_index,
       action.target_center_index_2
     );
     const revealedCards = centerIndexes.map((centerIndex) => {
-      return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+      return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(liveCards, centerIndex))}`;
     });
 
     return revealedCards.length > 0 ? [`Bạn đã soi ${revealedCards.join(", ")}.`] : ["Bạn chưa chọn lá để soi."];
@@ -1567,13 +1611,13 @@ function buildNightReviewMessages(
 
     if (copiedCard?.original_role === "seer") {
       const centerIndexes = getSeerCenterIndexesForAction(
-        cards,
+        liveCards,
         action.target_center_index_2,
         action.target_center_index_3,
         action.target_center_index
       );
       const revealedCards = centerIndexes.map((centerIndex) => {
-        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(liveCards, centerIndex))}`;
       });
 
       return [
@@ -1681,13 +1725,13 @@ function buildNightReviewMessages(
 
       if (nestedCopiedRole === "seer") {
         const centerIndexes = getSeerCenterIndexesForAction(
-          cards,
+          liveCards,
           action.target_center_index_2,
           action.target_center_index_3,
           action.target_center_index
         );
         const revealedCards = centerIndexes.map((centerIndex) => {
-          return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+          return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(liveCards, centerIndex))}`;
         });
 
         return [`${prefix} và soi ${revealedCards.join(", ")}.`];
@@ -1776,12 +1820,12 @@ function buildNightReviewMessages(
 
     if (copiedRole === "seer") {
       const centerIndexes = getSeerCenterIndexesForAction(
-        cards,
+        liveCards,
         action.target_center_index,
         action.target_center_index_2
       );
       const revealedCards = centerIndexes.map((centerIndex) => {
-        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))}`;
+        return `Lá giữa ${centerIndex + 1}: ${getWolfCheckLabel(getCenterIsWerewolf(liveCards, centerIndex))}`;
       });
 
       return [
@@ -2349,7 +2393,8 @@ async function maybeAutoAdvancePhase(
       ? actions.find((action) => action.player_id === rawActiveTurn.playerId) ?? null
       : null;
     const activeTurnAwaitingOwnConfirmation = Boolean(
-      rawActiveTurn && doesNightTurnRequireResultConfirmation(rawActiveTurn, activeTurnAction, cards)
+      rawActiveTurn &&
+        doesNightTurnRequireResultConfirmation(rawActiveTurn, activeTurnAction, cards, actions, players)
     );
 
     if (activeTurnAwaitingOwnConfirmation) {
@@ -2780,8 +2825,12 @@ function computeNightResolution(
         }
 
         if (copiedRole === "seer") {
+          // Không gọi withCurrentRoles (đệ quy) — patch cục bộ theo roleOfCard() tới đúng điểm này
+          // trong vòng lặp, chỉ để quyết định đúng "dừng sớm nếu lá đầu là Sói" cho đúng những gì
+          // Nhân Bản/Copy Cat đã thấy lúc soi thật (display bên dưới đã dùng roleOfCard sẵn).
+          const cardsUpToThisPoint = cards.map((c) => ({ ...c, original_role: roleOfCard(c) }));
           const centerIndexes = getSeerCenterIndexesForAction(
-            cards,
+            cardsUpToThisPoint,
             action.target_center_index,
             action.target_center_index_2
           );
@@ -2893,11 +2942,19 @@ function computeNightResolution(
 
       if (role === "seer") {
         const actorName = getPlayerName(players, card.player_id);
-        const centerIndexes = getSeerCenterIndexesForAction(cards, primaryCenterIndex, secondaryCenterIndex);
+        // Dựng lại log SAU khi mọi hành động đã submit — lá giữa Tiên Tri soi có thể đã bị Copy Cat/
+        // Nhân Bản đổi (swap) TRƯỚC lượt Tiên Tri (2 role đó đứng trước "seer" trong resolution
+        // order). KHÔNG gọi withCurrentRoles/simulateNightResolution ở đây (sẽ đệ quy vô hạn — đang
+        // Ở BÊN TRONG chính hàm đó) — dùng thẳng roleOfCard() cục bộ, đã phản ánh đúng state tới
+        // đúng điểm này trong vòng lặp.
+        const cardsUpToThisPoint = cards.map((c) => ({ ...c, original_role: roleOfCard(c) }));
+        const centerIndexes = getSeerCenterIndexesForAction(cardsUpToThisPoint, primaryCenterIndex, secondaryCenterIndex);
         const revealedCenters = centerIndexes.map((centerIndex) => {
           const centerCard = getCenterCard(cards, centerIndex);
 
-          return `${getCardHolderLabel(centerCard, players)} (${getWolfCheckLabel(getCenterIsWerewolf(cards, centerIndex))})`;
+          return `${getCardHolderLabel(centerCard, players)} (${getWolfCheckLabel(
+            centerCard ? isWerewolfRole(roleOfCard(centerCard)) : null
+          )})`;
         });
 
         if (revealedCenters.length > 0) {
@@ -3092,8 +3149,11 @@ function computeNightResolution(
           }
 
           if (nestedCopiedRole === "seer") {
+            // Không gọi withCurrentRoles (đệ quy) — patch cục bộ theo roleOfCard() như 2 chỗ tương
+            // tự phía trên trong cùng hàm này.
+            const cardsUpToThisPoint = cards.map((c) => ({ ...c, original_role: roleOfCard(c) }));
             const centerIndexes = getSeerCenterIndexesForAction(
-              cards,
+              cardsUpToThisPoint,
               action.target_center_index_2,
               action.target_center_index_3
             );
@@ -4400,10 +4460,16 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
     activeNightTurn.activeRole === "insomniac";
   const revealedCenterIndexes = new Set<number>();
   const seerWolfCheckCenterIndexes = new Set<number>();
+  // Lá giữa có thể đã bị role khác đổi (swap) TRƯỚC lượt này trong cùng đêm — dùng withCurrentRoles
+  // (không phải cards gốc) khi cần biết "lá này đang thực sự là gì / có phải Sói không NGAY BÂY GIỜ",
+  // để nhất quán với validate lúc submit và với revealWolfCenterCard (đã sửa cùng bug này). KHÔNG
+  // dùng liveCards cho getDoppelgangerCopiedRole/getCopycatDoppelgangerCopiedRole bên dưới — 2 hàm đó
+  // xác định "đã copy chức năng gì", nằm ngoài phạm vi sửa lần này (xem ghi chú cuối gửi user).
+  const liveCards = withCurrentRoles(cards, actions, players);
 
   if (myAction?.action_type === "seer") {
     for (const centerIndex of getSeerCenterIndexesForAction(
-      cards,
+      liveCards,
       myAction.target_center_index,
       myAction.target_center_index_2
     )) {
@@ -4421,7 +4487,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
     if (copiedCard?.original_role === "seer") {
       for (const centerIndex of getSeerCenterIndexesForAction(
-        cards,
+        liveCards,
         myAction.target_center_index_2,
         myAction.target_center_index_3,
         myAction.target_center_index
@@ -4434,7 +4500,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
       getCopycatDoppelgangerCopiedRole(cards, myAction) === "seer"
     ) {
       for (const centerIndex of getSeerCenterIndexesForAction(
-        cards,
+        liveCards,
         myAction.target_center_index_2,
         myAction.target_center_index_3,
         myAction.target_center_index
@@ -4457,7 +4523,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
 
     if (copiedRole === "seer") {
       for (const centerIndex of getSeerCenterIndexesForAction(
-        cards,
+        liveCards,
         myAction.target_center_index,
         myAction.target_center_index_2
       )) {
@@ -4531,8 +4597,10 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
         }
       : null,
     werewolfTeammates,
+    // liveCards (khai báo phía trên) đã tính hết mọi swap tính tới thời điểm này — dùng cho cả 2
+    // trường role/isWerewolf bên dưới thay vì original_role tĩnh lúc chia bài.
     centerCards: [0, 1, 2].map((index) => {
-      const centerCard = getCenterCard(cards, index);
+      const centerCard = getCenterCard(liveCards, index);
       const isSeerWolfCheck = seerWolfCheckCenterIndexes.has(index);
       return {
         index,
@@ -4542,7 +4610,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
             : null,
         isWerewolf:
           !shouldRevealAll && isSeerWolfCheck
-            ? getCenterIsWerewolf(cards, index)
+            ? getCenterIsWerewolf(liveCards, index)
             : null,
       };
     }),
@@ -4565,7 +4633,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
         : null,
     isCurrentNightTurnActionSubmitted:
       currentPlayer && activeNightTurn?.playerId === currentPlayer.id
-        ? isNightTurnActionSubmitted(activeNightTurn, myAction, cards)
+        ? isNightTurnActionSubmitted(activeNightTurn, myAction, cards, actions, players)
         : false,
     isNightTurnInProgress: Boolean(activeNightTurn) || isNightTurnRevealPending(nightTurnRevealAt),
     isCurrentPlayerPhaseReady: currentPlayer ? phaseReadyPlayerIdSet.has(currentPlayer.id) : false,
@@ -4689,6 +4757,13 @@ export async function revealWolfCenterCard(
     return { ok: false, error: "Không tìm thấy lá giữa đã chọn." };
   }
 
+  // Lá giữa này có thể đã bị 1 role khác đổi (swap) TRƯỚC lượt hiện tại trong CÙNG đêm — ví dụ
+  // Copy Cat → Nhân Bản → Phù Thuỷ đổi lá giữa lấy bài 1 người chơi ngay từ đầu đêm, rồi tới lượt
+  // Phù Thuỷ thật (resolution order sau) mở đúng lá giữa đó. original_role tĩnh lúc chia bài KHÔNG
+  // phản ánh việc này — phải xem lá giữa đang thực sự là gì NGAY BÂY GIỜ (withCurrentRoles, tính từ
+  // mọi action đã submit tính tới thời điểm gọi) mới đúng cái người chơi PHẢI thấy.
+  const liveCenterCard = getCenterCard(withCurrentRoles(cards, actions, players), centerIndex) ?? centerCard;
+
   const actionAsCopycat = {
     id: "",
     game_id: room.current_game_id,
@@ -4718,8 +4793,8 @@ export async function revealWolfCenterCard(
   return {
     ok: true,
     centerIndex,
-    role: revealAsSeer ? null : centerCard.original_role,
-    isWerewolf: revealAsSeer ? isWerewolfRole(centerCard.original_role) : null,
+    role: revealAsSeer ? null : liveCenterCard.original_role,
+    isWerewolf: revealAsSeer ? isWerewolfRole(liveCenterCard.original_role) : null,
     werewolfTeammates,
   };
 }
@@ -4794,11 +4869,22 @@ export async function revealWolfPlayerCard(
     return { ok: false, error: "Không tìm thấy bài của người chơi đã chọn." };
   }
 
+  // Sói Tiên Tri soi là xem THÔNG TIN THUẦN TUÝ (không quyết định copy chức năng gì) — phải phản
+  // ánh đúng lá NGAY BÂY GIỜ nếu đã bị role khác đổi trước đó trong cùng đêm (cùng bug class đã sửa
+  // ở revealWolfCenterCard, xem withCurrentRoles). Nhân Bản soi để QUYẾT ĐỊNH COPY CHỨC NĂNG GÌ thì
+  // CHƯA sửa ở đây — giữ nguyên original_role, khớp với getDoppelgangerCopiedRole() (cũng chưa sửa,
+  // cần xác nhận luật ONUW trước khi đổi cơ chế "copy theo bài gốc hay bài hiện tại" — xem ghi chú
+  // gửi user) — tránh lệch giữa cái Nhân Bản THẤY lúc soi và chức năng họ THỰC SỰ copy được.
+  const liveTargetRole = canRevealWerewolfSeerTarget
+    ? getPlayerCard(withCurrentRoles(cards, actions, players), targetPlayerId)?.original_role ??
+      targetCard.original_role
+    : targetCard.original_role;
+
   return {
     ok: true,
     playerId: targetPlayerId,
     playerName: getPlayerName(players, targetPlayerId),
-    role: targetCard.original_role,
+    role: liveTargetRole,
   };
 }
 
@@ -4855,6 +4941,9 @@ export async function submitWolfNightAction(
     .eq("game_id", room.current_game_id);
   const gameCards = (gameCardsData ?? []) as CardRow[];
   const gameActions = (gameActionsData ?? []) as ActionRow[];
+  // Dùng cho validate "Tiên Tri đã chọn đủ lá giữa theo luật chưa" bên dưới — lá giữa có thể đã bị
+  // role khác đổi (swap) TRƯỚC lượt này trong cùng đêm, xem comment ở getActiveNightTurn.
+  const liveGameCards = withCurrentRoles(gameCards, gameActions, players);
   const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, "night");
   const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
   const activeNightTurn = getActiveNightTurn(players, gameCards, gameActions, confirmedNightPlayerIds);
@@ -4951,7 +5040,7 @@ export async function submitWolfNightAction(
 
     if (
       copiedRole === "seer" &&
-      !isSeerCenterSubmissionComplete(gameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)
+      !isSeerCenterSubmissionComplete(liveGameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)
     ) {
       return { ok: false, error: "Nhân Bản copy Tiên Tri phải chọn lá giữa theo thứ tự, và dừng ngay nếu lần đầu thấy Sói." };
     }
@@ -5034,7 +5123,7 @@ export async function submitWolfNightAction(
       return { ok: false, error: "Tiên Tri chỉ được chọn lá giữa bàn." };
     }
 
-    if (!isSeerCenterSubmissionComplete(gameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)) {
+    if (!isSeerCenterSubmissionComplete(liveGameCards, input.targetCenterIndex ?? null, input.targetCenterIndex2 ?? null)) {
       return { ok: false, error: "Tiên Tri phải chọn lá giữa theo thứ tự, và dừng ngay nếu lần đầu thấy Sói." };
     }
   }
@@ -5103,7 +5192,7 @@ export async function submitWolfNightAction(
       if (
         nestedCopiedRole === "seer" &&
         !isSeerCenterSubmissionComplete(
-          gameCards,
+          liveGameCards,
           input.targetCenterIndex2 ?? null,
           input.targetCenterIndex3 ?? null,
           savedTargetCenterIndex ?? null
@@ -5227,7 +5316,7 @@ export async function submitWolfNightAction(
 
       if (
         !isSeerCenterSubmissionComplete(
-          gameCards,
+          liveGameCards,
           input.targetCenterIndex2 ?? null,
           input.targetCenterIndex3 ?? null,
           savedTargetCenterIndex ?? null
@@ -5303,7 +5392,9 @@ export async function submitWolfNightAction(
     return { ok: false, error: "Không thể lưu hành động ban đêm." };
   }
 
-  if (!doesNightTurnRequireResultConfirmation(submittedActiveNightTurn, submittedAction, gameCards)) {
+  if (
+    !doesNightTurnRequireResultConfirmation(submittedActiveNightTurn, submittedAction, gameCards, gameActions, players)
+  ) {
     const { error: confirmationError } = await supabase
       .from("game_phase_confirmations")
       .upsert(
@@ -5379,7 +5470,7 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
     return { ok: false, error: "Chưa tới lượt xác nhận của bạn." };
   }
 
-  if (!isNightTurnActionSubmitted(activeNightTurn, myAction, cards)) {
+  if (!isNightTurnActionSubmitted(activeNightTurn, myAction, cards, actions, players)) {
     return { ok: false, error: "Bạn cần hoàn tất hành động trước khi xác nhận kết quả." };
   }
 
