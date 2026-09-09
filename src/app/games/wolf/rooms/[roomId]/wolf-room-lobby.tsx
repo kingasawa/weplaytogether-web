@@ -814,12 +814,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                   />
                   <span
                     aria-hidden="true"
-                    className={[
-                      styles.playerRowFrameOverlay,
-                      !player.hasEquippedProfileFrame ? styles.playerRowFrameOverlayGray : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
+                    className={styles.playerRowFrameOverlay}
                     style={{ backgroundImage: `url(${player.profileFrameUrl})` }}
                   />
                 </>
@@ -942,7 +937,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               />
               <span
                 aria-hidden="true"
-                className={`${styles.playerRowFrameOverlay} ${styles.playerRowFrameOverlayGray}`}
+                className={styles.playerRowFrameOverlay}
                 style={{ backgroundImage: "url(/images/frames/info/default.webp)" }}
               />
               <div className={styles.playerIdentity}>

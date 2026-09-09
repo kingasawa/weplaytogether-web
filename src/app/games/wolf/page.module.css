@@ -2148,14 +2148,6 @@
   pointer-events: none;
 }
 
-/* Ô placeholder "Chờ người chơi" dùng lại đúng ảnh khung "Khung Hoàng Kim Rực Rỡ" đang bán
-   trong shop (public/images/frames/info/default.webp, xem scripts/optimize-default-frame.mjs)
-   nhưng hiển thị đen trắng qua filter, KHÔNG chỉnh xám sẵn trên file ảnh — để card thật (có
-   người chơi trang bị khung này) vẫn hiển thị đúng màu vàng-đỏ gốc. */
-.playerRowFrameOverlayGray {
-  filter: grayscale(100%);
-}
-
 /* Lớp nền kính (glassmorphism) nằm GỌN TRONG cửa sổ trong suốt của khung — không lan ra đè lên
    viền hoạ tiết — inset là ranh giới "an toàn" (né hoạ tiết khung) riêng cho lớp kính, độc lập
    với padding của .playerRowFramed (28px) và padding riêng của .playerRowFramed .playerIdentity
@@ -2170,7 +2162,7 @@
   /* inset 3 giá trị (trên 20px / trái-phải 14px / dưới 24px) — mép dưới chừa rộng hơn mép trên vì
      viền hoạ tiết khung ở đáy card thường dày hơn đỉnh trên nhiều ảnh khung, giữ đều 16px/12px cũ
      khiến lớp kính lấn ra ngoài, lộ ra khỏi viền hoạ tiết ở đáy. */
-  inset: 14px 12px 22px;
+  inset: 12px 12px 14px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 25%, mép trên đục 45% —
