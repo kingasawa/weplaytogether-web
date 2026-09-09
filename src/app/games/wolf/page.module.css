@@ -2017,7 +2017,7 @@
   /* inset 3 giá trị (trên 20px / trái-phải 14px / dưới 24px) — mép dưới chừa rộng hơn mép trên vì
      viền hoạ tiết khung ở đáy card thường dày hơn đỉnh trên nhiều ảnh khung, giữ đều 16px/12px cũ
      khiến lớp kính lấn ra ngoài, lộ ra khỏi viền hoạ tiết ở đáy. */
-  inset: 20px 14px 24px;
+  inset: 14px 12px 22px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 25%, mép trên đục 45% —
