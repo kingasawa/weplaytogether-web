@@ -7,7 +7,6 @@ import {
   LogIn,
   Play,
   Plus,
-  ShieldQuestion,
   UserRound,
   X,
 } from "lucide-react";
@@ -356,28 +355,24 @@ export default function WolfGameScreen() {
   return (
     <main className={`${styles.page} ${styles.classicWolfTheme}`}>
       <section className={styles.hero}>
-        <div className={styles.heroImage}>
+        <div className={styles.heroIconWrap}>
           <Image
-            alt="Banner game Ma Sói Một Đêm"
-            fill
+            alt="Icon game Ma Sói Một Đêm"
+            width={228}
+            height={228}
             priority
-            sizes="100vw"
-            src="/images/ui/wolf_game_bg.webp"
+            src="/images/boards/wolf.png"
           />
         </div>
 
         <div className={styles.heroContent}>
-          <p className={styles.eyebrow}>
-            <ShieldQuestion aria-hidden="true" />
-            Suy luận xã hội
-          </p>
           <p className={styles.heroTitle}>Ma Sói Một Đêm</p>
           <p className={styles.description}>
             Một đêm, nhiều vai trò, rất ít thời gian để thuyết phục mọi người tin
             bạn.
           </p>
 
-          <div className={styles.actions} aria-label="Hành động chính">
+          <div className={styles.heroActions} aria-label="Hành động chính">
             <button
               className={`${styles.secondaryButton} ${styles.createRoomButton}`}
               type="button"
@@ -406,20 +401,17 @@ export default function WolfGameScreen() {
                 TÊN & AVATAR
               </button>
             )}
+            <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
+              THOÁT
+            </Link>
+            <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
+              <BookOpen aria-hidden="true" />
+              HƯỚNG DẪN
+            </button>
           </div>
           {actionError && <p className={styles.inlineError}>{actionError}</p>}
         </div>
       </section>
-
-      <div className={styles.exitBar}>
-        <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
-          THOÁT
-        </Link>
-        <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
-          <BookOpen aria-hidden="true" />
-          HƯỚNG DẪN
-        </button>
-      </div>
 
       {isCreateOpen && (
         <div className={styles.modalBackdrop} role="presentation">
@@ -485,7 +477,7 @@ export default function WolfGameScreen() {
 
       {isJoinOpen && (
         <JoinRoomModal
-          backgroundSrc="/images/boards/wolf.webp"
+          backgroundSrc="/images/boards/wolf.png"
           backgroundAlt="Ảnh nền phòng Ma Sói"
           roomCode={normalizedRoomCode}
           roomCodeError={roomCodeError}

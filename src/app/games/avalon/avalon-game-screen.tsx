@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Crown,
   Globe2,
   LockKeyhole,
   LogIn,
@@ -329,27 +328,23 @@ export default function AvalonGameScreen() {
   return (
     <main className={`${styles.page} ${styles.classicWolfTheme} ${styles.avalonTheme}`}>
       <section className={styles.hero}>
-        <div className={styles.heroImage}>
+        <div className={styles.heroIconWrap}>
           <Image
-            alt="Banner game Avalon"
-            fill
-            preload
-            sizes="100vw"
-            src="/images/boards/avalon.webp"
+            alt="Icon game Avalon"
+            width={228}
+            height={228}
+            priority
+            src="/images/boards/avalon.png"
           />
         </div>
 
         <div className={styles.heroContent}>
-          <p className={styles.eyebrow}>
-            <Crown aria-hidden="true" />
-            Suy luận xã hội
-          </p>
           <p className={styles.heroTitle}>Avalon</p>
           <p className={styles.description}>
             Chọn đội, vote công khai, đi quest bí mật và bảo vệ Merlin khỏi Assassin.
           </p>
 
-          <div className={styles.actions} aria-label="Hành động chính">
+          <div className={styles.heroActions} aria-label="Hành động chính">
             <button
               className={`${styles.secondaryButton} ${styles.createRoomButton}`}
               type="button"
@@ -378,20 +373,17 @@ export default function AvalonGameScreen() {
                 TÊN & AVATAR
               </button>
             )}
+            <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
+              THOÁT
+            </Link>
+            <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
+              <BookOpen aria-hidden="true" />
+              HƯỚNG DẪN
+            </button>
           </div>
           {actionError && <p className={styles.inlineError}>{actionError}</p>}
         </div>
       </section>
-
-      <div className={styles.exitBar}>
-        <Link className={`${styles.exitButton} ${styles.homeExitButton}`} href="/">
-          THOÁT
-        </Link>
-        <button className={styles.ghostButton} type="button" onClick={() => setIsGuideOpen(true)}>
-          <BookOpen aria-hidden="true" />
-          HƯỚNG DẪN
-        </button>
-      </div>
 
       {isCreateOpen && (
         <div className={styles.modalBackdrop} role="presentation">
@@ -453,7 +445,7 @@ export default function AvalonGameScreen() {
 
       {isJoinOpen && (
         <JoinRoomModal
-          backgroundSrc="/images/boards/avalon.webp"
+          backgroundSrc="/images/boards/avalon.png"
           backgroundAlt="Ảnh nền phòng Avalon"
           roomCode={normalizedRoomCode}
           roomCodeError={roomCodeError}

@@ -1,11 +1,22 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { CircleUserRound, IdCard, LogIn, LogOut, PencilLine, UserPlus } from "lucide-react";
+import {
+  CircleUserRound,
+  HelpCircle,
+  IdCard,
+  Languages,
+  LogIn,
+  LogOut,
+  PencilLine,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import { useLanguage } from "@/i18n/language-provider";
+import { LOCALES, type Locale } from "@/i18n/locales";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
   readStoredGuestPlayerName,
@@ -13,7 +24,6 @@ import {
 } from "@/lib/guest-player";
 import { getPlayerAvatarSrc, getUploadedPlayerAvatarUrl } from "@/lib/player-avatars";
 import {
-  getAuthDisplayName,
   getCurrentAuthNextPath,
   getGmailAvatarUrl,
   isAllowedGmailSession,
@@ -24,8 +34,18 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile, type StoredAccountProfile } from "@/lib/user-profile";
 import styles from "./page.module.css";
 
+type MenuItem = {
+  labelKey: "nav.settings" | "nav.guide";
+  icon: typeof Settings;
+};
+
+const MENU_ITEMS: MenuItem[] = [
+  { labelKey: "nav.settings", icon: Settings },
+  { labelKey: "nav.guide", icon: HelpCircle },
+];
+
 export default function MobileAccountNavItem() {
-  const { t } = useLanguage();
+  const { locale, setLocale, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -183,6 +203,11 @@ export default function MobileAccountNavItem() {
     setIsAuthPending(false);
   };
 
+  function chooseLocale(nextLocale: Locale) {
+    setLocale(nextLocale);
+    setIsOpen(false);
+  }
+
   const accountAvatarObjectUrl = getUploadedPlayerAvatarUrl(accountProfile?.avatarObjectKey);
   const accountAvatarSrc = session
     ? getPlayerAvatarSrc(accountProfile?.avatarKey, accountAvatarObjectUrl ?? getGmailAvatarUrl(session))
@@ -223,25 +248,10 @@ export default function MobileAccountNavItem() {
           {!isAuthReady && <span className={styles.mobileAccountStatus}>{t("auth.checking")}</span>}
 
           {isAuthReady && session && (
-            <>
-              <span className={styles.mobileAccountUser}>
-                <CircleUserRound aria-hidden="true" />
-                {getAuthDisplayName(session)}
-              </span>
-              <Link className={styles.mobileAccountLink} href="/profile" onClick={() => setIsOpen(false)}>
-                <IdCard aria-hidden="true" />
-                {t("auth.profile")}
-              </Link>
-              <button
-                className={`${styles.mobileAccountLink} ${styles.mobileAccountLinkDanger}`}
-                type="button"
-                disabled={isAuthPending}
-                onClick={signOut}
-              >
-                <LogOut aria-hidden="true" />
-                {t("auth.signOut")}
-              </button>
-            </>
+            <Link className={styles.mobileAccountLink} href="/profile" onClick={() => setIsOpen(false)}>
+              <IdCard aria-hidden="true" />
+              {t("auth.profile")}
+            </Link>
           )}
 
           {isAuthReady && !session && (
@@ -302,6 +312,59 @@ export default function MobileAccountNavItem() {
                 {t("auth.saveName")}
               </button>
             </form>
+          )}
+
+          {MENU_ITEMS.map(({ labelKey, icon: Icon }) => (
+            <button
+              className={styles.mobileAccountLink}
+              type="button"
+              key={labelKey}
+              onClick={() => setIsOpen(false)}
+            >
+              <Icon aria-hidden="true" />
+              {t(labelKey)}
+            </button>
+          ))}
+
+          <div className={styles.languageMenuGroup}>
+            <span className={styles.languageMenuLabel}>
+              <Languages aria-hidden="true" />
+              {t("nav.language")}
+            </span>
+            <button
+              className={styles.languageToggle}
+              type="button"
+              role="switch"
+              aria-checked={locale === "en"}
+              aria-label={t("nav.language")}
+              onClick={() => chooseLocale(locale === "en" ? "vi" : "en")}
+            >
+              <span aria-hidden="true" className={styles.languageToggleKnob} />
+              {LOCALES.map((nextLocale) => (
+                <span
+                  className={
+                    nextLocale === locale
+                      ? `${styles.languageToggleOption} ${styles.languageToggleOptionActive}`
+                      : styles.languageToggleOption
+                  }
+                  key={nextLocale}
+                >
+                  {nextLocale.toUpperCase()}
+                </span>
+              ))}
+            </button>
+          </div>
+
+          {isAuthReady && session && (
+            <button
+              className={`${styles.mobileAccountLink} ${styles.mobileAccountLinkDanger}`}
+              type="button"
+              disabled={isAuthPending}
+              onClick={signOut}
+            >
+              <LogOut aria-hidden="true" />
+              {t("auth.signOut")}
+            </button>
           )}
         </div>
       )}

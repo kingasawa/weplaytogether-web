@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { TranslationKey } from "@/i18n/dictionaries";
 import { useLanguage } from "@/i18n/language-provider";
 import CardShine from "./card-shine";
-import HeaderMenu from "./header-menu";
 import IntroSection from "./intro-section";
 import MobileAccountNavItem from "./mobile-account-nav-item";
 import styles from "./page.module.css";
@@ -17,6 +16,10 @@ type FeaturedGame = {
   categoryKey: TranslationKey;
   image: string;
   href: string;
+  // Class tông màu riêng cho card, khớp với tông chủ đạo trong ảnh icon của game
+  // (public/images/boards/*.png) — xem .gameCardWolf/.gameCardWolfClassic/... trong
+  // page.module.css.
+  toneClass: "gameCardWolf" | "gameCardWolfClassic" | "gameCardAvalon" | "gameCardSpy";
   featured?: boolean;
   dotDanger?: boolean;
 };
@@ -26,31 +29,35 @@ const featuredGames: FeaturedGame[] = [
     nameKey: "home.game.wolf.name",
     playersKey: "home.game.players.wolf",
     categoryKey: "home.game.category.deduction",
-    image: "/images/boards/wolf.webp",
+    image: "/images/boards/wolf.png",
     href: "/games/wolf",
+    toneClass: "gameCardWolf",
     featured: true,
   },
   {
     nameKey: "home.game.wolfClassic.name",
     playersKey: "home.game.players.wolfClassic",
     categoryKey: "home.game.category.deduction",
-    image: "/images/boards/wolf-classic.webp",
+    image: "/images/boards/wolf-classic.png",
     href: "/games/wolf-classic",
+    toneClass: "gameCardWolfClassic",
     featured: true,
   },
   {
     nameKey: "home.game.avalon.name",
     playersKey: "home.game.players.avalon",
     categoryKey: "home.game.category.roleplay",
-    image: "/images/boards/avalon.webp",
+    image: "/images/boards/avalon.png",
     href: "/games/avalon",
+    toneClass: "gameCardAvalon",
   },
   {
     nameKey: "home.game.spy.name",
     playersKey: "home.game.players.spy",
     categoryKey: "home.game.category.deduction",
-    image: "/images/boards/spy.webp",
+    image: "/images/boards/spy.png",
     href: "#game-detail",
+    toneClass: "gameCardSpy",
     dotDanger: true,
   },
 ];
@@ -82,7 +89,11 @@ function GameCard({ game }: { game: FeaturedGame }) {
   const gameName = t(game.nameKey);
 
   return (
-    <Link className={styles.gameCard} href={game.href} data-game-card>
+    <Link
+      className={`${styles.gameCard} ${styles[game.toneClass]}`}
+      href={game.href}
+      data-game-card
+    >
       <span className={styles.gameCardShine} aria-hidden="true">
         <span className={styles.shineTop} />
         <span className={styles.shineRight} />
@@ -127,7 +138,12 @@ export default function Home() {
         <header className={styles.header}>
           <Logo />
           <div className={styles.headerActions}>
-            <HeaderMenu />
+            <Link className={styles.headerIconLink} href="/shop" aria-label={t("nav.shop")}>
+              <Image alt="" aria-hidden="true" width={38} height={38} src="/images/ui/shop.png" />
+            </Link>
+            <Link className={styles.headerIconLink} href="/board" aria-label={t("nav.leaderboard")}>
+              <Image alt="" aria-hidden="true" width={38} height={38} src="/images/ui/bxh.png" />
+            </Link>
             <MobileAccountNavItem />
           </div>
         </header>

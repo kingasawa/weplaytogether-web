@@ -21,62 +21,43 @@
 
 .hero {
   position: relative;
-  display: grid;
-  flex: 1;
-  /* Tràn ra sát mép khung (bù lại padding của .page) — không còn box bao ngoài */
-  width: calc(100% + (var(--spacing-md) * 2));
-  margin: calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) 0;
-  /* Trừ: padding trên/dưới (*2) + gap tới exitBar + chiều cao exitBar (2.75rem).
-     Bản dvh trừ thêm safe-area-inset-bottom mà .page vừa cộng vào padding đáy. */
-  min-height: calc(100svh - (var(--spacing-md) * 3) - 2.75rem);
-  min-height: calc(100dvh - (var(--spacing-md) * 3) - 2.75rem - env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: clamp(1.5rem, 6vw, 2.5rem) clamp(1rem, 4vw, 1.5rem);
+  text-align: center;
+}
+
+.heroIconWrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(10.5rem, 48vw, 14.25rem);
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  isolation: isolate;
+  border-radius: 1.5rem;
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--bg-primary) 60%, transparent);
 }
 
-.heroImage {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-}
-
-.heroImage::after {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-primary) 6%, transparent),
-      color-mix(in srgb, var(--bg-primary) 74%, transparent) 82%
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--bg-primary) 72%, transparent),
-      color-mix(in srgb, var(--bg-primary) 44%, transparent)
-    );
-  content: "";
-}
-
-.heroImage img {
-  object-fit: cover;
-  object-position: center top;
+.heroIconWrap img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .heroContent {
   display: flex;
+  width: 100%;
   flex-direction: column;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--spacing-md);
-  max-width: 44rem;
-  /* Padding co theo bề rộng: màn hình thấp/nhỏ (Safari có toolbar) bớt padding
-     để nội dung không bị nén hoặc cắt nút thứ 3 */
-  padding: clamp(1.25rem, 5vw, 2.5rem);
+  max-width: 32rem;
 }
 
 .backLink,
 .eyebrow,
 .actions,
-.exitBar,
 .roomStatusGrid,
 .identityActions,
 .publicRoomsHeader,
@@ -115,11 +96,10 @@
 }
 
 .heroTitle {
-  max-width: 5.6ch;
+  max-width: 14ch;
   font-family: var(--font-heading);
-  font-size: clamp(2.75rem, 13vw, 3.5rem);
+  font-size: clamp(1.3rem, 5.5vw, 1.6rem);
   font-weight: 800;
-  text-shadow: 0 0.16rem 0.45rem color-mix(in srgb, var(--bg-primary) 78%, transparent);
 }
 
 .roomPanel h1 {
@@ -134,7 +114,20 @@
 }
 
 .heroContent .description {
-  text-shadow: 0 0.12rem 0.35rem color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  text-align: center;
+  font-size: clamp(0.8rem, 2.6vw, 0.88rem);
+}
+
+/* Lưới nút hành động ở màn hình vào game (Tạo phòng/Tham gia/Tên & avatar/
+   Thoát/Hướng dẫn) — luôn chia 2 cột, hiện ngay dưới nội dung text thay vì
+   dính cứng cuối màn hình. Tách riêng khỏi .actions (dùng chung nhiều nơi
+   khác) để không ảnh hưởng các màn hình khác. */
+.heroActions {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: clamp(var(--spacing-md), 3vh, var(--spacing-lg));
 }
 
 .actions {
@@ -183,16 +176,11 @@
     0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
 }
 
-/* Riêng nút chính ở đáy phòng chờ (Tham gia phòng / Sẵn sàng / Bắt đầu) — viền ngoài xanh đậm nổi
-   bật quanh nút (outline, không chiếm layout như border — trình duyệt hiện đại tự bo theo
-   border-radius). --primary-dark: xem design-system/tokens.css. */
-.roomPanel > .actions .primaryButton {
-  outline: 4px solid color-mix(in srgb, var(--primary-dark) 60%, black);
-  outline-offset: 0;
-}
-
 .joinRoomButton {
   min-height: 3.2rem;
+  /* Nằm dưới, chiếm trọn 1 hàng của lưới .heroActions (thay vì xếp cạnh
+     createRoomButton) — xem yêu cầu "Tạo phòng trên, Tham gia dưới". */
+  grid-column: 1 / -1;
   background:
     linear-gradient(1deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--primary) 34%, transparent)),
     linear-gradient(color-mix(in srgb, var(--bg-primary) 34%, transparent), color-mix(in srgb, var(--bg-primary) 34%, transparent)),
@@ -213,6 +201,8 @@
 
 .createRoomButton {
   min-height: 3.2rem;
+  /* Nằm trên, chiếm trọn 1 hàng của lưới .heroActions — xem joinRoomButton. */
+  grid-column: 1 / -1;
   background:
     linear-gradient(1deg, color-mix(in srgb, var(--success) 18%, transparent), color-mix(in srgb, var(--success) 34%, transparent)),
     linear-gradient(color-mix(in srgb, var(--bg-primary) 40%, transparent), color-mix(in srgb, var(--bg-primary) 40%, transparent)),
@@ -348,21 +338,6 @@
   line-height: 1.5;
 }
 
-.exitBar {
-  display: grid;
-  width: min(100%, calc(100vw - (var(--spacing-md) * 2)), 478px);
-  max-width: 478px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-inline: auto;
-  align-items: center;
-}
-
-.exitBar > * {
-  flex: 1;
-  min-width: 0;
-}
-
 .exitButton {
   display: inline-flex;
   min-width: 0;
@@ -396,8 +371,8 @@
     0 5px 0 rgba(0, 0, 0, 0.25);
 }
 
-.exitBar .ghostButton,
-.exitBar .exitButton {
+.heroActions .ghostButton,
+.heroActions .exitButton {
   min-width: 0;
   padding-inline: 0.75rem;
   white-space: nowrap;
@@ -1677,10 +1652,6 @@
 /* Đẩy cụm nút xuống đáy khung */
 .roomPanel > .actions {
   margin-top: auto;
-  /* .page đã có padding-bottom riêng (spacing-md + safe-area) nhưng cụm nút vẫn dí sát mép dưới
-     màn hình — thêm khoảng cách rõ ràng hơn, vẫn cộng thêm safe-area-inset-bottom cho thiết bị có
-     home-indicator (PWA/iOS). */
-  margin-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
 }
 
 /* Thu ngắn bề rộng nút hành động chính ở đáy phòng chờ còn 2/3 so với mặc định (100%, kế thừa từ
@@ -1839,147 +1810,6 @@
   }
 }
 
-/* Banner top phòng chờ — dùng ảnh lobby_top_bg.png (2172x724) làm nền, khoá đúng aspect-ratio
-   của ảnh (KHÔNG dùng chiều cao cố định/vh) để ảnh không bao giờ bị méo hay lệch khi responsive.
-   Tên phòng + 2 nút định vị theo % (top/left) thay vì rem/px cố định — % luôn tỉ lệ đúng theo
-   khung banner dù màn hình rộng/hẹp thế nào, vì banner luôn giữ đúng tỉ lệ ảnh gốc. Toạ độ % lấy
-   từ đo pixel thật trên ảnh gốc (scan tâm 2 vòng tròn kim loại trong ảnh), không áng chừng mắt. */
-.lobbyTopBanner {
-  position: relative;
-  /* Thu nhỏ 15% (100% -> 85%) — vẫn giữ aspect-ratio nên chiều cao co theo đúng tỉ lệ, không méo.
-     margin-inline:auto để banner hẹp hơn vẫn nằm giữa thay vì dạt sang trái. */
-  width: 75%;
-  margin-inline: auto;
-  /* Bù lại gap của .roomPanel (flex, gap: spacing-md áp cho mọi children) CHỈ ở cạnh dưới banner
-     này — kéo phần Danh sách lên sát banner, các gap khác giữa các phần tử con khác của .roomPanel
-     (playerList/errorMessage/actions...) không bị ảnh hưởng vì margin âm chỉ khai trên banner. */
-  margin-bottom: calc(var(--spacing-md) * -1);
-  aspect-ratio: 2172 / 724;
-  background: url("/images/ui/lobby_top_bg.png") center / contain no-repeat;
-}
-
-/* Vệt sáng quét (flash) chạy ngang qua bề mặt banner, mask đúng theo alpha ảnh gốc nên vệt sáng
-   CHỈ hiện trên phần hoạ tiết thật (không tràn ra nền trong suốt xung quanh). pointer-events:none
-   để không chặn click 2 nút. */
-.lobbyTopBanner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  -webkit-mask-image: url("/images/ui/lobby_top_bg.png");
-  mask-image: url("/images/ui/lobby_top_bg.png");
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  background: linear-gradient(
-    100deg,
-    transparent 42%,
-    color-mix(in srgb, var(--text) 90%, var(--primary-light)) 50%,
-    transparent 58%
-  );
-  background-size: 300% 100%;
-  background-position: 200% 0;
-  mix-blend-mode: overlay;
-  opacity: 0;
-  animation: lobbyTopBannerFlash 4.8s ease-in-out infinite;
-}
-
-@keyframes lobbyTopBannerFlash {
-  0%,
-  58% {
-    background-position: 200% 0;
-    opacity: 0;
-  }
-  64% {
-    opacity: 0.85;
-  }
-  78% {
-    background-position: -100% 0;
-    opacity: 0.85;
-  }
-  88%,
-  100% {
-    background-position: -100% 0;
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lobbyTopBanner::after {
-    animation: none;
-    opacity: 0;
-  }
-}
-
-.lobbyTopBannerCodeWrap {
-  position: absolute;
-  top: 30%;
-  left: 24%;
-  display: grid;
-  width: 52%;
-  height: 38%;
-  place-items: center;
-  text-align: center;
-}
-
-/* Chữ tên phòng "cứng cáp" hơn kiểu tựa game: viền tối khắc nổi (text-stroke + shadow cứng phía
-   dưới) + glow màu chữ toả nhẹ ra ngoài, thay vì chữ trắng phẳng như trước. */
-.lobbyTopBannerCode {
-  overflow: hidden;
-  color: var(--text-accent);
-  font-family: var(--font-heading);
-  font-size: clamp(0.85rem, 4.2vw, 1.4rem);
-  letter-spacing: 0.1em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-  -webkit-text-stroke: 0.045em color-mix(in srgb, var(--bg-primary) 70%, black);
-  text-shadow: 0 0.09em 0 color-mix(in srgb, var(--bg-primary) 80%, black);
-}
-
-.lobbyTopBannerButton {
-  position: absolute;
-  top: 44%;
-  display: grid;
-  width: 9.5%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  place-items: center;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.lobbyTopBannerButton svg {
-  width: 32%;
-  height: 32%;
-}
-
-.lobbyTopBannerButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.68;
-}
-
-/* Tâm vòng tròn trái/phải trong ảnh — button copy bên trái theo đúng yêu cầu. */
-.lobbyTopBannerCopyButton {
-  left: 17.4%;
-}
-
-.lobbyTopBannerExitButton {
-  left: 83.5%;
-  color: var(--danger-dark);
-}
-
-.lobbyTopBannerExitButton svg {
-  width: 45%;
-  height: 45%;
-}
-
 .lobbyHeader {
   display: flex;
   flex-direction: column;
@@ -2067,11 +1897,11 @@
   column-gap: 0;
   padding-block: 0.6rem;
   padding-inline: 1.2rem;
+  /* Kéo list sát ngay dưới header "Danh sách" (bù gap 16px của panel) */
+  margin-top: calc(0.4rem - var(--spacing-md));
 }
 
-/* Dòng "Danh sách … x/10" — KHÔNG còn dùng ở lobby wolf (đã bỏ hẳn khỏi wolf-room-lobby.tsx), chỉ
-   còn debug-profile-frame/page.tsx dùng lại class này (import chung page.module.css) nên GIỮ LẠI,
-   không xoá. */
+/* Dòng "Danh sách … x/10" — nằm NGOÀI box list, ngay phía trên */
 .playerListHeader {
   display: flex;
   align-items: center;
@@ -2148,6 +1978,14 @@
   pointer-events: none;
 }
 
+/* Ô placeholder "Chờ người chơi" dùng lại đúng ảnh khung "Khung Hoàng Kim Rực Rỡ" đang bán
+   trong shop (public/images/frames/info/default.webp, xem scripts/optimize-default-frame.mjs)
+   nhưng hiển thị đen trắng qua filter, KHÔNG chỉnh xám sẵn trên file ảnh — để card thật (có
+   người chơi trang bị khung này) vẫn hiển thị đúng màu vàng-đỏ gốc. */
+.playerRowFrameOverlayGray {
+  filter: grayscale(100%);
+}
+
 /* Lớp nền kính (glassmorphism) nằm GỌN TRONG cửa sổ trong suốt của khung — không lan ra đè lên
    viền hoạ tiết — inset là ranh giới "an toàn" (né hoạ tiết khung) riêng cho lớp kính, độc lập
    với padding của .playerRowFramed (28px) và padding riêng của .playerRowFramed .playerIdentity
@@ -2159,10 +1997,10 @@
    vẫn nằm trên cả 2 lớp này do đứng sau trong DOM/z-index cao hơn. */
 .playerRowFrameInnerGlass {
   position: absolute;
-  /* inset 3 giá trị (trên 20px / trái-phải 14px / dưới 24px) — mép dưới chừa rộng hơn mép trên vì
-     viền hoạ tiết khung ở đáy card thường dày hơn đỉnh trên nhiều ảnh khung, giữ đều 16px/12px cũ
-     khiến lớp kính lấn ra ngoài, lộ ra khỏi viền hoạ tiết ở đáy. */
-  inset: 12px 12px 14px;
+  /* inset riêng trên/dưới (16px) lớn hơn trái/phải (8px) — card giờ là hình vuông, viền hoạ tiết
+     khung ở mép trên/dưới mỏng hơn mép trái/phải trên nhiều ảnh khung, 8px đều 4 cạnh khiến lớp
+     kính lấn ra ngoài, lộ hẳn ra khỏi viền hoạ tiết ở trên/dưới. */
+  inset: 16px 12px;
   z-index: 1;
   border-radius: 0.75rem;
   /* Gradient dưới -> trên (lệch nhẹ 8deg khỏi thẳng đứng): mép dưới đục 25%, mép trên đục 45% —
@@ -2997,31 +2835,32 @@
 }
 
 .roleImageCard {
-  /* Tăng từ clamp(0.75rem, 3vw, 1.1rem) theo yêu cầu — biến riêng để .roleCardImage bên dưới
-     đọc lại cùng giá trị, ảnh không chạm sát viền thẻ. */
-  --role-card-padding: clamp(1.1rem, 4vw, 1.6rem);
   isolation: isolate;
-  padding: var(--role-card-padding);
+  padding: clamp(0.75rem, 3vw, 1.1rem);
   background: var(--bg-card);
 }
 
-/* Đã bỏ .roleImageCard::after (lớp gradient tối dần ở đáy thẻ, từng dùng để chữ tên role dễ đọc
-   đè lên ảnh) theo yêu cầu — ảnh role đã in sẵn tên ngay trong ảnh (xem RoleCard trong
-   wolf-play-screen.tsx: <strong>{roleLabel}</strong> chỉ render khi ẢNH LỖI/không có, không bao
-   giờ chạy chung với ảnh đang hiển thị tốt), nên gradient này chỉ làm mờ đáy ảnh vô ích, không che
-   chữ nào cả. .cardRevealRoleCard::after { display:none } (ghi đè riêng cho thẻ lật bài lớn) theo
-   đó cũng bỏ luôn vì rule gốc không còn tồn tại để ghi đè. */
+.roleImageCard::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    transparent 48%,
+    color-mix(in srgb, var(--bg-primary) 64%, transparent) 74%,
+    color-mix(in srgb, var(--bg-primary) 88%, transparent)
+  );
+  content: "";
+  pointer-events: none;
+}
 
 .playCard .roleCardImage {
-  inset: var(--role-card-padding, 0);
   z-index: 0;
   object-fit: contain;
 }
 
-/* Thẻ lật bài lớn (card_reveal, isFocusedReveal) giữ ảnh tràn sát viền như cũ — không áp dụng
-   inset theo --role-card-padding ở trên (chỉ dành cho thẻ nhỏ trong lưới vai trò/xem lại đêm). */
-.cardRevealRoleCard .roleCardImage {
-  inset: 0;
+.cardRevealRoleCard::after {
+  display: none;
 }
 
 .playCard span,
@@ -3658,7 +3497,6 @@
   pointer-events: none;
 }
 
-.classicWolfTheme .hero,
 .classicWolfTheme .roomPanel,
 .classicWolfTheme .joinIdentityPanel,
 .classicWolfTheme .joinRoomScreenPanel,
@@ -4641,12 +4479,9 @@
 
 .roleDeckTile .roleDeckTileCount {
   position: absolute;
-  /* Căn giữa theo chiều ngang + đè lên viền trên lá bài (translate -50% cả 2 trục quanh điểm
-     top:0/left:50%, tức tâm mép trên) thay vì góc trên-trái như trước. */
-  top: 0;
-  left: 50%;
+  top: 0.15rem;
+  left: 0.15rem;
   z-index: 2;
-  transform: translate(-50%, -50%);
   display: grid;
   min-width: 1.35rem;
   min-height: 1.35rem;
@@ -4789,24 +4624,6 @@
 
 .focusedPlayPage.nightReviewPage .nightReviewContent {
   min-height: 0;
-  height: auto;
-}
-
-/* Cùng lý do với .nightReviewContent ở trên, nhưng cho nhánh CÓ bài (.nightReviewRevealStack,
-   xem renderKnownNightCards() trong wolf-play-screen.tsx) — trước đây bị bỏ sót nên grid-template-
-   rows: minmax(0, 1fr) auto của .nightReviewRevealStack (định nghĩa gốc) khiến hàng đầu (lưới bài)
-   bị ép co lại gần 0 khi có nhiều dòng text review bên dưới, ảnh lá bài chỉ còn cao vài chục px
-   (không đọc được). height:auto + bỏ hẳn grid-template-rows (rơi về grid-auto-rows mặc định =
-   auto, giống cách 2 dòng text tự set kích thước theo nội dung) để hàng lưới bài cũng tự cao theo
-   đúng min-height của .playCard, không bị ép theo khoảng trống còn lại. */
-.focusedPlayPage.nightReviewPage .nightReviewRevealStack {
-  min-height: 0;
-  height: auto;
-  grid-template-rows: none;
-}
-
-.focusedPlayPage.nightReviewPage .playerRevealGrid .playCard {
-  min-height: clamp(9.5rem, 42vw, 16rem);
   height: auto;
 }
 
@@ -5236,10 +5053,6 @@
   justify-content: space-between;
   gap: var(--spacing-sm);
   padding: clamp(0.8rem, 3vw, 1.1rem);
-}
-
-.avalonTheme .heroImage img {
-  object-position: center;
 }
 
 .avalonTheme .exitButton,

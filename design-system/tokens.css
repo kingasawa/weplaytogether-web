@@ -17,8 +17,6 @@
   /* --- Brand / Interactive --- */
   --primary:       #5D7CFF;
   --primary-light: #8EA8FF;
-  /* Xanh đậm hơn --primary, dùng cho viền/outline nổi bật (vd nút chính đáy phòng chờ wolf). */
-  --primary-dark:  #0C2075;
 
   /* --- Borders --- */
   --card-border:   #082951;
@@ -33,19 +31,23 @@
   /* --- Text --- */
   --text:           #FFFFFF;
   --text-secondary: #B7C0D8;
-  /* Xanh nhạt dùng cho chữ nổi bật đè lên nền kim loại/ảnh trang trí (vd tên phòng banner top lobby wolf). */
-  --text-accent:    #98B9E6;
 
   /* --- Semantic --- */
   --success: #2ECC71;
   --danger:  #E74C3C;
-  /* Đỏ đậm hơn --danger, dùng cho icon nút thoát phòng chờ wolf (đè lên nền ảnh banner sáng). */
-  --danger-dark: #8C0D00;
 
   /* --- Medal / Ranking --- */
   --medal-gold:   #F1C40F;
   --medal-silver: #C4CCDA;
   --medal-bronze: #CD7F32;
+
+  /* --- Game card tones (khớp tông màu chủ đạo của từng icon board game ở
+     public/images/boards/*.png, dùng cho nền/viền/hiệu ứng shine của game card
+     trên trang chủ — xem .gameCard trong page.module.css) --- */
+  --game-wolf-tone:         var(--primary-light); /* wolf.png: ánh trăng xanh lạnh */
+  --game-wolf-classic-tone: #A6522E; /* wolf-classic.png: tông cam đất/lửa trại */
+  --game-avalon-tone:       var(--host-badge); /* avalon.png: lưỡi kiếm vàng kim phát sáng */
+  --game-spy-tone:          #A62C26; /* spy.png: tông đỏ thẫm noir */
 
   /* --- Shadows --- */
   --shadow-card: #151c31;

@@ -17,23 +17,23 @@ type GameShareMetadataInput = {
 };
 
 export const WOLF_SHARE_IMAGE: GameShareImage = {
-  path: "/images/boards/wolf.webp",
-  width: 290,
-  height: 610,
+  path: "/images/boards/wolf.png",
+  width: 300,
+  height: 300,
   alt: "Ảnh bìa game Ma Sói Một Đêm",
 };
 
 export const CLASSIC_WOLF_SHARE_IMAGE: GameShareImage = {
-  path: "/images/boards/wolf-classic.webp",
-  width: 811,
-  height: 1940,
+  path: "/images/boards/wolf-classic.png",
+  width: 300,
+  height: 300,
   alt: "Ảnh bìa game Ma Sói Nhiều Đêm",
 };
 
 export const AVALON_SHARE_IMAGE: GameShareImage = {
-  path: "/images/boards/avalon.webp",
-  width: 811,
-  height: 1940,
+  path: "/images/boards/avalon.png",
+  width: 300,
+  height: 300,
   alt: "Ảnh bìa game Avalon",
 };
 
