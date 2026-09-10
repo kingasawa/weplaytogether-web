@@ -22,7 +22,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
 import { GameBugReportDialog } from "@/components/game";
 import {
+  AVALON_ROLE_CARD_IMAGES,
   AVALON_ROLE_LABELS,
+  AVALON_ROLE_ORDER,
   getAvalonRoleImagePath,
   getAvalonQuestRequiredFails,
   getAvalonQuestTeamSize,
@@ -31,6 +33,8 @@ import {
 } from "@/lib/avalon-game";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
+import { useGameRoleOverrides } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
 import {
   confirmAvalonRoleReveal,
   continueAvalonTeamVote,
@@ -89,6 +93,10 @@ function getPlayerName(players: AvalonPlayPlayer[], playerId: string | null) {
 
 export default function AvalonPlayScreen({ initialState, isPreview = false, debugQuestOutcomes }: AvalonPlayScreenProps) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("avalon");
+  usePreloadImages(
+    AVALON_ROLE_ORDER.map((role) => roleOverrides[role]?.imageUrl ?? AVALON_ROLE_CARD_IMAGES[role].src)
+  );
   const [playState, setPlayState] = useState(initialState);
   const [selectionState, setSelectionState] = useState<AvalonSelectionState>(() => ({
     key: "",
@@ -687,7 +695,7 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
         </div>
         <div className={`${styles.avalonRoleCard} ${isEvil ? styles.avalonRoleCardEvil : styles.avalonRoleCardGood}`}>
           <span>Vai của bạn</span>
-          <strong>{playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Chưa rõ"}</strong>
+          <strong>{playState.myRole ? roleOverrides[playState.myRole]?.label ?? AVALON_ROLE_LABELS[playState.myRole] : "Chưa rõ"}</strong>
           <p className={isEvil ? styles.avalonLoyaltyEvil : styles.avalonLoyaltyGood}>
             {getTeamLabel(playState.myLoyalty)}
           </p>
@@ -749,7 +757,10 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
   function renderRoleReveal() {
     const hasConfirmed = Boolean(currentPlayer?.hasConfirmedRole);
     const isEvil = playState.myLoyalty === "evil";
-    const roleImagePath = playState.myRole ? getAvalonRoleImagePath(playState.myRole) : null;
+    const myRoleLabel = playState.myRole ? roleOverrides[playState.myRole]?.label ?? AVALON_ROLE_LABELS[playState.myRole] : "";
+    const roleImagePath = playState.myRole
+      ? roleOverrides[playState.myRole]?.imageUrl ?? getAvalonRoleImagePath(playState.myRole)
+      : null;
 
     return (
       <>
@@ -770,7 +781,7 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
             <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
               {roleImagePath && (
                 <Image
-                  alt={playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : ""}
+                  alt={myRoleLabel}
                   className={styles.avalonRoleRevealImage}
                   height={290}
                   priority
@@ -784,7 +795,7 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
                     playState.myRole ? (isEvil ? styles.avalonRoleNameEvil : styles.avalonRoleNameGood) : ""
                   }
                 >
-                  {playState.myRole ? AVALON_ROLE_LABELS[playState.myRole] : "Người quan sát"}
+                  {playState.myRole ? myRoleLabel : "Người quan sát"}
                 </h2>
                 {renderRoleRevealKnownInfo()}
               </div>
@@ -1199,7 +1210,7 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
                   </span>
                 </div>
                 <strong className={`${styles.avalonResultRole} ${isEvil ? styles.avalonResultRoleEvil : ""}`}>
-                  {player.role ? AVALON_ROLE_LABELS[player.role] : "Không rõ"}
+                  {player.role ? roleOverrides[player.role]?.label ?? AVALON_ROLE_LABELS[player.role] : "Không rõ"}
                 </strong>
               </div>
             );

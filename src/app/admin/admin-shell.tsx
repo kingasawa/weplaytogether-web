@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { Bug, LayoutDashboard, LoaderCircle, LogOut, Package, ShieldAlert, Users } from "lucide-react";
+import { Bug, Contact, LayoutDashboard, LoaderCircle, LogOut, Package, ShieldAlert, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ type GateStatus = "checking" | "denied" | "allowed";
 
 const NAV_ITEMS = [
   { href: "/admin/items", label: "Vật phẩm", icon: Package },
+  { href: "/admin/game-roles", label: "Role trong game", icon: Contact },
   { href: "/admin/users", label: "Người dùng", icon: Users },
   { href: "/admin/reports", label: "Report lỗi", icon: Bug },
 ];

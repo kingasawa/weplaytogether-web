@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-08 -->
+﻿<!-- Last updated: 2026-09-10 -->
 
 # Database Schema
 
@@ -38,6 +38,8 @@ On 2026-09-03, local migration `202609030001_user_level_system.sql` was created 
 
 On 2026-09-03, local migration `202609030002_game_bug_reports.sql` was created to add the post-game bug report system. It adds enum `game_bug_report_status`, table `game_bug_reports`, indexes for admin filters, RLS policies for admin/user visibility, and an `updated_at`/`resolved_at` trigger. Reports intentionally do not FK to room/game/player tables because old rooms are cleaned up; `reporter_user_id` gets an optional `on delete set null` FK only when `public.users` already exists.
 
+On 2026-09-10, local migration `202609100001_game_roles.sql` was created to let admin manage each game role's display name (Việt/Anh) and card image through a new `/admin/game-roles` page, instead of editing `src/lib/wolf-game.ts`/`classic-wolf-game.ts`/`avalon-game.ts` and redeploying. Adds table `game_roles` (public select, admin-only write via `is_shop_admin()`), seeded with the 25 roles' current hardcoded values across `wolf`/`classic_wolf`/`avalon`. App code falls back to the hardcoded constants when the table is missing or a role has no override row, so this migration is optional for the app to keep working.
+
 On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
@@ -67,6 +69,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202608310001_shop_items_frame_color.sql`
 - `supabase/migrations/202609030001_user_level_system.sql`
 - `supabase/migrations/202609030002_game_bug_reports.sql`
+- `supabase/migrations/202609100001_game_roles.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -369,6 +372,24 @@ View công khai cho bảng xếp hạng, không lộ `email`. **Pending apply**:
 - `wolf-hourly-room-maintenance`: scheduled via `pg_cron` to run hourly at minute `17` database time.
 - Command: `select public.maintain_wolf_rooms();`
 - The migration unschedules the older daily `wolf-cleanup-old-rooms` job when present.
+
+#### `public.game_roles`
+
+Admin-editable display name (Việt/Anh) và ảnh lá bài cho từng role của 3 game (`wolf`, `classic_wolf`, `avalon`), quản lý qua `/admin/game-roles` — trước đây các giá trị này hardcode thẳng trong `src/lib/wolf-game.ts`/`classic-wolf-game.ts`/`avalon-game.ts`. **Pending apply**: thêm bởi `202609100001_game_roles.sql`.
+
+- `id uuid primary key default gen_random_uuid()`
+- `game_key text not null check (game_key in ('wolf', 'classic_wolf', 'avalon'))`
+- `role_key text not null` — khớp đúng key role trong code (`WolfRole`/`ClassicWolfRole`/`AvalonRole`), không có FK vì các type này chỉ tồn tại phía TypeScript
+- `display_name_vi text not null`, độ dài 1-60
+- `display_name_en text not null`, độ dài 1-60
+- `image_url text not null`, tối đa 2048 ký tự
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()` (trigger `set_game_roles_updated_at`)
+- `unique (game_key, role_key)`
+- Index `game_roles_game_key_idx` trên `game_key`
+- RLS bật; select cho phép mọi người (kể cả guest chưa đăng nhập — cần để hiện đúng tên/ảnh role trong game); insert/update/delete chỉ admin (`is_shop_admin()`).
+- Seed sẵn 25 dòng (11 role wolf + 6 role classic_wolf + 8 role avalon) đúng giá trị hardcode hiện tại trong code, `on conflict do nothing` nên chạy lại migration không mất chỉnh sửa của admin.
+- App code (`src/lib/game-roles.ts`, `src/lib/use-game-role-overrides.ts`) tự fallback về hằng số hardcode khi bảng chưa tồn tại hoặc role chưa có override — an toàn khi migration chưa được apply.
 
 ## Remote Apply Notes
 

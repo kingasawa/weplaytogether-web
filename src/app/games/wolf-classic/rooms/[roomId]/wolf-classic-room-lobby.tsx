@@ -25,7 +25,13 @@ import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile } from "@/lib/user-profile";
-import { CLASSIC_WOLF_ROLE_LABELS, type ClassicWolfRole } from "@/lib/classic-wolf-game";
+import {
+  CLASSIC_WOLF_ROLE_CARD_IMAGES,
+  CLASSIC_WOLF_ROLE_LABELS,
+  type ClassicWolfRole,
+} from "@/lib/classic-wolf-game";
+import { useGameRoleOverrides } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
 import {
   getClassicWolfLobbyState,
   joinClassicWolfRoom,
@@ -146,6 +152,12 @@ function saveStoredRoleOptionIds(optionIds: string[]) {
 
 export default function ClassicWolfRoomLobby({ initialState }: { initialState: ClassicWolfLobbyState }) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("classic_wolf");
+  usePreloadImages(
+    ROLE_LABEL_OPTIONS.map(
+      (option) => roleOverrides[option.role]?.imageUrl ?? CLASSIC_WOLF_ROLE_CARD_IMAGES[option.role].src
+    )
+  );
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [lobbyState, setLobbyState] = useState(initialState);
   const [errorMessage, setErrorMessage] = useState("");
@@ -550,7 +562,7 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
                         key={option.id}
                         onClick={() => toggleSelectedRole(option.id)}
                       >
-                        <strong>{CLASSIC_WOLF_ROLE_LABELS[option.role]}</strong>
+                        <strong>{roleOverrides[option.role]?.label ?? CLASSIC_WOLF_ROLE_LABELS[option.role]}</strong>
                       </button>
                     );
                   })}

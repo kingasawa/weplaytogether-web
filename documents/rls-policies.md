@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-08 -->
+﻿<!-- Last updated: 2026-09-10 -->
 
 # RLS Policies
 
@@ -53,6 +53,15 @@ Không có policy insert/update/delete cho client — chỉ ghi qua function `aw
 ## `public.leaderboard` (view, 202608250001_wolf_scoring_currency.sql — pending apply; extended by 202609030001_user_level_system.sql — pending apply)
 
 Không phải bảng nên không có RLS trực tiếp; view select từ `public.users` và được tạo bởi role có `bypassrls` (Supabase SQL Editor), nên trả về toàn bộ user bất kể RLS của `public.users` chỉ cho tự đọc hàng của mình. Cột hiển thị không gồm `email`. `grant select` cho `anon` và `authenticated`. Migration `202609030001_user_level_system.sql` thêm `level_xp`, `level`, và `level_tier` vào view.
+
+## `public.game_roles` (202609100001_game_roles.sql — pending apply)
+
+RLS bật:
+
+- `game_roles_select_all`: `for select using (true)` — ai cũng đọc được, kể cả `anon` chưa đăng nhập (cần thiết vì guest chơi game cũng phải thấy đúng tên/ảnh role đã admin chỉnh).
+- `game_roles_admin_write`: `for all using (public.is_shop_admin()) with check (public.is_shop_admin())` — chỉ admin insert/update/delete, dùng ở trang `/admin/game-roles`.
+
+Client đọc trực tiếp qua `src/lib/game-roles.ts` (`listGameRoleOverrides`) mà không cần JWT đặc biệt gì (RLS select mở cho mọi role kể cả `anon`). Ghi qua `src/lib/admin-game-roles.ts`, chặn ở tầng RLS giống hệt pattern `shop_items`.
 
 ## Current Remote State
 

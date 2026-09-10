@@ -23,6 +23,7 @@ import { buildAuthPath } from "@/lib/auth-redirect";
 import {
   AVALON_MAX_PLAYERS,
   AVALON_MIN_PLAYERS,
+  AVALON_ROLE_CARD_IMAGES,
   AVALON_ROLE_LABELS,
   AVALON_ROLE_ORDER,
   getDefaultAvalonDeck,
@@ -46,6 +47,8 @@ import {
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useGameRoleOverrides } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
 import { readStoredAccountProfile } from "@/lib/user-profile";
 import {
   getAvalonLobbyState,
@@ -131,6 +134,10 @@ export default function AvalonRoomLobby({
   initialSpectatorState,
 }: AvalonRoomLobbyProps) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("avalon");
+  usePreloadImages(
+    AVALON_ROLE_ORDER.map((role) => roleOverrides[role]?.imageUrl ?? AVALON_ROLE_CARD_IMAGES[role].src)
+  );
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [lobbyState, setLobbyState] = useState(initialState);
   const [errorMessage, setErrorMessage] = useState("");
@@ -563,12 +570,15 @@ export default function AvalonRoomLobby({
             </div>
 
             <div className={styles.roleSetupGrid}>
-              {selectedRoleCounts.map(({ role, count }) => (
+              {selectedRoleCounts.map(({ role, count }) => {
+                const roleLabel = roleOverrides[role]?.label ?? AVALON_ROLE_LABELS[role];
+
+                return (
                 <div className={styles.avalonRoleCounter} key={role}>
-                  <strong>{AVALON_ROLE_LABELS[role]}</strong>
+                  <strong>{roleLabel}</strong>
                   <div>
                     <button
-                      aria-label={`Giảm ${AVALON_ROLE_LABELS[role]}`}
+                      aria-label={`Giảm ${roleLabel}`}
                       type="button"
                       disabled={rolePreset !== "custom" || isPending || count === 0}
                       onClick={() => removeRole(role)}
@@ -577,7 +587,7 @@ export default function AvalonRoomLobby({
                     </button>
                     <span>{count}</span>
                     <button
-                      aria-label={`Tăng ${AVALON_ROLE_LABELS[role]}`}
+                      aria-label={`Tăng ${roleLabel}`}
                       type="button"
                       disabled={rolePreset !== "custom" || isPending || selectedRoles.length >= playerCount}
                       onClick={() => addRole(role)}
@@ -586,7 +596,8 @@ export default function AvalonRoomLobby({
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className={styles.avalonOptionList}>

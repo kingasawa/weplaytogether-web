@@ -54,15 +54,17 @@ export const AVALON_ROLE_DESCRIPTIONS: Record<AvalonRole, string> = {
   minion: "Evil. Biết các đồng đội Evil, trừ Oberon, và có thể sabotage quest.",
 };
 
+// src ở đây là FALLBACK khi bảng game_roles chưa có override — xem ghi chú ở
+// WOLF_ROLE_CARD_IMAGES trong wolf-game.ts.
 export const AVALON_ROLE_CARD_IMAGES: Record<AvalonRole, { alt: string; src: string }> = {
-  merlin: { alt: "Lá bài Merlin", src: "/images/boards/cards/avalon/merlin.webp" },
-  percival: { alt: "Lá bài Percival", src: "/images/boards/cards/avalon/percival.webp" },
-  loyal_servant: { alt: "Lá bài Loyal Servant", src: "/images/boards/cards/avalon/servant.webp" },
-  assassin: { alt: "Lá bài Assassin", src: "/images/boards/cards/avalon/assassin.webp" },
-  morgana: { alt: "Lá bài Morgana", src: "/images/boards/cards/avalon/morgana.webp" },
-  mordred: { alt: "Lá bài Mordred", src: "/images/boards/cards/avalon/mordred.webp" },
-  oberon: { alt: "Lá bài Oberon", src: "/images/boards/cards/avalon/oberon.webp" },
-  minion: { alt: "Lá bài Minion", src: "/images/boards/cards/avalon/minion.webp" },
+  merlin: { alt: "Lá bài Merlin", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/merlin.webp" },
+  percival: { alt: "Lá bài Percival", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/percival.webp" },
+  loyal_servant: { alt: "Lá bài Loyal Servant", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/loyal_servant.webp" },
+  assassin: { alt: "Lá bài Assassin", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/assassin.webp" },
+  morgana: { alt: "Lá bài Morgana", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/morgana.webp" },
+  mordred: { alt: "Lá bài Mordred", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/mordred.webp" },
+  oberon: { alt: "Lá bài Oberon", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/oberon.webp" },
+  minion: { alt: "Lá bài Minion", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/avalon/minion.webp" },
 };
 
 export function getAvalonRoleImagePath(role: AvalonRole) {

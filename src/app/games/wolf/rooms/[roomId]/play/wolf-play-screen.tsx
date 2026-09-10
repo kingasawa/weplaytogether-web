@@ -8,6 +8,8 @@ import { GameBugReportDialog } from "@/components/game";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
+import { useGameRoleOverrides, type GameRoleOverrideMap } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
 import {
   getWolfRoleImagePath,
   WOLF_PHASE_LABELS,
@@ -78,23 +80,18 @@ type RoleCardProps = {
   label: string;
   isHidden?: boolean;
   isFocusedReveal?: boolean;
+  overrides?: GameRoleOverrideMap;
 };
 
-// Chỉ card_reveal (lần đầu nhận bài, cần thao tác kéo lên chủ động để tránh lộ bài khi vừa
-// chuyển màn) mới cần lớp phủ riêng tư. night_review TỪNG dùng chung cơ chế này (renderPrivateCover()
-// phủ inset:0 lên toàn bộ .privateRevealBox, gồm cả .nightReviewRevealStack chứa nightReviewMessages)
-// — nhưng dòng chữ tường thuật kết quả (vd "Bài bạn nhận được lúc đổi là Ma Sói.") đã nói rõ thông
-// tin nhạy cảm ngay trong text, nên phủ kín cả text lẫn bài chỉ khiến người chơi phải kéo lên mới
-// đọc được, trong khi vai không có bài hiện (troublemaker/witch/drunk...) bị che luôn dòng text vô
-// hại không cần che. Bỏ night_review khỏi đây để cả bài lẫn text hiện đầy đủ ngay, không cần kéo.
 function isPrivateRevealPhase(phase: WolfPlayState["game"]["phase"]) {
-  return phase === "card_reveal";
+  return phase === "card_reveal" || phase === "night_review";
 }
 
-function RoleCard({ role, label, isHidden = false, isFocusedReveal = false }: RoleCardProps) {
+function RoleCard({ role, label, isHidden = false, isFocusedReveal = false, overrides }: RoleCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
-  const roleLabel = role ? WOLF_ROLE_LABELS[role] : "Úp bài";
-  const roleImagePath = role && !isHidden ? getWolfRoleImagePath(role) : null;
+  const roleOverride = role ? overrides?.[role] : undefined;
+  const roleLabel = role ? roleOverride?.label ?? WOLF_ROLE_LABELS[role] : "Úp bài";
+  const roleImagePath = role && !isHidden ? roleOverride?.imageUrl ?? getWolfRoleImagePath(role) : null;
   const shouldShowRoleImage = Boolean(roleImagePath && !imageFailed);
 
   return (
@@ -142,6 +139,14 @@ function getWolfRoleTeam(role: WolfRole | null) {
 
 export default function WolfPlayScreen({ initialState, isPreview = false }: WolfPlayScreenProps) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("wolf");
+  // Dự phòng cho trường hợp vào thẳng ván đang chạy (reconnect) mà chưa đi qua lobby — lobby đã
+  // tự preload trước khi bắt đầu, đây chỉ là lớp bảo hiểm thêm.
+  usePreloadImages(
+    (Object.keys(WOLF_ROLE_LABELS) as WolfRole[]).map(
+      (role) => roleOverrides[role]?.imageUrl ?? getWolfRoleImagePath(role)
+    )
+  );
   const [playState, setPlayState] = useState(initialState);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [selectedCenterIndexes, setSelectedCenterIndexes] = useState<number[]>([]);
@@ -194,7 +199,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     const role = getRevealedCenterRole(centerIndex);
 
     if (role) {
-      return WOLF_ROLE_LABELS[role];
+      return roleOverrides[role]?.label ?? WOLF_ROLE_LABELS[role];
     }
 
     const isWerewolf = getCenterWolfCheck(centerIndex);
@@ -334,7 +339,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   const nightResultSummary =
     playState.myCard?.nightReviewRole
       ? `Kết quả: ${myRole === "insomniac" ? "bài hiện tại" : "bài vừa lấy"} là ${
-          WOLF_ROLE_LABELS[playState.myCard.nightReviewRole]
+          roleOverrides[playState.myCard.nightReviewRole]?.label ?? WOLF_ROLE_LABELS[playState.myCard.nightReviewRole]
         }.`
       : nightResultActionRole === "troublemaker"
         ? `Kết quả: bài của ${getPlayerName(
@@ -505,7 +510,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       }
 
       return playState.isNightTurnInProgress
-        ? "Đang chờ người chơi khác"
+        ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
         : "Tất cả lượt ban đêm đã hoàn tất.";
     }
 
@@ -1015,15 +1020,6 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   }
 
   function renderPrivateCover() {
-    // privateRevealKey null nghĩa là phase hiện tại không cần lớp phủ riêng tư (xem
-    // isPrivateRevealPhase) — không render div phủ inset:0 nữa, để nội dung bên dưới (bài + text)
-    // hiện đầy đủ ngay, không bị che dù privateRevealUnlocked đã true (true chỉ đổi được
-    // aria-hidden, KHÔNG tự ẩn/dời div phủ đi — div vẫn đứng nguyên transform:translateY(0) nếu
-    // còn render, vẫn che kín phần bên dưới).
-    if (!privateRevealKey) {
-      return null;
-    }
-
     return (
       <div
         aria-hidden={privateRevealUnlocked}
@@ -1083,6 +1079,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
           <RoleCard
             label={myRole === "insomniac" ? "Bài hiện tại" : "Lá vừa lấy"}
             role={playState.myCard.nightReviewRole}
+            overrides={roleOverrides}
           />
         )}
         {playState.playerReveals.map((playerReveal) => (
@@ -1090,6 +1087,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             key={playerReveal.playerId}
             label={`Soi ${playerReveal.playerName}`}
             role={playerReveal.role}
+            overrides={roleOverrides}
           />
         ))}
         {revealedCenterCardsFromState.map((centerCard) =>
@@ -1098,6 +1096,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
               key={`center-${centerCard.index}`}
               label={`Lá giữa ${centerCard.index + 1}`}
               role={centerCard.role}
+              overrides={roleOverrides}
             />
           ) : (
             <article className={styles.playCard} key={`center-${centerCard.index}`}>
@@ -1116,7 +1115,15 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
     }
 
     if (!isMyNightTurn) {
-      return null;
+      return (
+        <div className={styles.nightTurnWaiting}>
+          <span>Lượt hiện tại</span>
+          <strong>
+            {activeNightTurn ? "Đến lượt bạn" : "Đang chờ lượt ban đêm"}
+          </strong>
+          <p>Người chơi đang hành động được giữ kín cho đến khi ván kết thúc.</p>
+        </div>
+      );
     }
 
     if (playState.isCurrentNightTurnActionSubmitted) {
@@ -1175,7 +1182,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
       : isWerewolfSeerEffect
         ? "Bước 1: chọn người để soi"
         : nightActionRole === "doppelganger" && activeDoppelgangerCopiedRole
-          ? `Thực hiện ${WOLF_ROLE_LABELS[activeDoppelgangerCopiedRole]}`
+          ? `Thực hiện ${roleOverrides[activeDoppelgangerCopiedRole]?.label ?? WOLF_ROLE_LABELS[activeDoppelgangerCopiedRole]}`
           : "Chọn người chơi";
     const centerPickerLabel = isWerewolfSeerEffect
       ? "Bước 2: bạn là Ma Sói duy nhất, được xem thêm 1 lá giữa bàn"
@@ -1187,13 +1194,14 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             <RoleCard
               label={`Nhân bản ${getPlayerName(playState.players, activeDoppelgangerCopiedPlayerId)}`}
               role={activeDoppelgangerCopiedRole}
+              overrides={roleOverrides}
             />
           </div>
         )}
 
         {werewolfSeerReveal && (
           <div className={styles.playerRevealGrid}>
-            <RoleCard label={`Soi ${werewolfSeerReveal.playerName}`} role={werewolfSeerReveal.role} />
+            <RoleCard label={`Soi ${werewolfSeerReveal.playerName}`} role={werewolfSeerReveal.role} overrides={roleOverrides} />
           </div>
         )}
 
@@ -1463,6 +1471,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
                 isFocusedReveal
                 label="Bài của tôi"
                 role={playState.myCard?.originalRole ?? null}
+                overrides={roleOverrides}
               />
               {renderPrivateCover()}
             </div>
@@ -1658,7 +1667,8 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
           </div>
           <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
             {roleDeckSummary.map((roleSummary) => {
-              const roleCardImagePath = getWolfRoleImagePath(roleSummary.role);
+              const roleLabel = roleOverrides[roleSummary.role]?.label ?? WOLF_ROLE_LABELS[roleSummary.role];
+              const roleCardImagePath = roleOverrides[roleSummary.role]?.imageUrl ?? getWolfRoleImagePath(roleSummary.role);
               // Ảnh lá bài đã in sẵn tên role nên không cần label; role chưa có ảnh thì
               // dùng mặt lưng bài + vẫn hiện tên để còn nhận ra.
               const roleImagePath = roleCardImagePath ?? PRIVATE_CARD_COVER_IMAGE_PATH;
@@ -1666,7 +1676,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
               return (
                 <button
                   key={roleSummary.role}
-                  aria-label={`Xem hướng dẫn ${WOLF_ROLE_LABELS[roleSummary.role]}`}
+                  aria-label={`Xem hướng dẫn ${roleLabel}`}
                   className={`${styles.roleDeckTile} ${styles.discussionRoleTile}`}
                   type="button"
                   onClick={() => setSelectedRoleGuide(roleSummary.role)}
@@ -1680,7 +1690,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
                       src={roleImagePath}
                     />
                     {!roleCardImagePath && (
-                      <span className={styles.roleDeckTileName}>{WOLF_ROLE_LABELS[roleSummary.role]}</span>
+                      <span className={styles.roleDeckTileName}>{roleLabel}</span>
                     )}
                   </span>
                   <span aria-label={`${roleSummary.count} lá`} className={styles.roleDeckTileCount}>
@@ -1788,16 +1798,16 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
                   <div className={styles.resultRoleChange}>
                     <span>
                       Bài ban đầu
-                      <strong>{WOLF_ROLE_LABELS[summary.originalRole]}</strong>
+                      <strong>{roleOverrides[summary.originalRole]?.label ?? WOLF_ROLE_LABELS[summary.originalRole]}</strong>
                     </span>
                     <ArrowRight className={styles.resultRoleArrow} aria-hidden="true" />
                     <span>
                       Bài hiện tại
                       <span className={styles.resultFinalRole}>
-                        <strong>{WOLF_ROLE_LABELS[summary.finalRole]}</strong>
+                        <strong>{roleOverrides[summary.finalRole]?.label ?? WOLF_ROLE_LABELS[summary.finalRole]}</strong>
                         {summary.finalTeamRole && summary.finalTeamRole !== summary.finalRole && (
                           <span className={styles.resultRoleTag}>
-                            {WOLF_ROLE_LABELS[summary.finalTeamRole]}
+                            {roleOverrides[summary.finalTeamRole]?.label ?? WOLF_ROLE_LABELS[summary.finalTeamRole]}
                           </span>
                         )}
                       </span>
@@ -1889,7 +1899,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             >
               <X aria-hidden="true" />
             </button>
-            <h2 id="wolf-role-guide-title">{WOLF_ROLE_LABELS[selectedRoleGuide]}</h2>
+            <h2 id="wolf-role-guide-title">{roleOverrides[selectedRoleGuide]?.label ?? WOLF_ROLE_LABELS[selectedRoleGuide]}</h2>
             <div className={styles.roleGuideSection}>
               <span>Ban đêm</span>
               <p>{WOLF_ROLE_DESCRIPTIONS[selectedRoleGuide]}</p>

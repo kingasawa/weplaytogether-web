@@ -1,6 +1,24 @@
-﻿<!-- Last updated: 2026-09-08 -->
+﻿<!-- Last updated: 2026-09-10 -->
 
 # Migrations
+
+## 202609100001_game_roles.sql
+
+Status: pending manual remote apply (not yet run in Supabase SQL Editor).
+
+Path:
+
+- `supabase/migrations/202609100001_game_roles.sql`
+
+Purpose:
+
+- Lets admin manage each game role's display name (tiếng Việt + tiếng Anh) and card image through a new `/admin/game-roles` page, instead of editing `src/lib/wolf-game.ts`/`classic-wolf-game.ts`/`avalon-game.ts` and redeploying — user request: "có 1 chỗ trong admin sẽ quản lý việc game ma sói 1 đêm thì đang có các roles là..., tên hiển thị..., hình ảnh sử dụng...".
+- Adds table `public.game_roles` (`game_key`, `role_key`, `display_name_vi`, `display_name_en`, `image_url`, unique on `(game_key, role_key)`), trigger `set_game_roles_updated_at`, index on `game_key`.
+- RLS: public select (`game_roles_select_all`, needed so guests see admin-edited names/images too), admin-only write (`game_roles_admin_write` via `is_shop_admin()`).
+- Seeds all 25 current roles (11 `wolf` + 6 `classic_wolf` + 8 `avalon`) with the exact values already hardcoded in code, `on conflict (game_key, role_key) do nothing` so re-running the migration never clobbers admin edits.
+- New app code: `src/lib/game-roles.ts` (public read), `src/lib/admin-game-roles.ts` (admin read/write), `src/lib/use-game-role-overrides.ts` (client hook merging DB overrides with the hardcoded constants by current locale), `src/app/admin/game-roles/*` (admin CRUD screen). `classic-wolf-game.ts` gained `CLASSIC_WOLF_ROLE_CARD_IMAGES`/`getClassicWolfRoleImagePath` (mirroring `wolf-game.ts`/`avalon-game.ts`) so all 3 games have a consistent image-constant shape to fall back to.
+- Wired into the role-picker labels in all 3 room lobbies and the role name/image displays in all 3 play screens (own-role reveal, center-card reveals, role-guide deck, night-history/result-summary text). Server-side Vietnamese log/error strings inside `actions.ts` (night-resolution log text, deck-limit error messages) were intentionally left on the hardcoded constants — out of scope for this pass since those are internal message text, not the role identity/image players see.
+- App code tolerates the table not existing yet or a role having no override row — falls back to the hardcoded constants in `wolf-game.ts`/`classic-wolf-game.ts`/`avalon-game.ts`, so this migration is optional for the app to keep working, but required for `/admin/game-roles` edits to take effect.
 
 ## 202609030002_game_bug_reports.sql
 

@@ -1,8 +1,16 @@
 .page {
   display: grid;
-  min-height: 100svh;
-  place-items: start center;
+  /* Chiều cao CỐ ĐỊNH đúng 1 viewport (không phải min-height) + tự cuộn bên trong — nếu để
+     .page cao tự do theo nội dung (danh sách frame dài), <body> (đã transform: translateZ(0)
+     trong globals.css để làm containing-block cho position:fixed) sẽ cao theo luôn, khiến
+     modal xem trước (position:fixed) bị tính theo chiều cao TOÀN TRANG thay vì viewport — hiện
+     lệch tuốt phía dưới, phải cuộn xuống mới thấy. Cuộn danh sách NGAY TRONG .page giữ <body>
+     luôn đúng 1 viewport nên modal luôn định vị đúng chỗ. */
+  height: 100svh;
+  height: 100dvh;
   overflow-x: hidden;
+  overflow-y: auto;
+  place-items: start center;
   background: var(--bg-primary);
   color: var(--text);
 }

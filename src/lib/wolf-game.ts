@@ -40,18 +40,22 @@ export const WOLF_PHASE_LABELS: Record<WolfGamePhase, string> = {
   result: "Kết quả",
 };
 
+// src ở đây là FALLBACK khi bảng game_roles chưa có override (hoặc chưa apply migration) —
+// dùng URL GCS bucket weplaytogether-uploads (đã upload qua scripts/upload-role-images.mjs)
+// thay vì ảnh tĩnh trong public/, vì ảnh tĩnh gốc đã bị xoá khỏi source code (xem
+// supabase/migrations/202609100001_game_roles.sql).
 export const WOLF_ROLE_CARD_IMAGES: Partial<Record<WolfRole, { alt: string; src: string }>> = {
-  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.webp" },
-  werewolf_seer: { alt: "Lá bài Sói Tiên Tri", src: "/images/boards/cards/wolf/werewolf_seer.webp" },
-  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.webp" },
-  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.webp" },
-  robber: { alt: "Lá bài Kẻ Trộm", src: "/images/boards/cards/wolf/robber.webp" },
-  troublemaker: { alt: "Lá bài Kẻ Gây Rối", src: "/images/boards/cards/wolf/troublemaker.webp" },
-  witch: { alt: "Lá bài Phù Thuỷ", src: "/images/boards/cards/wolf/witch.webp" },
-  drunk: { alt: "Lá bài Say Rượu", src: "/images/boards/cards/wolf/drunk.webp" },
-  insomniac: { alt: "Lá bài Mất Ngủ", src: "/images/boards/cards/wolf/insomniac.webp" },
-  doppelganger: { alt: "Lá bài Nhân Bản", src: "/images/boards/cards/wolf/doppelganger.webp" },
-  copycat: { alt: "Lá bài Copy Cat", src: "/images/boards/cards/wolf/copycat.webp" },
+  werewolf: { alt: "Lá bài Ma Sói", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/werewolf.webp" },
+  werewolf_seer: { alt: "Lá bài Sói Tiên Tri", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/werewolf_seer.webp" },
+  villager: { alt: "Lá bài Dân Làng", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/villager.webp" },
+  seer: { alt: "Lá bài Tiên Tri", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/seer.webp" },
+  robber: { alt: "Lá bài Kẻ Trộm", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/robber.webp" },
+  troublemaker: { alt: "Lá bài Kẻ Gây Rối", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/troublemaker.webp" },
+  witch: { alt: "Lá bài Phù Thuỷ", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/witch.webp" },
+  drunk: { alt: "Lá bài Say Rượu", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/drunk.webp" },
+  insomniac: { alt: "Lá bài Mất Ngủ", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/insomniac.webp" },
+  doppelganger: { alt: "Lá bài Nhân Bản", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/doppelganger.webp" },
+  copycat: { alt: "Lá bài Copy Cat", src: "https://storage.googleapis.com/weplaytogether-uploads/roles/wolf/copycat.webp" },
 };
 
 export function getWolfRoleImagePath(role: WolfRole) {

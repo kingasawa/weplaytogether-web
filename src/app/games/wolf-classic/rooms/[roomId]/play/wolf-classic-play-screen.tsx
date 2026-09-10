@@ -22,11 +22,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { GameBugReportDialog } from "@/components/game";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
+  CLASSIC_WOLF_ROLE_CARD_IMAGES,
   CLASSIC_WOLF_ROLE_DESCRIPTIONS,
   CLASSIC_WOLF_ROLE_LABELS,
   type ClassicWolfRole,
 } from "@/lib/classic-wolf-game";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
+import { useGameRoleOverrides, type GameRoleOverrideMap } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
 import {
   advanceClassicWolfNightAutoPassIfReady,
   finishClassicWolfGame,
@@ -53,14 +56,6 @@ const PHASE_LABELS: Record<ClassicWolfPlayState["game"]["phase"], string> = {
 
 const VOTE_SKIP_KEY = "__skip_vote__";
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
-const CLASSIC_WOLF_ROLE_CARD_IMAGES: Partial<Record<ClassicWolfRole, { alt: string; src: string }>> = {
-  villager: { alt: "Lá bài Dân Làng", src: "/images/boards/cards/wolf/human.webp" },
-  werewolf: { alt: "Lá bài Ma Sói", src: "/images/boards/cards/wolf/wolf.webp" },
-  seer: { alt: "Lá bài Tiên Tri", src: "/images/boards/cards/wolf/seer.webp" },
-  witch: { alt: "Lá bài Phù Thủy", src: "/images/boards/cards/wolf/witch.webp" },
-  guard: { alt: "Lá bài Bảo Vệ", src: "/images/boards/cards/wolf/guard.webp" },
-  hunter: { alt: "Lá bài Thợ Săn", src: "/images/boards/cards/wolf/hunter.webp" },
-};
 
 type WitchDecision = "rescue_prompt" | "rescue" | "poison_prompt" | "poison" | "skip";
 type NightPickerIntent = "guard" | "wolf" | "seer" | "hunter" | "witchHeal" | "witchPoison" | "default";
@@ -81,7 +76,10 @@ function getResultRoleClassName(role: ClassicWolfRole | null) {
   return `${styles.resultRoleTag} ${styles[`resultRoleTag${role[0].toUpperCase()}${role.slice(1)}`]}`;
 }
 
-function getNightHistoryRoleLabel(role: ClassicWolfPlayState["nightHistory"][number]["actionDescriptions"][number]["role"]) {
+function getNightHistoryRoleLabel(
+  role: ClassicWolfPlayState["nightHistory"][number]["actionDescriptions"][number]["role"],
+  overrides: GameRoleOverrideMap
+) {
   if (role === "result") {
     return "Kết quả";
   }
@@ -90,7 +88,7 @@ function getNightHistoryRoleLabel(role: ClassicWolfPlayState["nightHistory"][num
     return "Bỏ phiếu";
   }
 
-  return CLASSIC_WOLF_ROLE_LABELS[role];
+  return overrides[role]?.label ?? CLASSIC_WOLF_ROLE_LABELS[role];
 }
 
 function getNightHistoryRoleClassName(role: ClassicWolfPlayState["nightHistory"][number]["actionDescriptions"][number]["role"]) {
@@ -113,22 +111,24 @@ function formatWaitingPlayers(
   return textWithNames.length <= 54 ? textWithNames : `${prefix}${players.length} ${options.countLabel}${suffix}`;
 }
 
-function RoleCard({ role }: { role: ClassicWolfRole | null }) {
-  const roleCardImage = role ? CLASSIC_WOLF_ROLE_CARD_IMAGES[role] : null;
+function RoleCard({ role, overrides }: { role: ClassicWolfRole | null; overrides: GameRoleOverrideMap }) {
+  const roleOverride = role ? overrides[role] : undefined;
+  const roleLabel = role ? roleOverride?.label ?? CLASSIC_WOLF_ROLE_LABELS[role] : "Vai chưa xác định";
+  const roleImageSrc = role ? roleOverride?.imageUrl ?? CLASSIC_WOLF_ROLE_CARD_IMAGES[role].src : null;
 
   return (
     <article
-      aria-label={role ? CLASSIC_WOLF_ROLE_LABELS[role] : "Vai chưa xác định"}
-      className={`${styles.playCard} ${styles.cardRevealRoleCard} ${roleCardImage ? styles.roleImageCard : ""}`}
+      aria-label={roleLabel}
+      className={`${styles.playCard} ${styles.cardRevealRoleCard} ${roleImageSrc ? styles.roleImageCard : ""}`}
     >
-      {roleCardImage && (
+      {roleImageSrc && (
         <Image
-          alt={roleCardImage.alt}
+          alt={roleLabel}
           className={styles.roleCardImage}
           height={1565}
           priority
           sizes="(max-width: 768px) 50vw, 14rem"
-          src={roleCardImage.src}
+          src={roleImageSrc}
           width={1005}
         />
       )}
@@ -216,6 +216,12 @@ type ClassicWolfPlayScreenProps = {
 
 export default function ClassicWolfPlayScreen({ initialState, isPreview = false }: ClassicWolfPlayScreenProps) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("classic_wolf");
+  usePreloadImages(
+    (Object.keys(CLASSIC_WOLF_ROLE_LABELS) as ClassicWolfRole[]).map(
+      (role) => roleOverrides[role]?.imageUrl ?? CLASSIC_WOLF_ROLE_CARD_IMAGES[role].src
+    )
+  );
   const [playState, setPlayState] = useState(initialState);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [optimisticWolfTargetPlayerId, setOptimisticWolfTargetPlayerId] = useState<string | null | undefined>(undefined);
@@ -994,7 +1000,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
       <>
         {renderWolfPackPanel()}
         <div className={styles.nightTurnWaiting}>
-          <span>Lượt {CLASSIC_WOLF_ROLE_LABELS[myRole]}</span>
+          <span>Lượt {roleOverrides[myRole]?.label ?? CLASSIC_WOLF_ROLE_LABELS[myRole]}</span>
           <strong>{CLASSIC_WOLF_ROLE_DESCRIPTIONS[myRole]}</strong>
           {myRole === "guard" && playState.previousGuardTargetPlayerId && (
             <p>
@@ -1271,7 +1277,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
         >
           {isCardRevealPhase && (
             <div className={styles.privateRevealBox}>
-              <RoleCard role={myRole} />
+              <RoleCard role={myRole} overrides={roleOverrides} />
               {renderPrivateRoleCover()}
             </div>
           )}
@@ -1480,7 +1486,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
                       </span>
                     </div>
                     <span className={getResultRoleClassName(player.role)}>
-                        {player.role ? CLASSIC_WOLF_ROLE_LABELS[player.role] : "Không rõ"}
+                        {player.role ? roleOverrides[player.role]?.label ?? CLASSIC_WOLF_ROLE_LABELS[player.role] : "Không rõ"}
                     </span>
                   </div>
                 ))}
@@ -1498,7 +1504,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
                           <span className={styles.nightHistoryEvent} key={`${nightHistory.nightNumber}-${index}`}>
                             <span className={getNightHistoryRoleClassName(description.role)}>
                               {renderNightHistoryRoleIcon(description.role)}
-                              {getNightHistoryRoleLabel(description.role)}
+                              {getNightHistoryRoleLabel(description.role, roleOverrides)}
                             </span>
                             <span className={styles.nightHistoryEventText}>
                               <span>{description.text}</span>
@@ -1571,15 +1577,17 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
           </div>
           <div className={`${styles.roleDeckGrid} ${styles.discussionRoleGrid}`}>
             {roleDeckSummary.map((roleSummary) => {
-              const roleCardImage = CLASSIC_WOLF_ROLE_CARD_IMAGES[roleSummary.role];
-              // Ảnh lá bài đã in sẵn tên role nên không cần label; role chưa có ảnh thì
+              const roleLabel = roleOverrides[roleSummary.role]?.label ?? CLASSIC_WOLF_ROLE_LABELS[roleSummary.role];
+              // Ảnh lá bài đã in sẵn tên role nên không cần label; role chưa có ảnh riêng thì
               // dùng mặt lưng bài + vẫn hiện tên để còn nhận ra.
-              const roleCardImageSrc = roleCardImage?.src ?? PRIVATE_CARD_COVER_IMAGE_PATH;
+              const specificImageSrc =
+                roleOverrides[roleSummary.role]?.imageUrl ?? CLASSIC_WOLF_ROLE_CARD_IMAGES[roleSummary.role]?.src ?? null;
+              const roleCardImageSrc = specificImageSrc ?? PRIVATE_CARD_COVER_IMAGE_PATH;
 
               return (
                 <button
                   key={roleSummary.role}
-                  aria-label={`Xem hướng dẫn ${CLASSIC_WOLF_ROLE_LABELS[roleSummary.role]}`}
+                  aria-label={`Xem hướng dẫn ${roleLabel}`}
                   className={`${styles.roleDeckTile} ${styles.discussionRoleTile}`}
                   type="button"
                   onClick={() => setSelectedRoleGuide(roleSummary.role)}
@@ -1592,8 +1600,8 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
                       sizes="(max-width: 768px) 22vw, 5rem"
                       src={roleCardImageSrc}
                     />
-                    {!roleCardImage && (
-                      <span className={styles.roleDeckTileName}>{CLASSIC_WOLF_ROLE_LABELS[roleSummary.role]}</span>
+                    {!specificImageSrc && (
+                      <span className={styles.roleDeckTileName}>{roleLabel}</span>
                     )}
                   </span>
                   <span aria-label={`${roleSummary.count} lá`} className={styles.roleDeckTileCount}>
@@ -1761,7 +1769,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
             >
               <X aria-hidden="true" />
             </button>
-            <h2 id="classic-wolf-role-guide-title">{CLASSIC_WOLF_ROLE_LABELS[selectedRoleGuide]}</h2>
+            <h2 id="classic-wolf-role-guide-title">{roleOverrides[selectedRoleGuide]?.label ?? CLASSIC_WOLF_ROLE_LABELS[selectedRoleGuide]}</h2>
             <div className={styles.roleGuideSection}>
               <span>Chức năng</span>
               <p>{CLASSIC_WOLF_ROLE_DESCRIPTIONS[selectedRoleGuide]}</p>

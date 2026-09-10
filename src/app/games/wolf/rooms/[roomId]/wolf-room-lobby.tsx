@@ -35,7 +35,9 @@ import { isAllowedGmailSession } from "@/lib/supabase/auth-client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { readStoredAccountProfile } from "@/lib/user-profile";
 import type { WolfRole } from "@/lib/supabase/types";
-import { WOLF_MAX_PLAYERS, WOLF_ROLE_LABELS } from "@/lib/wolf-game";
+import { useGameRoleOverrides } from "@/lib/use-game-role-overrides";
+import { usePreloadImages } from "@/lib/use-preload-images";
+import { getWolfRoleImagePath, WOLF_MAX_PLAYERS, WOLF_ROLE_LABELS } from "@/lib/wolf-game";
 import {
   getWolfLobbyState,
   joinWolfRoom,
@@ -177,6 +179,13 @@ type WolfRoomLobbyProps = {
 
 export default function WolfRoomLobby({ initialState, initialSpectatorState }: WolfRoomLobbyProps) {
   const router = useRouter();
+  const roleOverrides = useGameRoleOverrides("wolf");
+  // Tải trước toàn bộ ảnh lá bài role ngay khi vào phòng chờ (trước khi bấm "Bắt đầu"), để
+  // ảnh đã sẵn trong cache trình duyệt lúc thật sự cần hiện trong ván — tránh mất hình giữa
+  // chừng nếu mạng chập chờn đúng lúc đó.
+  usePreloadImages(
+    ROLE_LABEL_OPTIONS.map((option) => roleOverrides[option.role]?.imageUrl ?? getWolfRoleImagePath(option.role))
+  );
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [lobbyState, setLobbyState] = useState(initialState);
   const [errorMessage, setErrorMessage] = useState("");
@@ -652,7 +661,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                         key={option.id}
                         onClick={() => toggleSelectedRole(option.id)}
                       >
-                        <strong>{WOLF_ROLE_LABELS[option.role]}</strong>
+                        <strong>{roleOverrides[option.role]?.label ?? WOLF_ROLE_LABELS[option.role]}</strong>
                       </button>
                     );
                   })}
