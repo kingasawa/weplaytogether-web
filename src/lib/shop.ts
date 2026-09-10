@@ -54,9 +54,26 @@ export async function listShopItems(itemType?: ShopItemType): Promise<ShopResult
   return { data: (data ?? []) as ShopItem[], error: null };
 }
 
-// Các vật phẩm user hiện tại đã mua (chỉ đọc được hàng của chính mình qua RLS).
+// Các vật phẩm user hiện tại đã mua. Lọc thẳng theo user_id thay vì chỉ dựa vào RLS —
+// policy user_shop_items_select_own_or_admin CŨNG cho phép admin (is_shop_admin()) đọc
+// được hàng của MỌI user (phục vụ mục đích quản trị khác), nên nếu không lọc ở đây thì khi
+// chính admin tự vào trang Shop sẽ thấy toàn bộ vật phẩm mà NGƯỜI KHÁC đã mua bị hiện nhầm
+// thành "đã sở hữu" — bấm trang bị sẽ bị trigger enforce_equipped_shop_items chặn vì thực
+// ra chưa sở hữu.
 export async function listMyShopItemIds(): Promise<ShopResult<Set<string>>> {
-  const { data, error } = await client().from("user_shop_items").select("item_id");
+  const supabase = client();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { data: new Set(), error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("user_shop_items")
+    .select("item_id")
+    .eq("user_id", session.user.id);
 
   if (error) {
     if (isMissingTableError(error, "user_shop_items")) {
@@ -82,10 +99,22 @@ export type MyOwnedShopItem = {
 // Vật phẩm user hiện tại đã sở hữu, kèm chi tiết (tên/ảnh/loại) — dùng cho box "Khung" ở
 // trang Hồ sơ. Join qua quan hệ FK user_shop_items.item_id -> shop_items.id nên trả về được
 // cả vật phẩm admin đã ẩn khỏi shop (is_active=false) miễn user đã sở hữu từ trước.
+// Lọc thẳng theo user_id (xem lý do ở listMyShopItemIds) để admin tự xem trang Hồ sơ của
+// chính mình không bị lẫn vật phẩm của người khác vào box "Khung".
 export async function listMyOwnedShopItems(): Promise<ShopResult<MyOwnedShopItem[]>> {
-  const { data, error } = await client()
+  const supabase = client();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { data: [], error: null };
+  }
+
+  const { data, error } = await supabase
     .from("user_shop_items")
     .select("item_id, shop_items(id, item_type, name, image_url)")
+    .eq("user_id", session.user.id)
     .order("purchased_at", { ascending: true });
 
   if (error) {
