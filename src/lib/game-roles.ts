@@ -8,6 +8,12 @@ import { isMissingTableError } from "@/lib/supabase/errors";
 // đọc/ghi cho admin nằm ở src/lib/admin-game-roles.ts.
 export type GameRoleKey = "wolf" | "classic_wolf" | "avalon";
 
+export const GAME_ROLE_KEY_LABELS: Record<GameRoleKey, string> = {
+  wolf: "Ma Sói Một Đêm",
+  classic_wolf: "Ma Sói Nhiều Đêm",
+  avalon: "Avalon",
+};
+
 export type GameRoleRow = {
   id: string;
   gameKey: GameRoleKey;

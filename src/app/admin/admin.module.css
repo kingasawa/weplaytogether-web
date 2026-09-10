@@ -200,6 +200,42 @@
   font-size: 0.9rem;
 }
 
+/* Tab lọc theo game (vd /admin/game-roles) — mỗi tab là 1 nút tách biệt rõ ràng, không phải chữ
+   trần không viền như trước (class này từng được JSX dùng nhưng chưa từng được định nghĩa). */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.tab {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  padding: 0 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary-light) 40%, transparent);
+}
+
+.tabActive {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--primary) 80%, var(--bg-primary));
+  color: var(--text);
+}
+
 .primaryButton,
 .secondaryButton,
 .dangerButton {
@@ -284,65 +320,11 @@
   color: var(--text-secondary);
 }
 
-.gameRoleTabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.gameRoleTab {
-  display: grid;
-  min-height: 4.2rem;
-  align-content: center;
-  gap: 0.25rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-  color: var(--text);
-  cursor: pointer;
-  font-family: var(--font-body);
-  text-align: left;
-  transition: background var(--transition-base), border-color var(--transition-base), transform var(--transition-base);
-}
-
-.gameRoleTab:hover {
-  border-color: color-mix(in srgb, var(--primary-light) 34%, transparent);
-  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
-  transform: translateY(-0.05rem);
-}
-
-.gameRoleTabActive,
-.gameRoleTabActive:hover {
-  border-color: color-mix(in srgb, var(--primary-light) 62%, transparent);
-  background: color-mix(in srgb, var(--primary) 26%, var(--bg-card));
-}
-
-.gameRoleTabLabel {
-  overflow: hidden;
-  font-family: var(--font-heading);
-  font-size: 0.98rem;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gameRoleTabMeta {
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
 .tableWrapper {
   overflow-x: auto;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-}
-
-.gameRoleTableWrapper {
-  border-color: color-mix(in srgb, var(--primary-light) 18%, transparent);
 }
 
 .table {
@@ -358,11 +340,6 @@
    gắn className riêng vào đúng <th>/<td> "Ảnh" thay vì :first-child dùng chung toàn .table. */
 .imageColumn {
   width: 4.75rem;
-}
-
-.roleImageColumn {
-  width: 7.5rem;
-  min-width: 7.5rem;
 }
 
 /* Cột "Người chơi" và "Email" của bảng người dùng — ép cùng 1 min-width để 2 cột dài bằng nhau
@@ -422,35 +399,35 @@
   object-fit: contain;
 }
 
-.gameRoleTable {
-  min-width: 58rem;
-}
-
-.gameRoleTable td {
-  padding-top: 0.85rem;
-  padding-bottom: 0.85rem;
+/* Cột "Ảnh" + thumbnail riêng của bảng role trong game (/admin/game-roles) — to hơn hẳn .thumb
+   dùng chung ở trên (2.75rem) vì ảnh lá bài cần thấy rõ chi tiết, KHÔNG đổi .thumb/.imageColumn
+   gốc vì 2 class đó còn dùng ở bảng vật phẩm/người dùng. */
+.roleImageColumn {
+  width: 7rem;
 }
 
 .roleThumb {
-  display: grid;
-  width: clamp(5rem, 7vw, 6.5rem);
-  aspect-ratio: 2 / 3;
-  place-items: center;
+  display: inline-block;
+  position: relative;
+  width: 5.5rem;
+  aspect-ratio: 3 / 4;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--bg-primary) 34%, var(--bg-card));
+  background: color-mix(in srgb, var(--bg-primary) 40%, var(--bg-secondary));
 }
 
 .roleThumb img {
-  width: 100%;
-  height: 100%;
   object-fit: contain;
 }
 
 .roleThumb svg {
-  width: 2rem;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
   color: var(--text-secondary);
+  transform: translate(-50%, -50%);
 }
 
 .badge {
@@ -893,6 +870,122 @@
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 0.65rem;
   background: url("/images/ui/wolf_game_bg.webp") center / cover no-repeat, var(--bg-primary);
+}
+
+/* ---- Gallery ảnh role (/admin/game-roles/[id]) ---- */
+
+/* Ô xem trước ảnh đang chọn cho role — vuông, đủ lớn để thấy rõ chi tiết lá bài. */
+.galleryPreviewBox {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg-primary) 40%, var(--bg-card));
+}
+
+.galleryPreviewBox img {
+  object-fit: contain;
+}
+
+.galleryPreviewBox svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2rem;
+  height: 2rem;
+  color: var(--text-secondary);
+  transform: translate(-50%, -50%);
+}
+
+/* Modal gallery rộng hơn .formModal mặc định (30rem) để hiện lưới nhiều ảnh 1 lúc — vẫn dùng
+   chung .formBackdrop làm nền mờ phía sau. */
+.galleryModal {
+  display: grid;
+  width: min(100%, 46rem);
+  max-height: calc(100svh - 4rem);
+  gap: 0.9rem;
+  overflow: auto;
+  padding: 1.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.85rem;
+  background: var(--bg-card);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.galleryModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.galleryModalHeader h2 {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+}
+
+.galleryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.75rem;
+}
+
+/* .galleryTile là <div> bọc ngoài (không còn là <button>) vì bên trong cần 2 nút riêng biệt
+   (chọn ảnh + xoá ảnh) — HTML không cho phép lồng <button> trong <button>. */
+.galleryTile {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--bg-primary) 40%, var(--bg-secondary));
+  transition: border-color var(--transition-fast);
+}
+
+.galleryTile:hover {
+  border-color: color-mix(in srgb, var(--primary-light) 55%, transparent);
+}
+
+.galleryTileActive {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+.galleryTileSelect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+.galleryTileSelect img {
+  object-fit: contain;
+}
+
+.galleryTileDelete {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 1;
+  min-width: 1.9rem;
+  min-height: 1.9rem;
+  background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+}
+
+.galleryTileDelete svg {
+  width: 0.8rem;
+}
+
+.galleryTileDelete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* ---- Desktop-only notice ---- */

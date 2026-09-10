@@ -1,39 +1,31 @@
 "use client";
 
-import { Check, Contact, ImageOff, LoaderCircle, Pencil, X } from "lucide-react";
+import { Contact, ImageOff, LoaderCircle, Pencil } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { listAllGameRoles, updateGameRole } from "@/lib/admin-game-roles";
-import type { GameRoleKey, GameRoleRow } from "@/lib/game-roles";
+import { listAllGameRoles } from "@/lib/admin-game-roles";
+import { GAME_ROLE_KEY_LABELS, type GameRoleKey, type GameRoleRow } from "@/lib/game-roles";
 import styles from "../admin.module.css";
 
 type FilterTab = GameRoleKey;
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: "wolf", label: "Ma Sói Một Đêm" },
-  { key: "classic_wolf", label: "Ma Sói Nhiều Đêm" },
-  { key: "avalon", label: "Avalon" },
+  { key: "wolf", label: GAME_ROLE_KEY_LABELS.wolf },
+  { key: "classic_wolf", label: GAME_ROLE_KEY_LABELS.classic_wolf },
+  { key: "avalon", label: GAME_ROLE_KEY_LABELS.avalon },
 ];
 
-const GAME_LABELS: Record<GameRoleKey, string> = {
-  wolf: "Ma Sói Một Đêm",
-  classic_wolf: "Ma Sói Nhiều Đêm",
-  avalon: "Avalon",
-};
-
-type EditDraft = { displayNameVi: string; displayNameEn: string; imageUrl: string };
-
+// Danh sách CHỈ ĐỌC — sửa role (ảnh, tên VI, tên EN) nằm ở trang riêng /admin/game-roles/[id]
+// (không còn sửa inline ngay trong bảng), giống hệt pattern /admin/items.
 export default function AdminGameRolesScreen() {
   const [roles, setRoles] = useState<GameRoleRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [filterTab, setFilterTab] = useState<FilterTab>("wolf");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EditDraft>({ displayNameVi: "", displayNameEn: "", imageUrl: "" });
-  const [isSaving, setIsSaving] = useState(false);
-  const [rowError, setRowError] = useState("");
 
   const refresh = useCallback(async () => {
+    setIsLoading(true);
     const { data, error } = await listAllGameRoles();
     setIsLoading(false);
 
@@ -47,63 +39,9 @@ export default function AdminGameRolesScreen() {
   }, []);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void refresh();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
+    void refresh();
   }, [refresh]);
 
-  function startEdit(role: GameRoleRow) {
-    setEditingId(role.id);
-    setDraft({ displayNameVi: role.displayNameVi, displayNameEn: role.displayNameEn, imageUrl: role.imageUrl });
-    setRowError("");
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setRowError("");
-  }
-
-  function selectTab(tab: FilterTab) {
-    setFilterTab(tab);
-    setEditingId(null);
-    setRowError("");
-  }
-
-  async function saveEdit(role: GameRoleRow) {
-    const displayNameVi = draft.displayNameVi.trim();
-    const displayNameEn = draft.displayNameEn.trim();
-    const imageUrl = draft.imageUrl.trim();
-
-    if (!displayNameVi || !displayNameEn) {
-      setRowError("Vui lòng nhập tên hiển thị cho cả 2 ngôn ngữ.");
-      return;
-    }
-
-    if (!imageUrl) {
-      setRowError("Vui lòng nhập URL ảnh.");
-      return;
-    }
-
-    setIsSaving(true);
-    setRowError("");
-    const { data, error } = await updateGameRole(role.id, { displayNameVi, displayNameEn, imageUrl });
-    setIsSaving(false);
-
-    if (error || !data) {
-      setRowError(error ?? "Không thể lưu.");
-      return;
-    }
-
-    setRoles((current) => current.map((row) => (row.id === role.id ? data : row)));
-    setEditingId(null);
-  }
-
-  const roleCounts = roles.reduce<Record<GameRoleKey, number>>(
-    (counts, role) => ({ ...counts, [role.gameKey]: counts[role.gameKey] + 1 }),
-    { wolf: 0, classic_wolf: 0, avalon: 0 }
-  );
   const visibleRoles = roles.filter((role) => role.gameKey === filterTab);
 
   return (
@@ -111,22 +49,21 @@ export default function AdminGameRolesScreen() {
       <div className={styles.pageHeader}>
         <div>
           <h1>Role trong game</h1>
-          <p>Đổi tên hiển thị (Việt/Anh) và ảnh lá bài của từng role - không cần sửa code.</p>
+          <p>Đổi tên hiển thị (Việt/Anh) và ảnh lá bài của từng role — không cần sửa code.</p>
         </div>
       </div>
 
-      <div className={styles.gameRoleTabs} role="tablist" aria-label="Lọc theo game">
+      <div className={styles.tabs} role="tablist" aria-label="Lọc theo game">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
-            className={`${styles.gameRoleTab} ${filterTab === tab.key ? styles.gameRoleTabActive : ""}`}
+            className={`${styles.tab} ${filterTab === tab.key ? styles.tabActive : ""}`}
             type="button"
             role="tab"
             aria-selected={filterTab === tab.key}
-            onClick={() => selectTab(tab.key)}
+            onClick={() => setFilterTab(tab.key)}
           >
-            <span className={styles.gameRoleTabLabel}>{tab.label}</span>
-            <span className={styles.gameRoleTabMeta}>{roleCounts[tab.key]} role</span>
+            {tab.label}
           </button>
         ))}
       </div>
@@ -142,16 +79,16 @@ export default function AdminGameRolesScreen() {
         <div className={styles.tableWrapper}>
           <div className={styles.emptyState}>
             <Contact aria-hidden="true" />
-            <p>Chưa có dữ liệu role nào cho {GAME_LABELS[filterTab]}. Hãy chạy migration 202609100001_game_roles.sql trước.</p>
+            <p>Chưa có dữ liệu role nào. Hãy chạy migration 202609100001_game_roles.sql trước.</p>
           </div>
         </div>
       ) : (
         !loadError && (
-          <div className={`${styles.tableWrapper} ${styles.gameRoleTableWrapper}`}>
-            <table className={`${styles.table} ${styles.gameRoleTable}`}>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
               <thead>
                 <tr>
-                  <th className={styles.roleImageColumn}>Ảnh role</th>
+                  <th className={styles.roleImageColumn}>Ảnh</th>
                   <th>Game</th>
                   <th>Role (key)</th>
                   <th>Tên hiển thị (VI)</th>
@@ -160,104 +97,38 @@ export default function AdminGameRolesScreen() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRoles.map((role) => {
-                  const isEditing = editingId === role.id;
-
-                  return (
-                    <tr key={role.id}>
-                      <td className={styles.roleImageColumn}>
-                        <span className={styles.roleThumb}>
-                          {(isEditing ? draft.imageUrl : role.imageUrl) ? (
-                            <Image
-                              alt=""
-                              width={120}
-                              height={180}
-                              src={isEditing ? draft.imageUrl : role.imageUrl}
-                              unoptimized
-                            />
-                          ) : (
-                            <ImageOff aria-hidden="true" />
-                          )}
-                        </span>
-                      </td>
-                      <td>{GAME_LABELS[role.gameKey]}</td>
-                      <td>
-                        <code>{role.roleKey}</code>
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <input
-                            autoFocus
-                            className={styles.searchInput}
-                            maxLength={60}
-                            type="text"
-                            value={draft.displayNameVi}
-                            onChange={(event) => setDraft((current) => ({ ...current, displayNameVi: event.target.value }))}
-                          />
+                {visibleRoles.map((role) => (
+                  <tr key={role.id}>
+                    <td className={styles.roleImageColumn}>
+                      <span className={styles.roleThumb}>
+                        {role.imageUrl ? (
+                          <Image alt="" fill sizes="5.5rem" src={role.imageUrl} unoptimized />
                         ) : (
-                          role.displayNameVi
+                          <ImageOff aria-hidden="true" />
                         )}
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <input
-                            className={styles.searchInput}
-                            maxLength={60}
-                            type="text"
-                            value={draft.displayNameEn}
-                            onChange={(event) => setDraft((current) => ({ ...current, displayNameEn: event.target.value }))}
-                          />
-                        ) : (
-                          role.displayNameEn
-                        )}
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <div className={styles.rowActions}>
-                            <button
-                              className={styles.iconOnlyButton}
-                              type="button"
-                              aria-label={`Lưu ${role.roleKey}`}
-                              disabled={isSaving}
-                              onClick={() => void saveEdit(role)}
-                            >
-                              {isSaving ? <LoaderCircle aria-hidden="true" /> : <Check aria-hidden="true" />}
-                            </button>
-                            <button className={styles.iconOnlyButton} type="button" aria-label="Hủy sửa" onClick={cancelEdit}>
-                              <X aria-hidden="true" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className={styles.rowActions}>
-                            <button
-                              className={styles.iconOnlyButton}
-                              type="button"
-                              aria-label={`Sửa ${role.roleKey}`}
-                              onClick={() => startEdit(role)}
-                            >
-                              <Pencil aria-hidden="true" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </span>
+                    </td>
+                    <td>{GAME_ROLE_KEY_LABELS[role.gameKey]}</td>
+                    <td>
+                      <code>{role.roleKey}</code>
+                    </td>
+                    <td>{role.displayNameVi}</td>
+                    <td>{role.displayNameEn}</td>
+                    <td>
+                      <div className={styles.rowActions}>
+                        <Link
+                          className={styles.iconOnlyButton}
+                          aria-label={`Sửa ${role.roleKey}`}
+                          href={`/admin/game-roles/${role.id}`}
+                        >
+                          <Pencil aria-hidden="true" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
-            {editingId && (
-              <div className={styles.formField}>
-                <label htmlFor="game-role-image-url">URL ảnh lá bài đang sửa</label>
-                <input
-                  id="game-role-image-url"
-                  placeholder="/images/boards/cards/... hoặc URL đầy đủ"
-                  type="text"
-                  value={draft.imageUrl}
-                  onChange={(event) => setDraft((current) => ({ ...current, imageUrl: event.target.value }))}
-                />
-              </div>
-            )}
-            {rowError && <p className={styles.errorText}>{rowError}</p>}
           </div>
         )
       )}

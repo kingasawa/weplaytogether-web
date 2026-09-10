@@ -23,3 +23,17 @@ export async function putAvatarObject(key: string, file: File, contentType: stri
 export async function deleteAvatarObject(key: string) {
   await bucket.file(key).delete({ ignoreNotFound: true });
 }
+
+// Liệt kê object theo prefix (ví dụ "roles/wolf/") — dùng cho gallery chọn ảnh ở
+// /admin/game-roles/[id] (xem src/app/api/admin/game-roles/gallery/route.ts). Sắp mới nhất lên
+// đầu (theo timeCreated) để ảnh vừa upload dễ thấy ngay.
+export async function listAvatarObjects(prefix: string) {
+  const [files] = await bucket.getFiles({ prefix });
+
+  return files
+    .map((file) => ({
+      key: file.name,
+      updatedAt: file.metadata.timeCreated ?? null,
+    }))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+}
