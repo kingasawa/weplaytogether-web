@@ -35,7 +35,7 @@
   width: clamp(10.5rem, 48vw, 14.25rem);
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  border-radius: 1.5rem;
+  border-radius: 2.5rem;
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--bg-primary) 60%, transparent);
 }
 
