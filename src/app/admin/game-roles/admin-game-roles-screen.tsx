@@ -2,15 +2,14 @@
 
 import { Check, Contact, ImageOff, LoaderCircle, Pencil, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listAllGameRoles, updateGameRole } from "@/lib/admin-game-roles";
 import type { GameRoleKey, GameRoleRow } from "@/lib/game-roles";
 import styles from "../admin.module.css";
 
-type FilterTab = "all" | GameRoleKey;
+type FilterTab = GameRoleKey;
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: "all", label: "Tất cả" },
   { key: "wolf", label: "Ma Sói Một Đêm" },
   { key: "classic_wolf", label: "Ma Sói Nhiều Đêm" },
   { key: "avalon", label: "Avalon" },
@@ -28,18 +27,13 @@ export default function AdminGameRolesScreen() {
   const [roles, setRoles] = useState<GameRoleRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [filterTab, setFilterTab] = useState<FilterTab>("all");
+  const [filterTab, setFilterTab] = useState<FilterTab>("wolf");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<EditDraft>({ displayNameVi: "", displayNameEn: "", imageUrl: "" });
   const [isSaving, setIsSaving] = useState(false);
   const [rowError, setRowError] = useState("");
 
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  async function refresh() {
-    setIsLoading(true);
+  const refresh = useCallback(async () => {
     const { data, error } = await listAllGameRoles();
     setIsLoading(false);
 
@@ -50,7 +44,15 @@ export default function AdminGameRolesScreen() {
 
     setLoadError("");
     setRoles(data ?? []);
-  }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [refresh]);
 
   function startEdit(role: GameRoleRow) {
     setEditingId(role.id);
@@ -59,6 +61,12 @@ export default function AdminGameRolesScreen() {
   }
 
   function cancelEdit() {
+    setEditingId(null);
+    setRowError("");
+  }
+
+  function selectTab(tab: FilterTab) {
+    setFilterTab(tab);
     setEditingId(null);
     setRowError("");
   }
@@ -92,28 +100,33 @@ export default function AdminGameRolesScreen() {
     setEditingId(null);
   }
 
-  const visibleRoles = filterTab === "all" ? roles : roles.filter((role) => role.gameKey === filterTab);
+  const roleCounts = roles.reduce<Record<GameRoleKey, number>>(
+    (counts, role) => ({ ...counts, [role.gameKey]: counts[role.gameKey] + 1 }),
+    { wolf: 0, classic_wolf: 0, avalon: 0 }
+  );
+  const visibleRoles = roles.filter((role) => role.gameKey === filterTab);
 
   return (
     <div>
       <div className={styles.pageHeader}>
         <div>
           <h1>Role trong game</h1>
-          <p>Đổi tên hiển thị (Việt/Anh) và ảnh lá bài của từng role — không cần sửa code.</p>
+          <p>Đổi tên hiển thị (Việt/Anh) và ảnh lá bài của từng role - không cần sửa code.</p>
         </div>
       </div>
 
-      <div className={styles.tabs} role="tablist" aria-label="Lọc theo game">
+      <div className={styles.gameRoleTabs} role="tablist" aria-label="Lọc theo game">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
-            className={`${styles.tab} ${filterTab === tab.key ? styles.tabActive : ""}`}
+            className={`${styles.gameRoleTab} ${filterTab === tab.key ? styles.gameRoleTabActive : ""}`}
             type="button"
             role="tab"
             aria-selected={filterTab === tab.key}
-            onClick={() => setFilterTab(tab.key)}
+            onClick={() => selectTab(tab.key)}
           >
-            {tab.label}
+            <span className={styles.gameRoleTabLabel}>{tab.label}</span>
+            <span className={styles.gameRoleTabMeta}>{roleCounts[tab.key]} role</span>
           </button>
         ))}
       </div>
@@ -129,16 +142,16 @@ export default function AdminGameRolesScreen() {
         <div className={styles.tableWrapper}>
           <div className={styles.emptyState}>
             <Contact aria-hidden="true" />
-            <p>Chưa có dữ liệu role nào. Hãy chạy migration 202609100001_game_roles.sql trước.</p>
+            <p>Chưa có dữ liệu role nào cho {GAME_LABELS[filterTab]}. Hãy chạy migration 202609100001_game_roles.sql trước.</p>
           </div>
         </div>
       ) : (
         !loadError && (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
+          <div className={`${styles.tableWrapper} ${styles.gameRoleTableWrapper}`}>
+            <table className={`${styles.table} ${styles.gameRoleTable}`}>
               <thead>
                 <tr>
-                  <th className={styles.imageColumn}>Ảnh</th>
+                  <th className={styles.roleImageColumn}>Ảnh role</th>
                   <th>Game</th>
                   <th>Role (key)</th>
                   <th>Tên hiển thị (VI)</th>
@@ -152,13 +165,13 @@ export default function AdminGameRolesScreen() {
 
                   return (
                     <tr key={role.id}>
-                      <td className={styles.imageColumn}>
-                        <span className={styles.thumb}>
+                      <td className={styles.roleImageColumn}>
+                        <span className={styles.roleThumb}>
                           {(isEditing ? draft.imageUrl : role.imageUrl) ? (
                             <Image
                               alt=""
-                              width={44}
-                              height={44}
+                              width={120}
+                              height={180}
                               src={isEditing ? draft.imageUrl : role.imageUrl}
                               unoptimized
                             />

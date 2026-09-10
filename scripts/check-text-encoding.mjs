@@ -6,7 +6,7 @@ const EXTENSIONS = new Set([".css", ".md", ".sql", ".ts", ".tsx"]);
 const IGNORED_DIRS = new Set([".git", ".next", ".open-next", ".wrangler", "node_modules"]);
 
 const mojibakePattern = /[\uFFFD]|\u00e1[\u00ba\u00bb]|\u00c4|\u00c6|\u0102[\u00a0-\u00bf]/u;
-const knownBadRepairPattern = /\bchờn\b|\bChờn\b/u;
+const knownBadRepairPattern = /\bch\u00e1\u00bb\u009dn\b|\bCh\u00e1\u00bb\u009dn\b/u;
 
 function isScannedFile(filePath) {
   return Array.from(EXTENSIONS).some((extension) => filePath.endsWith(extension));

@@ -284,11 +284,65 @@
   color: var(--text-secondary);
 }
 
+.gameRoleTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.gameRoleTab {
+  display: grid;
+  min-height: 4.2rem;
+  align-content: center;
+  gap: 0.25rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 16%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+  transition: background var(--transition-base), border-color var(--transition-base), transform var(--transition-base);
+}
+
+.gameRoleTab:hover {
+  border-color: color-mix(in srgb, var(--primary-light) 34%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
+  transform: translateY(-0.05rem);
+}
+
+.gameRoleTabActive,
+.gameRoleTabActive:hover {
+  border-color: color-mix(in srgb, var(--primary-light) 62%, transparent);
+  background: color-mix(in srgb, var(--primary) 26%, var(--bg-card));
+}
+
+.gameRoleTabLabel {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 0.98rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gameRoleTabMeta {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .tableWrapper {
   overflow-x: auto;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+}
+
+.gameRoleTableWrapper {
+  border-color: color-mix(in srgb, var(--primary-light) 18%, transparent);
 }
 
 .table {
@@ -304,6 +358,11 @@
    gắn className riêng vào đúng <th>/<td> "Ảnh" thay vì :first-child dùng chung toàn .table. */
 .imageColumn {
   width: 4.75rem;
+}
+
+.roleImageColumn {
+  width: 7.5rem;
+  min-width: 7.5rem;
 }
 
 /* Cột "Người chơi" và "Email" của bảng người dùng — ép cùng 1 min-width để 2 cột dài bằng nhau
@@ -361,6 +420,37 @@
 .thumb img {
   /* contain: khung thông tin (profile_frame) là ảnh dài ~3:1, cover sẽ cắt mất 2 góc. */
   object-fit: contain;
+}
+
+.gameRoleTable {
+  min-width: 58rem;
+}
+
+.gameRoleTable td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.roleThumb {
+  display: grid;
+  width: clamp(5rem, 7vw, 6.5rem);
+  aspect-ratio: 2 / 3;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bg-primary) 34%, var(--bg-card));
+}
+
+.roleThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.roleThumb svg {
+  width: 2rem;
+  color: var(--text-secondary);
 }
 
 .badge {
