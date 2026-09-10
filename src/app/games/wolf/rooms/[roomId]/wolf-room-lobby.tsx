@@ -43,7 +43,6 @@ import {
   leaveWolfRoom,
   startWolfGame,
   toggleWolfReady,
-  updateWolfPlayerProfile,
   type WolfLobbyState,
   type WolfSpectatorState,
 } from "../../actions";
@@ -197,8 +196,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
   const [copyFeedback, setCopyFeedback] = useState("");
   const [isRoleSetupOpen, setIsRoleSetupOpen] = useState(false);
   const [selectedRoleOptionIds, setSelectedRoleOptionIds] = useState<string[]>([]);
-  // id người chơi đang mở modal hành động (bấm vào chính mình -> đổi tên; host bấm vào người
-  // khác -> đuổi khỏi phòng). null = không mở modal nào.
+  // id người chơi đang mở modal hành động (host bấm vào người khác -> đuổi khỏi phòng).
+  // null = không mở modal nào.
   const [actionMenuPlayerId, setActionMenuPlayerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -441,9 +440,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
       runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
-    } else if (lobbyState.currentPlayerId) {
-      // Đã ở trong phòng chờ → đồng bộ tên/avatar vào phòng cho mọi người thấy.
-      runUpdateRoomProfile(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -465,59 +461,6 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
-  }
-
-  // Mở trình chỉnh sửa tên/avatar khi đã ở trong phòng, prefill theo hồ sơ hiện tại.
-  function openRoomProfileEditor() {
-    const current = lobbyState.players.find(
-      (player) => player.id === lobbyState.currentPlayerId
-    );
-
-    setShouldJoinAfterGuestName(false);
-    setGuestNameInput(current?.name ?? guestName);
-    setGuestAvatarInput((current?.avatarKey as PlayerAvatarKey | undefined) ?? guestAvatarKey);
-    setGuestAvatarObjectKeyInput(current?.avatarObjectKey ?? guestAvatarObjectKey);
-    setGuestNameError("");
-    setIsIdentityOpen(true);
-    setIsGuestFormOpen(true);
-  }
-
-  function runUpdateRoomProfile(
-    name: string,
-    avatarKey: string,
-    avatarObjectKey: string | null
-  ) {
-    setErrorMessage("");
-    startTransition(async () => {
-      const freshUserId = await getFreshAccountUserId();
-      const result = await updateWolfPlayerProfile(
-        lobbyState.room.code,
-        name,
-        avatarKey,
-        avatarObjectKey,
-        freshUserId
-      );
-
-      if (!result.ok) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      setLobbyState((currentState) => ({
-        ...currentState,
-        players: currentState.players.map((player) =>
-          player.id === result.playerId
-            ? {
-                ...player,
-                name: result.playerName,
-                avatarKey: result.playerAvatarKey,
-                avatarObjectKey: result.playerAvatarObjectKey,
-                avatarUrl: result.playerAvatarUrl,
-              }
-            : player
-        ),
-      }));
-    });
   }
 
   function toggleReady() {
@@ -773,9 +716,8 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         <div className={styles.playerList} aria-label="Danh sách người chơi">
           {lobbyState.players.map((player) => {
             const isSelf = player.id === currentPlayer?.id;
-            const canRename = isSelf && lobbyState.room.status === "waiting";
             const canKick = isCurrentPlayerHost && !isSelf && !player.isHost;
-            const isActionable = canRename || canKick;
+            const isActionable = canKick;
 
             return (
             <article
@@ -792,7 +734,7 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
               style={frameTintStyle(player.profileFrameColor)}
               role={isActionable ? "button" : undefined}
               tabIndex={isActionable ? 0 : undefined}
-              aria-label={isActionable ? (canRename ? "Đổi tên và avatar" : `Tuỳ chọn cho ${player.name}`) : undefined}
+              aria-label={isActionable ? `Tuỳ chọn cho ${player.name}` : undefined}
               onClick={isActionable ? () => setActionMenuPlayerId(player.id) : undefined}
               onKeyDown={
                 isActionable
@@ -1061,24 +1003,14 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         <PlayerActionMenuModal
           playerName={actionMenuPlayer.name}
           onClose={() => setActionMenuPlayerId(null)}
-          action={
-            actionMenuPlayer.id === currentPlayer?.id
-              ? {
-                  label: "Đổi tên & avatar",
-                  onSelect: () => {
-                    setActionMenuPlayerId(null);
-                    openRoomProfileEditor();
-                  },
-                }
-              : {
-                  label: "Đuổi khỏi phòng",
-                  variant: "danger",
-                  onSelect: () => {
-                    setActionMenuPlayerId(null);
-                    kickPlayer(actionMenuPlayer.id);
-                  },
-                }
-          }
+          action={{
+            label: "Đuổi khỏi phòng",
+            variant: "danger",
+            onSelect: () => {
+              setActionMenuPlayerId(null);
+              kickPlayer(actionMenuPlayer.id);
+            },
+          }}
         />
       )}
     </main>

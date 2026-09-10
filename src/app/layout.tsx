@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { vi } from "@/i18n/dictionaries";
 import { LanguageProvider } from "@/i18n/language-provider";
 import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/i18n/locales";
+import AccountProfileSync from "./account-profile-sync";
 import "./globals.css";
 
 const defaultSiteUrl = "https://weplaytogether.online";
@@ -59,7 +60,10 @@ export default async function RootLayout({
       className={beVietnamPro.variable}
     >
       <body>
-        <LanguageProvider initialLocale={initialLocale}>{children}</LanguageProvider>
+        <LanguageProvider initialLocale={initialLocale}>
+          <AccountProfileSync />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

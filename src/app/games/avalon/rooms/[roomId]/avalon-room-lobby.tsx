@@ -54,7 +54,6 @@ import {
   leaveAvalonRoom,
   startAvalonGame,
   toggleAvalonReady,
-  updateAvalonPlayerProfile,
   type AvalonLobbyState,
   type AvalonSpectatorState,
 } from "../../actions";
@@ -154,8 +153,8 @@ export default function AvalonRoomLobby({
   const [guestAvatarObjectKeyInput, setGuestAvatarObjectKeyInput] = useState<string | null>(null);
   const [guestNameError, setGuestNameError] = useState("");
   const [shouldJoinAfterGuestName, setShouldJoinAfterGuestName] = useState(false);
-  // id người chơi đang mở modal hành động (bấm vào chính mình -> đổi tên; host bấm vào người
-  // khác -> đuổi khỏi phòng). null = không mở modal nào.
+  // id người chơi đang mở modal hành động (host bấm vào người khác -> đuổi khỏi phòng).
+  // null = không mở modal nào.
   const [actionMenuPlayerId, setActionMenuPlayerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -344,8 +343,6 @@ export default function AvalonRoomLobby({
     if (shouldJoinAfterGuestName) {
       setShouldJoinAfterGuestName(false);
       runJoinCurrentRoom(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
-    } else if (lobbyState.currentPlayerId) {
-      runUpdateRoomProfile(normalizedGuestName, savedAvatarKey, savedAvatarObjectKey);
     }
   }
 
@@ -365,46 +362,6 @@ export default function AvalonRoomLobby({
     setGuestNameError("");
     setIsIdentityOpen(true);
     setIsGuestFormOpen(true);
-  }
-
-  // Mở chỉnh sửa tên/avatar khi đã ở trong phòng, prefill theo hồ sơ hiện tại.
-  function openRoomProfileEditor() {
-    const current = lobbyState.players.find(
-      (player) => player.id === lobbyState.currentPlayerId
-    );
-
-    setShouldJoinAfterGuestName(false);
-    setGuestNameInput(current?.name ?? guestName);
-    setGuestAvatarInput((current?.avatarKey as PlayerAvatarKey | undefined) ?? guestAvatarKey);
-    setGuestAvatarObjectKeyInput(current?.avatarObjectKey ?? guestAvatarObjectKey);
-    setGuestNameError("");
-    setIsIdentityOpen(true);
-    setIsGuestFormOpen(true);
-  }
-
-  function runUpdateRoomProfile(
-    name: string,
-    avatarKey: string,
-    avatarObjectKey: string | null
-  ) {
-    setErrorMessage("");
-    startTransition(async () => {
-      const freshUserId = await getFreshAccountUserId();
-      const result = await updateAvalonPlayerProfile(
-        lobbyState.room.code,
-        name,
-        avatarKey,
-        avatarObjectKey,
-        freshUserId
-      );
-
-      if (!result.ok) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      await refreshLobby();
-    });
   }
 
   function toggleReady() {
@@ -698,9 +655,8 @@ export default function AvalonRoomLobby({
             <div className={styles.playerList} aria-label="Danh sách người chơi">
               {lobbyState.players.map((player) => {
                 const isSelf = player.id === currentPlayer?.id;
-                const canRename = isSelf && lobbyState.room.status === "waiting";
                 const canKick = isCurrentPlayerHost && !isSelf && !player.isHost;
-                const isActionable = canRename || canKick;
+                const isActionable = canKick;
 
                 return (
                 <article
@@ -717,7 +673,7 @@ export default function AvalonRoomLobby({
                   style={frameTintStyle(player.profileFrameColor)}
                   role={isActionable ? "button" : undefined}
                   tabIndex={isActionable ? 0 : undefined}
-                  aria-label={isActionable ? (canRename ? "Đổi tên và avatar" : `Tuỳ chọn cho ${player.name}`) : undefined}
+                  aria-label={isActionable ? `Tuỳ chọn cho ${player.name}` : undefined}
                   onClick={isActionable ? () => setActionMenuPlayerId(player.id) : undefined}
                   onKeyDown={
                     isActionable
@@ -913,24 +869,14 @@ export default function AvalonRoomLobby({
         <PlayerActionMenuModal
           playerName={actionMenuPlayer.name}
           onClose={() => setActionMenuPlayerId(null)}
-          action={
-            actionMenuPlayer.id === currentPlayer?.id
-              ? {
-                  label: "Đổi tên & avatar",
-                  onSelect: () => {
-                    setActionMenuPlayerId(null);
-                    openRoomProfileEditor();
-                  },
-                }
-              : {
-                  label: "Đuổi khỏi phòng",
-                  variant: "danger",
-                  onSelect: () => {
-                    setActionMenuPlayerId(null);
-                    kickPlayer(actionMenuPlayer.id);
-                  },
-                }
-          }
+          action={{
+            label: "Đuổi khỏi phòng",
+            variant: "danger",
+            onSelect: () => {
+              setActionMenuPlayerId(null);
+              kickPlayer(actionMenuPlayer.id);
+            },
+          }}
         />
       )}
     </main>
