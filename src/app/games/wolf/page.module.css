@@ -176,6 +176,14 @@
     0 5px 0 color-mix(in srgb, var(--primary) 18%, black);
 }
 
+/* Riêng nút chính ở đáy phòng chờ (Tham gia phòng / Sẵn sàng / Bắt đầu) — viền ngoài xanh đậm nổi
+   bật quanh nút (outline, không chiếm layout như border — trình duyệt hiện đại tự bo theo
+   border-radius). --primary-dark: xem design-system/tokens.css. */
+.roomPanel > .actions .primaryButton {
+  outline: 4px solid color-mix(in srgb, var(--primary-dark) 60%, black);
+  outline-offset: 0;
+}
+
 .joinRoomButton {
   min-height: 3.2rem;
   /* Nằm dưới, chiếm trọn 1 hàng của lưới .heroActions (thay vì xếp cạnh
@@ -1808,6 +1816,147 @@
   .roomHeaderIconButton:not(:disabled):hover {
     transform: translateY(-0.1rem);
   }
+}
+
+/* Banner top phòng chờ — dùng ảnh lobby_top_bg.png (2172x724) làm nền, khoá đúng aspect-ratio
+   của ảnh (KHÔNG dùng chiều cao cố định/vh) để ảnh không bao giờ bị méo hay lệch khi responsive.
+   Tên phòng + 2 nút định vị theo % (top/left) thay vì rem/px cố định — % luôn tỉ lệ đúng theo
+   khung banner dù màn hình rộng/hẹp thế nào, vì banner luôn giữ đúng tỉ lệ ảnh gốc. Toạ độ % lấy
+   từ đo pixel thật trên ảnh gốc (scan tâm 2 vòng tròn kim loại trong ảnh), không áng chừng mắt. */
+.lobbyTopBanner {
+  position: relative;
+  /* Thu nhỏ 15% (100% -> 85%) — vẫn giữ aspect-ratio nên chiều cao co theo đúng tỉ lệ, không méo.
+     margin-inline:auto để banner hẹp hơn vẫn nằm giữa thay vì dạt sang trái. */
+  width: 75%;
+  margin-inline: auto;
+  /* Bù lại gap của .roomPanel (flex, gap: spacing-md áp cho mọi children) CHỈ ở cạnh dưới banner
+     này — kéo phần Danh sách lên sát banner, các gap khác giữa các phần tử con khác của .roomPanel
+     (playerList/errorMessage/actions...) không bị ảnh hưởng vì margin âm chỉ khai trên banner. */
+  margin-bottom: calc(var(--spacing-md) * -1);
+  aspect-ratio: 2172 / 724;
+  background: url("/images/ui/lobby_top_bg.png") center / contain no-repeat;
+}
+
+/* Vệt sáng quét (flash) chạy ngang qua bề mặt banner, mask đúng theo alpha ảnh gốc nên vệt sáng
+   CHỈ hiện trên phần hoạ tiết thật (không tràn ra nền trong suốt xung quanh). pointer-events:none
+   để không chặn click 2 nút. */
+.lobbyTopBanner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-image: url("/images/ui/lobby_top_bg.png");
+  mask-image: url("/images/ui/lobby_top_bg.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  background: linear-gradient(
+    100deg,
+    transparent 42%,
+    color-mix(in srgb, var(--text) 90%, var(--primary-light)) 50%,
+    transparent 58%
+  );
+  background-size: 300% 100%;
+  background-position: 200% 0;
+  mix-blend-mode: overlay;
+  opacity: 0;
+  animation: lobbyTopBannerFlash 4.8s ease-in-out infinite;
+}
+
+@keyframes lobbyTopBannerFlash {
+  0%,
+  58% {
+    background-position: 200% 0;
+    opacity: 0;
+  }
+  64% {
+    opacity: 0.85;
+  }
+  78% {
+    background-position: -100% 0;
+    opacity: 0.85;
+  }
+  88%,
+  100% {
+    background-position: -100% 0;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobbyTopBanner::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.lobbyTopBannerCodeWrap {
+  position: absolute;
+  top: 30%;
+  left: 24%;
+  display: grid;
+  width: 52%;
+  height: 38%;
+  place-items: center;
+  text-align: center;
+}
+
+/* Chữ tên phòng "cứng cáp" hơn kiểu tựa game: viền tối khắc nổi (text-stroke + shadow cứng phía
+   dưới) + glow màu chữ toả nhẹ ra ngoài, thay vì chữ trắng phẳng như trước. */
+.lobbyTopBannerCode {
+  overflow: hidden;
+  color: var(--text-accent);
+  font-family: var(--font-heading);
+  font-size: clamp(0.85rem, 4.2vw, 1.4rem);
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  -webkit-text-stroke: 0.045em color-mix(in srgb, var(--bg-primary) 70%, black);
+  text-shadow: 0 0.09em 0 color-mix(in srgb, var(--bg-primary) 80%, black);
+}
+
+.lobbyTopBannerButton {
+  position: absolute;
+  top: 44%;
+  display: grid;
+  width: 9.5%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.lobbyTopBannerButton svg {
+  width: 32%;
+  height: 32%;
+}
+
+.lobbyTopBannerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+/* Tâm vòng tròn trái/phải trong ảnh — button copy bên trái theo đúng yêu cầu. */
+.lobbyTopBannerCopyButton {
+  left: 17.4%;
+}
+
+.lobbyTopBannerExitButton {
+  left: 83.5%;
+  color: var(--danger-dark);
+}
+
+.lobbyTopBannerExitButton svg {
+  width: 45%;
+  height: 45%;
 }
 
 .lobbyHeader {

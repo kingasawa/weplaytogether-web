@@ -17,6 +17,8 @@
   /* --- Brand / Interactive --- */
   --primary:       #5D7CFF;
   --primary-light: #8EA8FF;
+  /* Xanh đậm hơn --primary, dùng cho viền/outline nổi bật (vd nút chính đáy phòng chờ wolf). */
+  --primary-dark:  #0C2075;
 
   /* --- Borders --- */
   --card-border:   #082951;
@@ -31,10 +33,14 @@
   /* --- Text --- */
   --text:           #FFFFFF;
   --text-secondary: #B7C0D8;
+  /* Xanh nhạt dùng cho chữ nổi bật đè lên nền kim loại/ảnh trang trí (vd tên phòng banner top lobby wolf). */
+  --text-accent:    #98B9E6;
 
   /* --- Semantic --- */
   --success: #2ECC71;
   --danger:  #E74C3C;
+  /* Đỏ đậm hơn --danger, dùng cho icon nút thoát phòng chờ wolf (đè lên nền ảnh banner sáng). */
+  --danger-dark: #8C0D00;
 
   /* --- Medal / Ranking --- */
   --medal-gold:   #F1C40F;
