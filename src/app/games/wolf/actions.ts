@@ -1493,7 +1493,7 @@ function buildNightReviewMessages(
 
   if (action.action_type === "werewolf_seer") {
     if (action.target_player_id) {
-      const targetCard = getPlayerCard(cards, action.target_player_id);
+      const targetCard = getPlayerCard(liveCards, action.target_player_id);
       const messages = [
         `Bạn đã soi ${getPlayerName(players, action.target_player_id)}: ${getRoleReviewLabel(
           targetCard?.original_role
@@ -1502,7 +1502,7 @@ function buildNightReviewMessages(
 
       // Sói đơn được xem thêm một lá giữa bàn.
       if (validateCenterIndex(action.target_center_index)) {
-        const centerCard = getCenterCard(cards, action.target_center_index as number);
+        const centerCard = getCenterCard(liveCards, action.target_center_index as number);
 
         messages.push(
           `Bạn là Ma Sói duy nhất nên được xem lá giữa ${(action.target_center_index as number) + 1}: ${getRoleReviewLabel(
@@ -1645,7 +1645,7 @@ function buildNightReviewMessages(
     // werewolf_seer/troublemaker bước 1, target_player_id_2 cho troublemaker bước 2,
     // target_center_index_2 cho center thứ 2 (witch/drunk/sói đơn xem thêm).
     if (copiedCard?.original_role === "werewolf_seer" && action.target_player_id) {
-      const targetCard = getPlayerCard(cards, action.target_player_id);
+      const targetCard = getPlayerCard(liveCards, action.target_player_id);
       const messages = [
         `Bạn đã copy lá giữa ${(action.target_center_index as number) + 1}: ${copiedRole}. Bạn đã soi ${getPlayerName(
           players,
@@ -1738,7 +1738,7 @@ function buildNightReviewMessages(
       }
 
       if (nestedCopiedRole === "werewolf_seer" && action.target_player_id_2) {
-        const targetCard = getPlayerCard(cards, action.target_player_id_2);
+        const targetCard = getPlayerCard(liveCards, action.target_player_id_2);
 
         return [
           `${prefix} và soi ${getPlayerName(players, action.target_player_id_2)}: ${getRoleReviewLabel(
@@ -1836,7 +1836,7 @@ function buildNightReviewMessages(
     }
 
     if (copiedRole === "werewolf_seer" && action.target_player_id_2) {
-      const targetCard = getPlayerCard(cards, action.target_player_id_2);
+      const targetCard = getPlayerCard(liveCards, action.target_player_id_2);
       const messages = [
         `Bạn đã nhân bản ${getPlayerName(players, action.target_player_id)} (${getRoleReviewLabel(
           copiedRole
@@ -2030,11 +2030,20 @@ function buildPlayerReveals(
   currentPlayer: PlayerRow | null,
   action: ActionRow | null,
   cards: CardRow[],
-  players: PlayerRow[]
+  players: PlayerRow[],
+  actions: ActionRow[]
 ): WolfPlayerRevealState[] {
   if (!currentPlayer || !action?.target_player_id) {
     return [];
   }
+
+  // Reveal "soi thêm 1 người" (Sói Tiên Tri, kể cả copy/nhân bản trúng) là XEM THÔNG TIN THUẦN TUÝ,
+  // có thể đã bị role khác đổi (swap) TRƯỚC lượt này trong cùng đêm — dùng liveCards (role hiện tại)
+  // thay vì original_role tĩnh, khớp đúng cái người chơi THẬT SỰ thấy lúc soi live (đã sửa ở
+  // revealWolfPlayerCard). KHÔNG áp dụng cho clonedCard bên dưới (xác định "đang copy/nhân bản AI",
+  // luôn đúng bằng original_role vì Nhân Bản/Copy Cat luôn đi trước mọi role có khả năng swap —
+  // xem comment ở getActiveNightTurn).
+  const liveCards = withCurrentRoles(cards, actions, players);
 
   if (action.action_type === "doppelganger") {
     const copiedRole = getDoppelgangerCopiedRole(cards, action);
@@ -2053,7 +2062,7 @@ function buildPlayerReveals(
       copiedRole === "werewolf_seer" &&
       action.target_player_id_2
     ) {
-      const targetCard = getPlayerCard(cards, action.target_player_id_2);
+      const targetCard = getPlayerCard(liveCards, action.target_player_id_2);
 
       if (targetCard?.player_id) {
         reveals.push({
@@ -2084,7 +2093,7 @@ function buildPlayerReveals(
         : [];
 
       if (copiedRole === "werewolf_seer" && action.target_player_id_2) {
-        const targetCard = getPlayerCard(cards, action.target_player_id_2);
+        const targetCard = getPlayerCard(liveCards, action.target_player_id_2);
 
         if (targetCard?.player_id) {
           reveals.push({
@@ -2110,7 +2119,7 @@ function buildPlayerReveals(
     return [];
   }
 
-  const targetCard = getPlayerCard(cards, action.target_player_id);
+  const targetCard = getPlayerCard(liveCards, action.target_player_id);
 
   if (!targetCard?.player_id) {
     return [];
@@ -2881,7 +2890,7 @@ function computeNightResolution(
           steps.push({
             id: `${role}-${card.player_id}-${stepNumber}`,
             title: getActionTitle(actorName),
-            logText: `${actorName} (${actorRoleLabel}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard?.original_role)})`,
+            logText: `${actorName} (${actorRoleLabel}) xem ${getCardHolderLabel(centerCard, players)} (${getRoleReviewLabel(centerCard ? roleOfCard(centerCard) : null)})`,
             description: `${actorName} là Ma Sói đơn nên được xem một lá giữa bàn. Hành động này không làm đổi vị trí lá bài.`,
           });
           stepNumber += 1;
@@ -2934,8 +2943,12 @@ function computeNightResolution(
         steps.push({
           id: `${role}-${card.player_id}-${stepNumber}`,
           title: getActionTitle(actorName),
-          logText: `${actorName} (${actorRoleLabel}) soi ${targetName} (${getRoleReviewLabel(targetCard?.original_role)})`,
-          description: `${actorName} xem bài ban đầu của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
+          // targetCard có thể đã bị role khác đổi (swap) TRƯỚC lượt Sói Tiên Tri trong cùng đêm
+          // (Copy Cat/Nhân Bản đứng trước "werewolf_seer" trong resolution order) — dùng roleOfCard()
+          // (role hiện tại, đã tính hết swap tới điểm này) thay vì original_role tĩnh, khớp đúng cái
+          // Sói Tiên Tri THẬT SỰ thấy lúc soi live (đã sửa ở revealWolfPlayerCard).
+          logText: `${actorName} (${actorRoleLabel}) soi ${targetName} (${getRoleReviewLabel(targetCard ? roleOfCard(targetCard) : null)})`,
+          description: `${actorName} xem lá hiện tại của ${targetName}. Hành động này chỉ tiết lộ thông tin, không đổi lá bài.`,
         });
         stepNumber += 1;
       }
@@ -4614,7 +4627,7 @@ export async function getWolfPlayState(roomCode: string): Promise<WolfPlayState 
             : null,
       };
     }),
-    playerReveals: shouldRevealAll ? [] : buildPlayerReveals(currentPlayer, myAction, cards, players),
+    playerReveals: shouldRevealAll ? [] : buildPlayerReveals(currentPlayer, myAction, cards, players, actions),
     myAction: myAction
       ? {
           actionType: myAction.action_type,
