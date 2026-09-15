@@ -1,8 +1,10 @@
 "use client";
 
 import { KeyRound, LogIn, RefreshCw, Users, X } from "lucide-react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { RoomCodeInput } from "./room-code-input";
 import styles from "./page.module.css";
 
@@ -50,12 +52,23 @@ export function JoinRoomModal({
   const [activeTab, setActiveTab] = useState<JoinTab>("code");
 
   return (
-    <div className={styles.modalBackdrop} role="presentation">
-      <section
+    <motion.div
+      animate="visible"
+      className={styles.modalBackdrop}
+      exit="exit"
+      initial="hidden"
+      role="presentation"
+      variants={modalBackdropVariants}
+    >
+      <motion.section
+        animate="visible"
         aria-labelledby="join-room-title"
         aria-modal="true"
         className={`${styles.modal} ${styles.joinRoomModal}`}
+        exit="exit"
+        initial="hidden"
         role="dialog"
+        variants={modalPanelVariants}
       >
         <div className={styles.joinModalBanner} aria-hidden="true">
           <Image alt={backgroundAlt} fill sizes="(max-width: 768px) 100vw, 34rem" src={backgroundSrc} />
@@ -189,7 +202,7 @@ export function JoinRoomModal({
             )}
           </div>
         )}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

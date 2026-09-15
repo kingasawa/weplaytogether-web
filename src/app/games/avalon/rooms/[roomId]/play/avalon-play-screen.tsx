@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  ArrowDown,
   ArrowRight,
-  ArrowUp,
   Check,
   Crown,
   Eye,
@@ -17,10 +15,14 @@ import {
   Vote,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { GameBugReportDialog } from "@/components/game";
+import { GlowBurst } from "@/components/motion/glow-burst";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
+import { PrivateRevealCover } from "@/components/motion/private-reveal-cover";
 import {
   AVALON_ROLE_CARD_IMAGES,
   AVALON_ROLE_LABELS,
@@ -53,10 +55,8 @@ import {
 } from "../../../actions";
 import styles from "../../../../wolf/page.module.css";
 
-const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
 const PRIVATE_REVEAL_OPEN_DRAG_RATIO = 1 / 3;
 const PRIVATE_REVEAL_CLOSE_DRAG_RATIO = 1 / 4;
-const PRIVATE_REVEAL_DRAG_TAP_TOLERANCE = 6;
 
 type AvalonPlayScreenProps = {
   initialState: AvalonPlayState;
@@ -112,10 +112,6 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
     initialState.game.phase === "role_reveal" ? null : `${initialState.game.id}:${initialState.game.phase}`
   );
   const [hasViewedPrivateReveal, setHasViewedPrivateReveal] = useState(initialState.game.phase !== "role_reveal");
-  const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
-  const [coverDragOffset, setCoverDragOffset] = useState(0);
-  const [coverDragMode, setCoverDragMode] = useState<"opening" | "closing" | null>(null);
-  const coverHasDraggedRef = useRef(false);
   const [isPrivateInfoOpen, setIsPrivateInfoOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [questHistoryIndex, setQuestHistoryIndex] = useState<number | null>(null);
@@ -442,111 +438,6 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
 
     setUnlockedPrivateRevealKey(privateRevealKey);
     setHasViewedPrivateReveal(true);
-    setCoverPointerStartY(null);
-    setCoverDragOffset(0);
-    setCoverDragMode(null);
-  }
-
-  function startPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    coverHasDraggedRef.current = false;
-    setCoverPointerStartY(event.clientY);
-    setCoverDragOffset(0);
-    setCoverDragMode("opening");
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function movePrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY === null || coverDragMode !== "opening") {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    const nextOffset = Math.min(0, event.clientY - coverPointerStartY);
-    const maxLift = event.currentTarget.offsetHeight;
-    const liftedDistance = coverPointerStartY - event.clientY;
-
-    if (Math.abs(event.clientY - coverPointerStartY) > PRIVATE_REVEAL_DRAG_TAP_TOLERANCE) {
-      coverHasDraggedRef.current = true;
-    }
-
-    if (liftedDistance >= maxLift * PRIVATE_REVEAL_OPEN_DRAG_RATIO) {
-      openPrivateReveal();
-      return;
-    }
-
-    setCoverDragOffset(Math.max(nextOffset, -maxLift));
-  }
-
-  function endPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    event.stopPropagation();
-
-    if (coverPointerStartY !== null && coverDragMode === "opening") {
-      const liftedDistance = coverPointerStartY - event.clientY;
-
-      if (liftedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_OPEN_DRAG_RATIO) {
-        openPrivateReveal();
-        return;
-      }
-    }
-
-    setCoverPointerStartY(null);
-    setCoverDragOffset(0);
-    setCoverDragMode(null);
-  }
-
-  function startPrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
-    if (!privateRevealUnlocked || !privateRevealKey) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    coverHasDraggedRef.current = false;
-    setCoverPointerStartY(event.clientY);
-    setCoverDragOffset(0);
-    setCoverDragMode("closing");
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function movePrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY === null || coverDragMode !== "closing") {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    const droppedDistance = Math.max(0, event.clientY - coverPointerStartY);
-
-    if (Math.abs(event.clientY - coverPointerStartY) > PRIVATE_REVEAL_DRAG_TAP_TOLERANCE) {
-      coverHasDraggedRef.current = true;
-    }
-
-    if (droppedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_CLOSE_DRAG_RATIO) {
-      coverPrivateReveal();
-      return;
-    }
-
-    setCoverDragOffset(droppedDistance);
-  }
-
-  function endPrivateCoverCloseGesture(event: PointerEvent<HTMLDivElement>) {
-    event.stopPropagation();
-
-    if (coverPointerStartY !== null && coverDragMode === "closing") {
-      const droppedDistance = event.clientY - coverPointerStartY;
-
-      if (droppedDistance >= event.currentTarget.offsetHeight * PRIVATE_REVEAL_CLOSE_DRAG_RATIO) {
-        coverPrivateReveal();
-        return;
-      }
-    }
-
-    setCoverPointerStartY(null);
-    setCoverDragOffset(0);
-    setCoverDragMode(null);
   }
 
   function coverPrivateReveal() {
@@ -555,59 +446,23 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
     }
 
     setUnlockedPrivateRevealKey(null);
-    setCoverPointerStartY(null);
-    setCoverDragOffset(0);
-    setCoverDragMode(null);
-  }
-
-  function getPrivateCoverTransform() {
-    if (privateRevealUnlocked && coverDragMode === "closing") {
-      return `translateY(calc(-100% + var(--private-reveal-peek-height) + ${coverDragOffset}px))`;
-    }
-
-    if (privateRevealUnlocked) {
-      return "translateY(calc(-100% + var(--private-reveal-peek-height)))";
-    }
-
-    return `translateY(${coverDragOffset}px)`;
   }
 
   function renderPrivateCover() {
-    return (
-      <div
-        aria-hidden={privateRevealUnlocked}
-        className={`${styles.privateRevealCover} ${coverPointerStartY !== null ? styles.privateRevealCoverDragging : ""}`}
-        style={{ transform: getPrivateCoverTransform() }}
-        onClick={() => {
-          if (coverHasDraggedRef.current) {
-            coverHasDraggedRef.current = false;
-            return;
-          }
+    if (!privateRevealKey) {
+      return null;
+    }
 
-          openPrivateReveal();
-        }}
-        onPointerCancel={() => {
-          setCoverPointerStartY(null);
-          setCoverDragOffset(0);
-          setCoverDragMode(null);
-        }}
-        onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : startPrivateRevealGesture}
-        onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : movePrivateRevealGesture}
-        onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : endPrivateRevealGesture}
-      >
-        <Image
-          alt=""
-          aria-hidden="true"
-          className={styles.privateRevealCoverImage}
-          draggable={false}
-          fill
-          sizes="(max-width: 768px) 100vw, 30rem"
-          src={PRIVATE_CARD_COVER_IMAGE_PATH}
-        />
-        <div aria-hidden="true" className={styles.privateRevealHandle}>
-          {privateRevealUnlocked ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
-        </div>
-      </div>
+    return (
+      <PrivateRevealCover
+        styles={styles}
+        mode="toggle"
+        unlocked={privateRevealUnlocked}
+        onUnlock={openPrivateReveal}
+        onRelock={coverPrivateReveal}
+        openRatio={PRIVATE_REVEAL_OPEN_DRAG_RATIO}
+        closeRatio={PRIVATE_REVEAL_CLOSE_DRAG_RATIO}
+      />
     );
   }
 
@@ -765,19 +620,7 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
     return (
       <>
         <section className={`${styles.playPanel} ${styles.avalonRoleRevealPanel}`}>
-          <div
-            className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}
-            onPointerCancel={() => {
-              if (coverDragMode === "closing") {
-                setCoverPointerStartY(null);
-                setCoverDragOffset(0);
-                setCoverDragMode(null);
-              }
-            }}
-            onPointerDown={privateRevealUnlocked ? startPrivateCoverCloseGesture : undefined}
-            onPointerMove={privateRevealUnlocked ? movePrivateCoverCloseGesture : undefined}
-            onPointerUp={privateRevealUnlocked ? endPrivateCoverCloseGesture : undefined}
-          >
+          <div className={`${styles.privateRevealBox} ${styles.avalonRoleRevealBox}`}>
             <div className={`${styles.avalonPhaseHero} ${isEvil ? styles.avalonPhaseHeroEvil : ""}`}>
               {roleImagePath && (
                 <Image
@@ -1039,10 +882,20 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
 
             return (
               <article className={styles.avalonQuestRevealCard} key={cardIndex}>
-                <div
-                  className={`${styles.avalonQuestRevealInner} ${
-                    isRevealed ? styles.avalonQuestRevealInnerRevealed : ""
-                  } ${isFlipping ? styles.avalonQuestRevealInnerFlipping : ""}`}
+                <motion.div
+                  className={styles.avalonQuestRevealInner}
+                  initial={false}
+                  animate={
+                    isFlipping
+                      ? { rotateY: [0, 0, 180, 180], y: ["0rem", "-1.3rem", "-1.3rem", "0rem"], scale: [1, 1.08, 1.08, 1] }
+                      : { rotateY: isRevealed ? 180 : 0, y: "0rem", scale: 1 }
+                  }
+                  transition={
+                    isFlipping
+                      ? { duration: 0.9, times: [0, 0.28, 0.7, 1], ease: "easeInOut" }
+                      : { duration: 0.5, ease: "easeInOut" }
+                  }
+                  style={{ zIndex: isFlipping ? 2 : undefined }}
                 >
                   <div className={`${styles.avalonQuestRevealFace} ${styles.avalonQuestRevealFront}`} />
                   <div
@@ -1070,7 +923,8 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
                       </>
                     ) : null}
                   </div>
-                </div>
+                </motion.div>
+                <GlowBurst active={isFlipping} color={card === "fail" ? "var(--danger)" : "var(--success)"} />
               </article>
             );
           })}
@@ -1442,50 +1296,73 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
 
       </section>
 
-      {isPrivateInfoOpen && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
-            aria-label="Thông tin riêng Avalon"
-            aria-modal="true"
-            className={`${styles.modal} ${styles.avalonPrivateInfoModal}`}
-            role="dialog"
+      <AnimatePresence>
+        {isPrivateInfoOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
           >
-            <button
-              aria-label="Đóng thông tin riêng"
-              className={styles.closeButton}
-              type="button"
-              onClick={() => setIsPrivateInfoOpen(false)}
+            <motion.section
+              animate="visible"
+              aria-label="Thông tin riêng Avalon"
+              aria-modal="true"
+              className={`${styles.modal} ${styles.avalonPrivateInfoModal}`}
+              exit="exit"
+              initial="hidden"
+              role="dialog"
+              variants={modalPanelVariants}
             >
-              <X aria-hidden="true" />
-            </button>
-            {renderPrivatePanel()}
-          </section>
-        </div>
-      )}
+              <button
+                aria-label="Đóng thông tin riêng"
+                className={styles.closeButton}
+                type="button"
+                onClick={() => setIsPrivateInfoOpen(false)}
+              >
+                <X aria-hidden="true" />
+              </button>
+              {renderPrivatePanel()}
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {questHistoryIndex !== null &&
-        (() => {
-          const questResult = playState.questResults.find(
-            (result) => result.questIndex === questHistoryIndex
-          );
+      <AnimatePresence>
+        {questHistoryIndex !== null &&
+          (() => {
+            const questResult = playState.questResults.find(
+              (result) => result.questIndex === questHistoryIndex
+            );
 
-          if (!questResult) {
-            return null;
-          }
+            if (!questResult) {
+              return null;
+            }
 
-          const isSuccess = questResult.outcome === "success";
+            const isSuccess = questResult.outcome === "success";
 
-          return (
-            <div
-              className={styles.modalBackdrop}
-              role="presentation"
-              onClick={() => setQuestHistoryIndex(null)}
-            >
-              <section
+            return (
+              <motion.div
+                animate="visible"
+                className={styles.modalBackdrop}
+                exit="exit"
+                initial="hidden"
+                key="quest-history-modal"
+                role="presentation"
+                variants={modalBackdropVariants}
+                onClick={() => setQuestHistoryIndex(null)}
+              >
+              <motion.section
+                animate="visible"
                 aria-label={`Kết quả Quest ${questResult.questNumber}`}
                 aria-modal="true"
                 className={`${styles.modal} ${styles.avalonQuestHistoryModal}`}
+                exit="exit"
+                initial="hidden"
                 role="dialog"
+                variants={modalPanelVariants}
                 onClick={(event) => event.stopPropagation()}
               >
                 <button
@@ -1528,18 +1405,32 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
                     </dd>
                   </div>
                 </dl>
-              </section>
-            </div>
-          );
-        })()}
+              </motion.section>
+              </motion.div>
+            );
+          })()}
+      </AnimatePresence>
 
-      {isResetConfirmOpen && (
-        <div className={styles.modalBackdrop} role="presentation" onClick={() => setIsResetConfirmOpen(false)}>
-          <section
+      <AnimatePresence>
+        {isResetConfirmOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+            onClick={() => setIsResetConfirmOpen(false)}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="reset-game-title"
             aria-modal="true"
             className={styles.modal}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -1561,9 +1452,10 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
                 Reset game
               </button>
             </div>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isResultPhase && (
         <section className={styles.resultActionBar}>

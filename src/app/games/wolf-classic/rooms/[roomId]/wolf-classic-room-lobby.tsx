@@ -2,6 +2,7 @@
 
 import { Link as LinkIcon, LogOut, Play, UserRound } from "lucide-react";
 import Image from "next/image";
+import { AnimatePresence } from "motion/react";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
 import PlayerActionMenuModal from "@/components/game/player-action-menu-modal";
@@ -806,20 +807,22 @@ export default function ClassicWolfRoomLobby({ initialState }: { initialState: C
         )}
       </section>
 
-      {actionMenuPlayer && (
-        <PlayerActionMenuModal
-          playerName={actionMenuPlayer.name}
-          onClose={() => setActionMenuPlayerId(null)}
-          action={{
-            label: "Đuổi khỏi phòng",
-            variant: "danger",
-            onSelect: () => {
-              setActionMenuPlayerId(null);
-              kickPlayer(actionMenuPlayer.id);
-            },
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {actionMenuPlayer && (
+          <PlayerActionMenuModal
+            playerName={actionMenuPlayer.name}
+            onClose={() => setActionMenuPlayerId(null)}
+            action={{
+              label: "Đuổi khỏi phòng",
+              variant: "danger",
+              onSelect: () => {
+                setActionMenuPlayerId(null);
+                kickPlayer(actionMenuPlayer.id);
+              },
+            }}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }

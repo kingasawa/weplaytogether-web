@@ -1,7 +1,9 @@
 "use client";
 
 import { LogOut, Pencil, X } from "lucide-react";
+import { motion } from "motion/react";
 import { useId } from "react";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import styles from "./player-action-menu-modal.module.css";
 
 export type PlayerActionMenuAction = {
@@ -24,12 +26,24 @@ export default function PlayerActionMenuModal({ playerName, action, onClose }: P
   const titleId = useId();
 
   return (
-    <div className={styles.backdrop} role="presentation" onClick={onClose}>
-      <section
+    <motion.div
+      animate="visible"
+      className={styles.backdrop}
+      exit="exit"
+      initial="hidden"
+      role="presentation"
+      variants={modalBackdropVariants}
+      onClick={onClose}
+    >
+      <motion.section
+        animate="visible"
         aria-labelledby={titleId}
         aria-modal="true"
         className={styles.modal}
+        exit="exit"
+        initial="hidden"
         role="dialog"
+        variants={modalPanelVariants}
         onClick={(event) => event.stopPropagation()}
       >
         <button aria-label="Đóng" className={styles.closeButton} type="button" onClick={onClose}>
@@ -46,7 +60,7 @@ export default function PlayerActionMenuModal({ playerName, action, onClose }: P
           {action.variant === "danger" ? <LogOut aria-hidden="true" /> : <Pencil aria-hidden="true" />}
           {action.label}
         </button>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }

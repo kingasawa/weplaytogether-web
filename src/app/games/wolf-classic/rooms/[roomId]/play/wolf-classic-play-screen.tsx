@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowUp,
   BadgeCheck,
   Check,
   Eye,
@@ -16,10 +15,13 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { GameBugReportDialog } from "@/components/game";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
+import { PrivateRevealCover } from "@/components/motion/private-reveal-cover";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
   CLASSIC_WOLF_ROLE_CARD_IMAGES,
@@ -227,8 +229,6 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
   const [optimisticWolfTargetPlayerId, setOptimisticWolfTargetPlayerId] = useState<string | null | undefined>(undefined);
   const [witchDecision, setWitchDecision] = useState<WitchDecision>("rescue_prompt");
   const [revealedRoleGameId, setRevealedRoleGameId] = useState<string | null>(null);
-  const [coverPointerStartY, setCoverPointerStartY] = useState<number | null>(null);
-  const [coverDragOffset, setCoverDragOffset] = useState(0);
   const [message, setMessage] = useState("");
   const [pendingLabel, setPendingLabel] = useState("");
   const [optimisticVoteTargetPlayerId, setOptimisticVoteTargetPlayerId] = useState<string | null>(null);
@@ -1084,68 +1084,15 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
     setRevealedRoleGameId(playState.game.id);
   }
 
-  function startPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setCoverPointerStartY(event.clientY);
-    setCoverDragOffset(0);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function movePrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY === null) {
-      return;
-    }
-
-    event.preventDefault();
-    const nextOffset = Math.min(0, event.clientY - coverPointerStartY);
-    const maxLift = event.currentTarget.offsetHeight;
-
-    if (coverPointerStartY - event.clientY >= 44) {
-      unlockPrivateRoleReveal();
-    }
-
-    setCoverDragOffset(Math.max(nextOffset, -maxLift));
-  }
-
-  function endPrivateRevealGesture(event: PointerEvent<HTMLDivElement>) {
-    if (coverPointerStartY !== null && coverPointerStartY - event.clientY >= 44) {
-      unlockPrivateRoleReveal();
-    }
-
-    setCoverPointerStartY(null);
-    setCoverDragOffset(0);
-  }
-
   function renderPrivateRoleCover() {
     return (
-      <div
-        aria-hidden={isPrivateRoleRevealed}
-        className={`${styles.privateRevealCover} ${coverPointerStartY !== null ? styles.privateRevealCoverDragging : ""}`}
-        style={{ transform: `translateY(${coverDragOffset}px)` }}
-        onClick={unlockPrivateRoleReveal}
-        onPointerCancel={() => {
-          setCoverPointerStartY(null);
-          setCoverDragOffset(0);
-        }}
-        onPointerDown={startPrivateRevealGesture}
-        onPointerMove={movePrivateRevealGesture}
-        onPointerUp={endPrivateRevealGesture}
-      >
-        <Image
-          alt=""
-          aria-hidden="true"
-          className={styles.privateRevealCoverImage}
-          draggable={false}
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 32rem"
-          src={PRIVATE_CARD_COVER_IMAGE_PATH}
-        />
-        <span className={styles.privateRevealHandle}>
-          <ArrowUp aria-hidden="true" />
-        </span>
-        <span className={styles.privateRevealHint}>Kéo lên để xem vai</span>
-      </div>
+      <PrivateRevealCover
+        styles={styles}
+        mode="peek"
+        unlocked={isPrivateRoleRevealed}
+        onUnlock={unlockPrivateRoleReveal}
+        hintLabel="Kéo lên để xem vai"
+      />
     );
   }
 
@@ -1724,13 +1671,25 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
         </div>
       )}
 
-      {isNightReminderOpen && playState.nightReminder && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
+      <AnimatePresence>
+        {isNightReminderOpen && playState.nightReminder && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="classic-wolf-night-reminder-title"
             aria-modal="true"
             className={`${styles.modal} ${styles.nightReminderModal}`}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
           >
             <button
               aria-label="Đóng nhắc lại hành động đêm"
@@ -1749,17 +1708,30 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
                 ))}
               </ul>
             </div>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {selectedRoleGuide && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
+      <AnimatePresence>
+        {selectedRoleGuide && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="classic-wolf-role-guide-title"
             aria-modal="true"
             className={`${styles.modal} ${styles.roleGuideModal}`}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
           >
             <button
               aria-label="Đóng hướng dẫn vai trò"
@@ -1774,9 +1746,10 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
               <span>Chức năng</span>
               <p>{CLASSIC_WOLF_ROLE_DESCRIPTIONS[selectedRoleGuide]}</p>
             </div>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

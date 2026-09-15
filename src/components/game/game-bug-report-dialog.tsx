@@ -1,8 +1,10 @@
 "use client";
 
 import { Bug, CheckCircle2, LoaderCircle, Send, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { submitGameBugReport } from "@/app/games/report-actions";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import styles from "./game-bug-report-dialog.module.css";
 
 type GameBugReportDialogProps = {
@@ -99,13 +101,26 @@ export default function GameBugReportDialog({
         {hasSent ? "Đã gửi report" : "Báo lỗi"}
       </button>
 
-      {isOpen && (
-        <div className={styles.backdrop} role="presentation" onClick={closeDialog}>
-          <section
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.backdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+            onClick={closeDialog}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby={titleId}
             aria-modal="true"
             className={styles.modal}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -157,9 +172,10 @@ export default function GameBugReportDialog({
                 </button>
               </div>
             </form>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

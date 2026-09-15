@@ -6,8 +6,10 @@ import {
   Play,
   UserRound,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { PlayerAvatarImage } from "@/components/ui/player-avatar-image";
 import FrameEffects from "@/components/ui/frame-effects";
 import PlayerActionMenuModal from "@/components/game/player-action-menu-modal";
@@ -967,17 +969,26 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
         )}
       </section>
 
-      {isLeaveWarningOpen && (
-        <div
-          className={styles.modalBackdrop}
-          role="presentation"
-          onClick={() => setIsLeaveWarningOpen(false)}
-        >
-          <section
+      <AnimatePresence>
+        {isLeaveWarningOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+            onClick={() => setIsLeaveWarningOpen(false)}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="leave-room-title"
             aria-modal="true"
             className={styles.modal}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="leave-room-title">Chuyển chủ phòng</h2>
@@ -1004,24 +1015,27 @@ export default function WolfRoomLobby({ initialState, initialSpectatorState }: W
                 Thoát phòng
               </button>
             </div>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {actionMenuPlayer && (
-        <PlayerActionMenuModal
-          playerName={actionMenuPlayer.name}
-          onClose={() => setActionMenuPlayerId(null)}
-          action={{
-            label: "Đuổi khỏi phòng",
-            variant: "danger",
-            onSelect: () => {
-              setActionMenuPlayerId(null);
-              kickPlayer(actionMenuPlayer.id);
-            },
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {actionMenuPlayer && (
+          <PlayerActionMenuModal
+            playerName={actionMenuPlayer.name}
+            onClose={() => setActionMenuPlayerId(null)}
+            action={{
+              label: "Đuổi khỏi phòng",
+              variant: "danger",
+              onSelect: () => {
+                setActionMenuPlayerId(null);
+                kickPlayer(actionMenuPlayer.id);
+              },
+            }}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }

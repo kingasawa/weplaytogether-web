@@ -10,9 +10,11 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   MAX_GUEST_PLAYER_NAME_LENGTH,
@@ -413,13 +415,25 @@ export default function WolfGameScreen() {
         </div>
       </section>
 
-      {isCreateOpen && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
+      <AnimatePresence>
+        {isCreateOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="create-room-title"
             aria-modal="true"
             className={styles.modal}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
           >
             <button
               className={styles.closeButton}
@@ -471,39 +485,51 @@ export default function WolfGameScreen() {
                 {isPending ? "ĐANG TẠO..." : "TẠO PHÒNG"}
               </button>
             </form>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {isJoinOpen && (
-        <JoinRoomModal
-          backgroundSrc="/images/boards/wolf.png"
-          backgroundAlt="Ảnh nền phòng Ma Sói"
-          roomCode={normalizedRoomCode}
-          roomCodeError={roomCodeError}
-          isPending={isPending}
-          publicRooms={publicRooms}
-          publicRoomsError={publicRoomsError}
-          isRoomListPending={isRoomListPending}
-          onClose={() => setIsJoinOpen(false)}
-          onRoomCodeChange={updateRoomCode}
-          onSubmitJoin={joinRoom}
-          onRefreshPublicRooms={loadPublicRooms}
-          onJoinPublicRoom={joinPublicRoom}
-        />
-      )}
+      <AnimatePresence>
+        {isJoinOpen && (
+          <JoinRoomModal
+            backgroundSrc="/images/boards/wolf.png"
+            backgroundAlt="Ảnh nền phòng Ma Sói"
+            roomCode={normalizedRoomCode}
+            roomCodeError={roomCodeError}
+            isPending={isPending}
+            publicRooms={publicRooms}
+            publicRoomsError={publicRoomsError}
+            isRoomListPending={isRoomListPending}
+            onClose={() => setIsJoinOpen(false)}
+            onRoomCodeChange={updateRoomCode}
+            onSubmitJoin={joinRoom}
+            onRefreshPublicRooms={loadPublicRooms}
+            onJoinPublicRoom={joinPublicRoom}
+          />
+        )}
+      </AnimatePresence>
 
-      {isIdentityOpen && (
-        <div
-          className={styles.modalBackdrop}
-          role="presentation"
-          onClick={closeIdentityModal}
-        >
-          <section
+      <AnimatePresence>
+        {isIdentityOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+            onClick={closeIdentityModal}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="identity-title"
             aria-modal="true"
             className={styles.modal}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="identity-title">
@@ -559,17 +585,30 @@ export default function WolfGameScreen() {
                 </button>
               </form>
             )}
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {isGuideOpen && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section
+      <AnimatePresence>
+        {isGuideOpen && (
+          <motion.div
+            animate="visible"
+            className={styles.modalBackdrop}
+            exit="exit"
+            initial="hidden"
+            role="presentation"
+            variants={modalBackdropVariants}
+          >
+          <motion.section
+            animate="visible"
             aria-labelledby="wolf-guide-title"
             aria-modal="true"
             className={`${styles.modal} ${styles.guideModal}`}
+            exit="exit"
+            initial="hidden"
             role="dialog"
+            variants={modalPanelVariants}
           >
             <button
               className={styles.closeButton}
@@ -586,9 +625,10 @@ export default function WolfGameScreen() {
               <li>Ban ngày, cả phòng thảo luận để tìm ra Ma Sói hoặc bảo vệ phe của mình.</li>
               <li>Sau khi hết thời gian, mọi người bỏ phiếu. Kết quả thắng thua phụ thuộc vào vai bị treo.</li>
             </ol>
-          </section>
-        </div>
-      )}
+          </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

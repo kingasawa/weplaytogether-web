@@ -6573,31 +6573,6 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform 0.5s ease;
-}
-
-.avalonQuestRevealInnerRevealed {
-  transform: rotateY(180deg);
-}
-
-.avalonQuestRevealInnerFlipping {
-  z-index: 2;
-  animation: avalonQuestFlip 0.9s ease forwards;
-}
-
-@keyframes avalonQuestFlip {
-  0% {
-    transform: translateY(0) scale(1) rotateY(0deg);
-  }
-  28% {
-    transform: translateY(-1.3rem) scale(1.08) rotateY(0deg);
-  }
-  70% {
-    transform: translateY(-1.3rem) scale(1.08) rotateY(180deg);
-  }
-  100% {
-    transform: translateY(0) scale(1) rotateY(180deg);
-  }
 }
 
 .avalonQuestRevealFace {
@@ -6679,15 +6654,6 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent),
     0 0 1.6rem color-mix(in srgb, var(--danger) 34%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .avalonQuestRevealInner {
-    transition: none;
-  }
-  .avalonQuestRevealInnerFlipping {
-    animation: none;
-  }
 }
 
 .avalonResultList {

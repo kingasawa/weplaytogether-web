@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { MotionConfig } from "motion/react";
 import { Be_Vietnam_Pro } from "next/font/google";
 import { cookies } from "next/headers";
 import { vi } from "@/i18n/dictionaries";
@@ -62,7 +63,7 @@ export default async function RootLayout({
       <body>
         <LanguageProvider initialLocale={initialLocale}>
           <AccountProfileSync />
-          {children}
+          <MotionConfig reducedMotion="user">{children}</MotionConfig>
         </LanguageProvider>
       </body>
     </html>
