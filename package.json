@@ -19,7 +19,7 @@
     "@supabase/supabase-js": "^2.107.0",
     "lucide-react": "^1.17.0",
     "motion": "^13.3.0",
-    "next": "16.2.7",
+    "next": "^16.3.5",
     "pusher": "^5.3.3",
     "pusher-js": "^8.5.0",
     "react": "19.2.4",
@@ -36,5 +36,8 @@
     "pg": "^8.21.0",
     "typescript": "^5",
     "wrangler": "^4.97.0"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
