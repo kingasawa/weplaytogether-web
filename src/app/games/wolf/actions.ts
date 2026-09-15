@@ -2497,8 +2497,12 @@ function buildGameResult(
   }));
   const maxVotes = Math.max(0, ...voteCounts.map((voteCount) => voteCount.votes));
   const skippedVoteCount = votes.filter((vote) => vote.is_skip || !vote.target_player_id).length;
+  const castVoteCount = votes.length - skippedVoteCount;
+  // Nếu số người bỏ qua nhiều hơn số người thực sự vote cho ai đó, coi như cả bàn bỏ qua:
+  // không treo ai, kể cả khi một nhóm thiểu số đã dồn phiếu cho một người.
+  const isSkippedResult = skippedVoteCount > castVoteCount;
   const eliminatedPlayerIds =
-    maxVotes > 0
+    !isSkippedResult && maxVotes > 0
       ? voteCounts
           .filter((voteCount) => voteCount.votes === maxVotes)
           .map((voteCount) => voteCount.playerId)
@@ -2517,6 +2521,24 @@ function buildGameResult(
   const eliminatedWerewolf = eliminatedPlayerIds.some(
     (playerId) => isWerewolfRole(finalRoleByPlayerId.get(playerId))
   );
+  const eliminatedVillager = eliminatedPlayerIds.some(
+    (playerId) => !isWerewolfRole(finalRoleByPlayerId.get(playerId))
+  );
+  // Dân làng và Sói bị treo với cùng số vote (hoà ở mức vote cao nhất) → Sói thắng.
+  const isTiedBetweenTeams = eliminatedWerewolf && eliminatedVillager;
+
+  if (isSkippedResult) {
+    const villagersWin = werewolfPlayerIds.length === 0;
+    return {
+      eliminatedPlayerIds,
+      winnerTeam: villagersWin ? "villagers" : "werewolves",
+      winnerText: villagersWin
+        ? "Cả bàn bỏ qua, không có Ma Sói. Dân làng thắng."
+        : "Cả bàn bỏ qua, không ai bị treo. Ma Sói thắng.",
+      skippedVoteCount,
+      voteCounts,
+    };
+  }
 
   if (werewolfPlayerIds.length === 0) {
     const villagersWin = eliminatedPlayerIds.length === 0;
@@ -2526,6 +2548,16 @@ function buildGameResult(
       winnerText: villagersWin
         ? "Không có Ma Sói và không ai bị treo. Dân làng thắng."
         : "Không có Ma Sói nhưng có người bị treo. Dân làng thua.",
+      skippedVoteCount,
+      voteCounts,
+    };
+  }
+
+  if (isTiedBetweenTeams) {
+    return {
+      eliminatedPlayerIds,
+      winnerTeam: "werewolves",
+      winnerText: "Dân làng và Ma Sói bị treo với cùng số vote. Ma Sói thắng.",
       skippedVoteCount,
       voteCounts,
     };
