@@ -4878,19 +4878,22 @@
 }
 
 .cardRevealPage .privateRevealBox {
-  width: min(50%, 14rem);
-  max-width: 14rem;
+  /* Tăng 50% so với cỡ gốc (14rem -> 21rem, 50% -> 75%). */
+  width: min(75%, 21rem);
+  max-width: 21rem;
   min-height: 0;
   height: auto;
   aspect-ratio: 1024 / 1408;
   justify-self: center;
-  /* Đổ bóng 2 lớp (bóng lan toả rộng + bóng sát viền, đậm hơn hẳn màu nền ảnh phía sau) + viền
-     sáng mảnh (mô phỏng qua box-shadow 0 0 0 1px, không chiếm layout như border thật) để lá bài
-     trông nổi hẳn lên khỏi nền, có chiều sâu thay vì phẳng dính vào background. */
+  /* Đổ bóng nhiều lớp (bóng lan toả rộng phía xa + bóng sát viền để "ghim" bài xuống nền, đậm
+     hơn hẳn màu nền ảnh phía sau) + viền sáng mảnh (mô phỏng qua box-shadow 0 0 0 1px, không
+     chiếm layout như border thật) + highlight mép trên (inset, như ánh sáng hắt lên cạnh vật thể
+     nổi) để lá bài trông nổi hẳn lên khỏi nền, có chiều sâu rõ rệt thay vì phẳng dính vào nền. */
   box-shadow:
-    0 2rem 3.5rem -0.25rem color-mix(in srgb, var(--bg-primary) 92%, transparent),
-    0 0.75rem 1.5rem color-mix(in srgb, var(--bg-primary) 74%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary-light) 22%, transparent);
+    0 3rem 5rem -0.5rem color-mix(in srgb, var(--bg-primary) 96%, transparent),
+    0 1.25rem 2.25rem color-mix(in srgb, var(--bg-primary) 82%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-light) 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent);
 }
 
 .cardRevealPage .cardRevealRoleCard {
