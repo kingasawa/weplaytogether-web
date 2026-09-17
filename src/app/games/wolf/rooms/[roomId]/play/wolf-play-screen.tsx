@@ -6,8 +6,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 import { GameBugReportDialog } from "@/components/game";
+import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
 import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
-import { PrivateRevealCover } from "@/components/motion/private-reveal-cover";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
@@ -1005,21 +1005,13 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
   function renderPrivateCover() {
     // privateRevealKey null nghĩa là phase hiện tại không cần lớp phủ riêng tư (xem
     // isPrivateRevealPhase) — không render cover nữa, để nội dung bên dưới (bài + text) hiện đầy
-    // đủ ngay. Mode "peek": giữ/kéo lên để xem, buông tay là che lại — unlocked chỉ dùng để mở nút
-    // "Sẵn sàng" bên dưới, không giữ cover mở.
+    // đủ ngay. Bấm để lật mở bằng animation 3D, bấm lại để úp về — onUnlock() chỉ dùng để mở nút
+    // "Sẵn sàng" bên dưới (gọi 1 lần là đủ, không phụ thuộc cover đang úp hay mở).
     if (!privateRevealKey) {
       return null;
     }
 
-    return (
-      <PrivateRevealCover
-        styles={styles}
-        mode="peek"
-        unlocked={privateRevealUnlocked}
-        onUnlock={unlockPrivateReveal}
-        hintLabel="Kéo lên để xem bài"
-      />
-    );
+    return <CardFlipReveal styles={styles} onUnlock={unlockPrivateReveal} hintLabel="Chạm để xem bài" />;
   }
 
   function renderKnownNightCards(options: { isNightResult?: boolean } = {}) {

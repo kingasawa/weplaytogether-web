@@ -456,7 +456,6 @@ export default function AvalonPlayScreen({ initialState, isPreview = false, debu
     return (
       <PrivateRevealCover
         styles={styles}
-        mode="toggle"
         unlocked={privateRevealUnlocked}
         onUnlock={openPrivateReveal}
         onRelock={coverPrivateReveal}

@@ -2954,6 +2954,75 @@
   }
 }
 
+/* Lớp phủ lật bài (xem CardFlipReveal) — thay cho .privateRevealCover ở phase xem bài: bấm để
+   lật lá mask 3D thay vì kéo lên. .cardFlipScene giữ đúng vị trí inset:0 phủ lên RoleCard như
+   .privateRevealCover cũ; perspective đặt ở đây để chỉ ảnh hưởng .cardFlipCard bên trong. */
+.cardFlipScene {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  perspective: 1600px;
+}
+
+.cardFlipCard {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  transform-style: preserve-3d;
+}
+
+.cardFlipFace {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  backface-visibility: hidden;
+}
+
+.cardFlipMaskImage {
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cardFlipHint {
+  position: absolute;
+  bottom: var(--spacing-md);
+  left: 50%;
+  z-index: 1;
+  padding: 0.45rem 0.9rem;
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--primary-light) 34%, transparent);
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  animation: cardFlipHintPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cardFlipHintPulse {
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-0.25rem);
+  }
+}
+
 .centerCards {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

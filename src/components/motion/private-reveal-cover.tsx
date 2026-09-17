@@ -12,12 +12,6 @@ const SPRING = { type: "spring", stiffness: 420, damping: 38, mass: 0.9 } as con
 type PrivateRevealCoverProps = {
   /** CSS module đã import ở nơi gọi (cả 3 game dùng chung wolf/page.module.css). */
   styles: Record<string, string>;
-  /**
-   * "toggle" (Avalon): kéo lên để MỞ hẳn (còn lại dải peek có thể kéo xuống để đóng lại).
-   * "peek" (Wolf / Wolf Classic): kéo/giữ lên để XEM, buông tay là đóng lại ngay — chỉ cần vượt
-   * ngưỡng 1 lần để đánh dấu đã xem (unlocked dùng để mở nút "Sẵn sàng", không gắn với vị trí cover).
-   */
-  mode: "toggle" | "peek";
   unlocked: boolean;
   onUnlock: () => void;
   onRelock?: () => void;
@@ -26,9 +20,11 @@ type PrivateRevealCoverProps = {
   hintLabel?: string;
 };
 
+// Kéo lên để MỞ hẳn (còn lại dải peek có thể kéo xuống để đóng lại) — dùng cho Avalon (nội dung
+// tiết lộ dài, cần giữ mở để đọc). Wolf/Wolf Classic đã chuyển sang CardFlipReveal (bấm để lật
+// bài 3D) cho phase xem bài riêng của người chơi, không còn dùng component này.
 export function PrivateRevealCover({
   styles,
-  mode,
   unlocked,
   onUnlock,
   onRelock,
@@ -55,7 +51,7 @@ export function PrivateRevealCover({
   }
 
   function openTargetYOf(size: typeof measured) {
-    return mode === "peek" ? -size.height : -(size.height - size.peekHeight);
+    return -(size.height - size.peekHeight);
   }
 
   useEffect(() => {
@@ -72,7 +68,7 @@ export function PrivateRevealCover({
     const observer = new ResizeObserver(() => setMeasured(measureNow()));
     observer.observe(container);
     return () => observer.disconnect();
-  }, [mode]);
+  }, []);
 
   // Đồng bộ vị trí cover theo trạng thái unlocked tới từ bên ngoài (vd resume game ở phase đã mở
   // khoá trước đó) hoặc khi kích thước đổi trong lúc đang mở, KHÔNG áp dụng khi đang kéo dở tay.
@@ -80,10 +76,10 @@ export function PrivateRevealCover({
     if (isDraggingRef.current) {
       return;
     }
-    const target = unlocked && mode === "toggle" ? openTargetYOf(measured) : 0;
+    const target = unlocked ? openTargetYOf(measured) : 0;
     animate(y, target, SPRING);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unlocked, mode, measured.height, measured.peekHeight]);
+  }, [unlocked, measured.height, measured.peekHeight]);
 
   useEffect(() => {
     if (unlocked && !wasUnlockedRef.current) {
@@ -110,7 +106,7 @@ export function PrivateRevealCover({
 
       if (liftedRatio >= openRatio || fastFlick) {
         onUnlock();
-        animate(y, mode === "toggle" ? openTargetYOf(size) : 0, SPRING);
+        animate(y, openTargetYOf(size), SPRING);
         return;
       }
 
@@ -118,35 +114,30 @@ export function PrivateRevealCover({
       return;
     }
 
-    if (mode === "toggle") {
-      const openTargetY = openTargetYOf(size);
-      const closeSpan = Math.max(1, 0 - openTargetY);
-      const droppedRatio = (y.get() - openTargetY) / closeSpan;
+    const openTargetY = openTargetYOf(size);
+    const closeSpan = Math.max(1, 0 - openTargetY);
+    const droppedRatio = (y.get() - openTargetY) / closeSpan;
 
-      if (info.offset.y > 0 && droppedRatio >= closeRatio) {
-        onRelock?.();
-        animate(y, 0, SPRING);
-        return;
-      }
-
-      animate(y, openTargetY, SPRING);
+    if (info.offset.y > 0 && droppedRatio >= closeRatio) {
+      onRelock?.();
+      animate(y, 0, SPRING);
+      return;
     }
+
+    animate(y, openTargetY, SPRING);
   }
 
-  const dragConstraints =
-    unlocked && mode === "toggle"
-      ? { top: openTargetYOf(measured), bottom: 0 }
-      : { top: -(measured.height || 2000), bottom: 0 };
+  const dragConstraints = unlocked
+    ? { top: openTargetYOf(measured), bottom: 0 }
+    : { top: -(measured.height || 2000), bottom: 0 };
 
   return (
     <div ref={containerRef} style={{ position: "absolute", inset: 0 }}>
-      {mode === "toggle" && (
-        <div
-          ref={peekProbeRef}
-          aria-hidden="true"
-          style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "var(--private-reveal-peek-height)" }}
-        />
-      )}
+      <div
+        ref={peekProbeRef}
+        aria-hidden="true"
+        style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "var(--private-reveal-peek-height)" }}
+      />
 
       <motion.div
         aria-hidden={unlocked}
@@ -176,7 +167,7 @@ export function PrivateRevealCover({
         />
         {hintLabel && <span className={styles.privateRevealHint}>{hintLabel}</span>}
         <div aria-hidden="true" className={styles.privateRevealHandle}>
-          {unlocked && mode === "toggle" ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
+          {unlocked ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
         </div>
       </motion.div>
 

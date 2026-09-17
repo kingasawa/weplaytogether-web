@@ -20,8 +20,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { GameBugReportDialog } from "@/components/game";
+import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
 import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
-import { PrivateRevealCover } from "@/components/motion/private-reveal-cover";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
   CLASSIC_WOLF_ROLE_CARD_IMAGES,
@@ -1085,15 +1085,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
   }
 
   function renderPrivateRoleCover() {
-    return (
-      <PrivateRevealCover
-        styles={styles}
-        mode="peek"
-        unlocked={isPrivateRoleRevealed}
-        onUnlock={unlockPrivateRoleReveal}
-        hintLabel="Kéo lên để xem vai"
-      />
-    );
+    return <CardFlipReveal styles={styles} onUnlock={unlockPrivateRoleReveal} hintLabel="Chạm để xem vai" />;
   }
 
   function renderNightHistoryIcon() {
