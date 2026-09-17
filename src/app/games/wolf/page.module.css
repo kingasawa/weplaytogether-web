@@ -2959,12 +2959,22 @@
   }
 }
 
-/* Lớp phủ lật bài (xem CardFlipReveal) — thay cho .privateRevealCover ở phase xem bài: bấm để
-   lật 3D thay vì kéo lên. .cardFlipScene giữ đúng vị trí inset:0 phủ lên RoleCard như
-   .privateRevealCover cũ; perspective đặt ở đây để chỉ ảnh hưởng .cardFlipCard bên trong.
-   .cardFlipCard xoay theo rotateY (transform-style: preserve-3d) — mặt trước (mask) và mặt sau
-   (RoleCard thật, truyền vào qua children) là 2 mặt CÙNG khối xoay chung, không phải 2 lớp tách
-   rời fade qua nhau, nên trông đúng như lật 1 lá bài vật lý 2 mặt. */
+/* Bọc ngoài CardFlipReveal — .privateRevealBox (khung lá bài, tỉ lệ cố định, overflow:hidden) +
+   dòng chữ hướng dẫn nằm NGOÀI khung đó (không bị overflow:hidden cắt mất). width:100% để
+   .privateRevealBox bên trong (width: min(50%, 14rem)) tính % theo đúng bề ngang khung cha thay
+   vì theo kích thước tự co của .cardFlipWrap (auto width + % con dễ vòng lặp không xác định). */
+.cardFlipWrap {
+  display: grid;
+  width: 100%;
+  gap: var(--spacing-sm);
+  justify-items: center;
+}
+
+/* .cardFlipScene giữ đúng vị trí inset:0 phủ lên RoleCard như .privateRevealCover cũ; perspective
+   đặt ở đây để chỉ ảnh hưởng .cardFlipCard bên trong. .cardFlipCard xoay theo rotateY
+   (transform-style: preserve-3d) — mặt trước (mask) và mặt sau (RoleCard thật, truyền vào qua
+   children) là 2 mặt CÙNG khối xoay chung, không phải 2 lớp tách rời fade qua nhau, nên trông
+   đúng như lật 1 lá bài vật lý 2 mặt. */
 .cardFlipScene {
   position: absolute;
   inset: 0;
@@ -3006,35 +3016,15 @@
   user-select: none;
 }
 
-.cardFlipHint {
-  position: absolute;
-  bottom: var(--spacing-md);
-  left: 50%;
-  z-index: 1;
-  padding: 0.45rem 0.9rem;
-  transform: translateX(-50%);
-  border: 1px solid color-mix(in srgb, var(--primary-light) 34%, transparent);
-  border-radius: 999rem;
-  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  animation: cardFlipHintPulse 1.6s ease-in-out infinite;
-}
-
-@keyframes cardFlipHintPulse {
-  0%,
-  100% {
-    opacity: 0.8;
-    transform: translateX(-50%) translateY(0);
-  }
-
-  50% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-0.25rem);
-  }
+/* Dòng chữ thông báo dưới lá bài — chữ thường, cùng font với các nút hành động (.primaryButton...
+   dùng var(--font-body)), KHÔNG phải dạng nút/pill như trước. */
+.cardFlipHintText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .centerCards {

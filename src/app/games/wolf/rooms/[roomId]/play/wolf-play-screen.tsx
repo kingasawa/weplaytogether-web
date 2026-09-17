@@ -1007,16 +1007,17 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
 
   function renderPrivateCover(content: ReactNode) {
     // privateRevealKey null nghĩa là phase hiện tại không cần lớp phủ riêng tư (xem
-    // isPrivateRevealPhase) — trả nguyên content, không bọc gì thêm. Bấm để lật mở bằng animation
-    // 3D, bấm lại để úp về — onUnlock() chỉ dùng để mở nút "Sẵn sàng" bên dưới (gọi 1 lần là đủ,
-    // không phụ thuộc cover đang úp hay mở). content chính là mặt sau (RoleCard/nội dung thật) của
-    // lá bài lật, đứng yên bên trong CardFlipReveal chứ không phải sibling tách rời.
+    // isPrivateRevealPhase) — tự bọc .privateRevealBox rồi trả content nguyên vẹn. Bấm để lật mở
+    // bằng animation 3D, bấm lại để úp về — onUnlock() chỉ dùng để mở nút "Sẵn sàng" bên dưới (gọi
+    // 1 lần là đủ, không phụ thuộc cover đang úp hay mở). content chính là mặt sau (RoleCard/nội
+    // dung thật) của lá bài lật, đứng yên bên trong CardFlipReveal chứ không phải sibling tách rời
+    // — CardFlipReveal tự bọc .privateRevealBox + dòng chữ hướng dẫn bên dưới lá bài.
     if (!privateRevealKey) {
-      return content;
+      return <div className={styles.privateRevealBox}>{content}</div>;
     }
 
     return (
-      <CardFlipReveal styles={styles} onUnlock={unlockPrivateReveal} hintLabel="Chạm để xem bài">
+      <CardFlipReveal styles={styles} onUnlock={unlockPrivateReveal}>
         {content}
       </CardFlipReveal>
     );
@@ -1423,44 +1424,38 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
           </div>
         )}
 
-        {isCardRevealPhase && (
-          <div className={styles.privateRevealBox}>
-            {renderPrivateCover(
-              <RoleCard
-                isFocusedReveal
-                label="Bài của tôi"
-                role={playState.myCard?.originalRole ?? null}
-                overrides={roleOverrides}
-              />
-            )}
-          </div>
-        )}
+        {isCardRevealPhase &&
+          renderPrivateCover(
+            <RoleCard
+              isFocusedReveal
+              label="Bài của tôi"
+              role={playState.myCard?.originalRole ?? null}
+              overrides={roleOverrides}
+            />
+          )}
 
         {playState.game.phase === "night" && renderNightActions()}
 
-        {playState.game.phase === "night_review" && (
-          <div className={styles.privateRevealBox}>
-            {renderPrivateCover(
-              <div
-                className={
-                  hasNightReviewCards
-                    ? styles.nightReviewRevealStack
-                    : styles.nightReviewContent
-                }
-              >
-                {renderKnownNightCards()}
-                {playState.nightReviewMessages.map((reviewMessage) => (
-                  <p
-                    className={playState.myCard?.nightReviewRole ? styles.nightReviewMessage : undefined}
-                    key={reviewMessage}
-                  >
-                    {reviewMessage}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {playState.game.phase === "night_review" &&
+          renderPrivateCover(
+            <div
+              className={
+                hasNightReviewCards
+                  ? styles.nightReviewRevealStack
+                  : styles.nightReviewContent
+              }
+            >
+              {renderKnownNightCards()}
+              {playState.nightReviewMessages.map((reviewMessage) => (
+                <p
+                  className={playState.myCard?.nightReviewRole ? styles.nightReviewMessage : undefined}
+                  key={reviewMessage}
+                >
+                  {reviewMessage}
+                </p>
+              ))}
+            </div>
+          )}
 
         {playState.game.phase === "voting" && (
           <div className={styles.votingPanel}>

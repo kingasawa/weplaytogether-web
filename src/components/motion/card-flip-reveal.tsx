@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { GlowBurst } from "./glow-burst";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 
 const MASK_IMAGE_PATH = "/images/ui/mask_card.webp";
 
@@ -10,7 +9,6 @@ type CardFlipRevealProps = {
   /** CSS module đã import ở nơi gọi (cả 3 game dùng chung wolf/page.module.css). */
   styles: Record<string, string>;
   onUnlock: () => void;
-  hintLabel?: string;
   /** Mặt sau của lá bài (thường là <RoleCard />) — đứng yên, chỉ hiện ra khi mặt trước (mask)
    * xoay quá 90° và ẩn đi nhờ backface-visibility, giống lật thật 1 lá bài vật lý 2 mặt. */
   children: ReactNode;
@@ -29,19 +27,8 @@ type CardFlipRevealProps = {
 // không bị ảnh hưởng bởi tối ưu ẩn/hiện này nên lật cả 2 chiều đều mượt.
 // Bấm để lật mở, bấm lại để úp về; trạng thái lật chỉ là hiển thị cục bộ — úp lại KHÔNG huỷ trạng
 // thái "đã xem" đã báo cho cha qua onUnlock() (dùng để mở khoá nút "Sẵn sàng" ở màn cha).
-export function CardFlipReveal({ styles, onUnlock, hintLabel, children }: CardFlipRevealProps) {
+export function CardFlipReveal({ styles, onUnlock, children }: CardFlipRevealProps) {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [justFlipped, setJustFlipped] = useState(false);
-  const glowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Dọn timer loé sáng nếu component unmount giữa chừng (vd chuyển phase ngay sau khi vừa lật).
-  useEffect(() => {
-    return () => {
-      if (glowTimeoutRef.current) {
-        clearTimeout(glowTimeoutRef.current);
-      }
-    };
-  }, []);
 
   function handleTap() {
     if (isFlipped) {
@@ -51,12 +38,6 @@ export function CardFlipReveal({ styles, onUnlock, hintLabel, children }: CardFl
 
     setIsFlipped(true);
     onUnlock();
-
-    setJustFlipped(true);
-    if (glowTimeoutRef.current) {
-      clearTimeout(glowTimeoutRef.current);
-    }
-    glowTimeoutRef.current = setTimeout(() => setJustFlipped(false), 900);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -69,32 +50,37 @@ export function CardFlipReveal({ styles, onUnlock, hintLabel, children }: CardFl
   }
 
   return (
-    <div className={styles.cardFlipScene}>
-      <div
-        aria-label={isFlipped ? "Úp bài lại" : "Lật mở bài"}
-        aria-pressed={isFlipped}
-        className={styles.cardFlipCard}
-        role="button"
-        style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
-        tabIndex={0}
-        onClick={handleTap}
-        onKeyDown={handleKeyDown}
-      >
-        <div className={styles.cardFlipFaceFront}>
-          <Image
-            alt=""
-            aria-hidden="true"
-            className={styles.cardFlipMaskImage}
-            draggable={false}
-            fill
-            sizes="(max-width: 768px) 100vw, 30rem"
-            src={MASK_IMAGE_PATH}
-          />
-          {hintLabel && <span className={styles.cardFlipHint}>{hintLabel}</span>}
+    <div className={styles.cardFlipWrap}>
+      <div className={styles.privateRevealBox}>
+        <div className={styles.cardFlipScene}>
+          <div
+            aria-label={isFlipped ? "Úp lá bài lại" : "Lật mở lá bài"}
+            aria-pressed={isFlipped}
+            className={styles.cardFlipCard}
+            role="button"
+            style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
+            tabIndex={0}
+            onClick={handleTap}
+            onKeyDown={handleKeyDown}
+          >
+            <div className={styles.cardFlipFaceFront}>
+              <Image
+                alt=""
+                aria-hidden="true"
+                className={styles.cardFlipMaskImage}
+                draggable={false}
+                fill
+                sizes="(max-width: 768px) 100vw, 30rem"
+                src={MASK_IMAGE_PATH}
+              />
+            </div>
+            <div className={styles.cardFlipFaceBack}>{children}</div>
+          </div>
         </div>
-        <div className={styles.cardFlipFaceBack}>{children}</div>
       </div>
-      <GlowBurst active={justFlipped} />
+      <p className={styles.cardFlipHintText}>
+        {isFlipped ? "Chạm vào lá bài để đóng" : "Chạm vào lá bài để xem"}
+      </p>
     </div>
   );
 }

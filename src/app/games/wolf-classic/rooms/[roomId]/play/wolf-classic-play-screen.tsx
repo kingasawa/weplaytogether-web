@@ -1086,7 +1086,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
 
   function renderPrivateRoleCover(content: ReactNode) {
     return (
-      <CardFlipReveal styles={styles} onUnlock={unlockPrivateRoleReveal} hintLabel="Chạm để xem vai">
+      <CardFlipReveal styles={styles} onUnlock={unlockPrivateRoleReveal}>
         {content}
       </CardFlipReveal>
     );
@@ -1218,11 +1218,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
             isNightPhase ? styles.classicWolfNightPanel : ""
           }`}
         >
-          {isCardRevealPhase && (
-            <div className={styles.privateRevealBox}>
-              {renderPrivateRoleCover(<RoleCard role={myRole} overrides={roleOverrides} />)}
-            </div>
-          )}
+          {isCardRevealPhase && renderPrivateRoleCover(<RoleCard role={myRole} overrides={roleOverrides} />)}
 
           {isNightPhase && renderNightActions()}
 
