@@ -153,6 +153,7 @@ export function buildDebugWolfState(phase: WolfGamePhase, resultCaseKey?: string
       ...state,
       players: buildPlayers({ phaseReadyPlayerIds: ["p2", "p3"] }),
       phaseReadyPlayerIds: ["p2", "p3"],
+      myCard: { originalRole: "werewolf_seer", currentRole: null, nightReviewRole: null },
     };
   }
 
