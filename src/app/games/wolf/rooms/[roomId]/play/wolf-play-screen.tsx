@@ -98,11 +98,14 @@ function isPrivateRevealPhase(phase: WolfPlayState["game"]["phase"]) {
 }
 
 function RoleCard({ role, label, isHidden = false, isFocusedReveal = false, overrides }: RoleCardProps) {
-  const [imageFailed, setImageFailed] = useState(false);
+  // Lưu path đã lỗi (thay vì boolean) để phân biệt được với path MỚI: nếu roleImagePath đổi
+  // (vd override từ game_roles vừa tải xong sau lần render đầu dùng path fallback cứng), path mới
+  // khác path đã lỗi nên vẫn được thử tải lại, không bị kẹt ở trạng thái lỗi vĩnh viễn.
+  const [failedImagePath, setFailedImagePath] = useState<string | null>(null);
   const roleOverride = role ? overrides?.[role] : undefined;
   const roleLabel = role ? roleOverride?.label ?? WOLF_ROLE_LABELS[role] : "Úp bài";
   const roleImagePath = role && !isHidden ? roleOverride?.imageUrl ?? getWolfRoleImagePath(role) : null;
-  const shouldShowRoleImage = Boolean(roleImagePath && !imageFailed);
+  const shouldShowRoleImage = Boolean(roleImagePath && roleImagePath !== failedImagePath);
 
   return (
     <article
@@ -112,18 +115,18 @@ function RoleCard({ role, label, isHidden = false, isFocusedReveal = false, over
       } ${isHidden ? styles.playCardHidden : ""}`}
     >
       {!shouldShowRoleImage && <span>{label}</span>}
-      {roleImagePath && !imageFailed && (
+      {shouldShowRoleImage && (
         <Image
           alt={roleLabel}
           className={styles.roleCardImage}
           fill
           priority={isFocusedReveal}
           sizes="(max-width: 768px) 33vw, 16rem"
-          src={roleImagePath}
-          onError={() => setImageFailed(true)}
+          src={roleImagePath as string}
+          onError={() => setFailedImagePath(roleImagePath)}
         />
       )}
-      {(!role || !roleImagePath || imageFailed) && <strong>{isHidden ? "?" : roleLabel}</strong>}
+      {(!role || !shouldShowRoleImage) && <strong>{isHidden ? "?" : roleLabel}</strong>}
     </article>
   );
 }
