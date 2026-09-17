@@ -4854,6 +4854,21 @@
   padding-bottom: var(--card-reveal-page-pad);
 }
 
+/* Màn xem bài: hiện nguyên ảnh nền + màu góc, bỏ hẳn lớp gradient làm tối dần phủ lên trên (đã
+   che gần hết ảnh + màu góc trước đây) — cùng cách lobby Ma Sói hiện wolf_game_bg "đúng như ảnh
+   gốc, không qua bất kỳ lớp chỉnh màu nào" (xem .roomPanel phía dưới). */
+.classicWolfTheme.cardRevealPage {
+  background:
+    url("/images/ui/wolf_game_bg.webp") center / cover fixed no-repeat,
+    var(--bg-primary);
+}
+
+.classicWolfTheme.cardRevealPage::before {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--danger) 20%, transparent), transparent 14rem),
+    radial-gradient(circle at 78% 12%, color-mix(in srgb, var(--primary-light) 18%, transparent), transparent 12rem);
+}
+
 .cardRevealPage .focusedPlayPanel {
   flex: 0 0 auto;
   min-height: 0;
@@ -4869,6 +4884,13 @@
   height: auto;
   aspect-ratio: 1024 / 1408;
   justify-self: center;
+  /* Đổ bóng 2 lớp (bóng lan toả rộng + bóng sát viền, đậm hơn hẳn màu nền ảnh phía sau) + viền
+     sáng mảnh (mô phỏng qua box-shadow 0 0 0 1px, không chiếm layout như border thật) để lá bài
+     trông nổi hẳn lên khỏi nền, có chiều sâu thay vì phẳng dính vào background. */
+  box-shadow:
+    0 2rem 3.5rem -0.25rem color-mix(in srgb, var(--bg-primary) 92%, transparent),
+    0 0.75rem 1.5rem color-mix(in srgb, var(--bg-primary) 74%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary-light) 22%, transparent);
 }
 
 .cardRevealPage .cardRevealRoleCard {
