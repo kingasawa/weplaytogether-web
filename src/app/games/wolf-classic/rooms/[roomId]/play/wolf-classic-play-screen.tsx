@@ -18,7 +18,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { GameBugReportDialog } from "@/components/game";
 import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
 import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
@@ -1084,8 +1084,12 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
     setRevealedRoleGameId(playState.game.id);
   }
 
-  function renderPrivateRoleCover() {
-    return <CardFlipReveal styles={styles} onUnlock={unlockPrivateRoleReveal} hintLabel="Chạm để xem vai" />;
+  function renderPrivateRoleCover(content: ReactNode) {
+    return (
+      <CardFlipReveal styles={styles} onUnlock={unlockPrivateRoleReveal} hintLabel="Chạm để xem vai">
+        {content}
+      </CardFlipReveal>
+    );
   }
 
   function renderNightHistoryIcon() {
@@ -1216,8 +1220,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
         >
           {isCardRevealPhase && (
             <div className={styles.privateRevealBox}>
-              <RoleCard role={myRole} overrides={roleOverrides} />
-              {renderPrivateRoleCover()}
+              {renderPrivateRoleCover(<RoleCard role={myRole} overrides={roleOverrides} />)}
             </div>
           )}
 

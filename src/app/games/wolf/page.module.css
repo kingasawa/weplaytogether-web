@@ -2960,8 +2960,11 @@
 }
 
 /* Lớp phủ lật bài (xem CardFlipReveal) — thay cho .privateRevealCover ở phase xem bài: bấm để
-   lật lá mask 3D thay vì kéo lên. .cardFlipScene giữ đúng vị trí inset:0 phủ lên RoleCard như
-   .privateRevealCover cũ; perspective đặt ở đây để chỉ ảnh hưởng .cardFlipCard bên trong. */
+   lật 3D thay vì kéo lên. .cardFlipScene giữ đúng vị trí inset:0 phủ lên RoleCard như
+   .privateRevealCover cũ; perspective đặt ở đây để chỉ ảnh hưởng .cardFlipCard bên trong.
+   .cardFlipCard xoay theo rotateY (transform-style: preserve-3d) — mặt trước (mask) và mặt sau
+   (RoleCard thật, truyền vào qua children) là 2 mặt CÙNG khối xoay chung, không phải 2 lớp tách
+   rời fade qua nhau, nên trông đúng như lật 1 lá bài vật lý 2 mặt. */
 .cardFlipScene {
   position: absolute;
   inset: 0;
@@ -2972,23 +2975,29 @@
 
 .cardFlipCard {
   position: relative;
-  display: block;
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
   cursor: pointer;
   transform-style: preserve-3d;
+  /* CSS transition thuần (không dùng Motion's animate) — xem giải thích trong
+     card-flip-reveal.tsx: animate rotateY bằng JS bị kẹt giữa chừng khi mặt trước đang
+     backface-hidden (vô hình), CSS transition do compositor chạy native không bị ảnh hưởng. */
+  transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-.cardFlipFace {
+.cardFlipFaceFront,
+.cardFlipFaceBack {
   position: absolute;
   inset: 0;
   overflow: hidden;
   border-radius: inherit;
   backface-visibility: hidden;
+}
+
+/* Tự xoay bù 180° — khi .cardFlipCard quay hết nửa vòng, mặt này quay theo (180° + 180° = 360°)
+   nên hiện đúng chiều nhìn, không bị lật ngược/soi gương như mặt trước. */
+.cardFlipFaceBack {
+  transform: rotateY(180deg);
 }
 
 .cardFlipMaskImage {
