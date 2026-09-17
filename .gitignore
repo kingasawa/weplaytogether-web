@@ -58,3 +58,4 @@ next-env.d.ts
 /test-results/
 /.idea/
 /.claude/
+/img/
