@@ -580,6 +580,25 @@
   white-space: pre-wrap;
 }
 
+.reportImageGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+}
+
+.reportImageGrid a {
+  display: block;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 20%, transparent);
+  border-radius: 0.5rem;
+}
+
+.reportImageGrid img {
+  display: block;
+  object-fit: cover;
+}
+
 .reportJsonDetails {
   margin-top: 0.65rem;
   border: 1px solid color-mix(in srgb, var(--primary-light) 14%, transparent);

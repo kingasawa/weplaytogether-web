@@ -1,6 +1,26 @@
-﻿<!-- Last updated: 2026-09-10 -->
+﻿<!-- Last updated: 2026-09-17 -->
 
 # Migrations
+
+## 202609170001_game_bug_report_images.sql
+
+Status: created locally, pending manual remote apply.
+
+Path:
+
+- `supabase/migrations/202609170001_game_bug_report_images.sql`
+
+Purpose:
+
+- User request: cho phép người chơi đính kèm tối đa 3 ảnh khi gửi report lỗi cuối trận (`GameBugReportDialog`), upload lên Google Cloud Storage (bucket có sẵn `weplaytogether-uploads`, xem `src/lib/avatar-storage.ts`) thay vì thêm hệ thống lưu trữ mới.
+- Adds `public.game_bug_reports.image_urls text[] not null default '{}'::text[]` + check constraint `game_bug_reports_image_urls_max_3` (`array_length(image_urls, 1) is null or <= 3`).
+- No RLS change needed: existing `game_bug_reports_admin_select`/`game_bug_reports_reporter_select_own` policies already select the whole row; insert only ever happens through `report-actions.ts` via the service role.
+- New GCS folder `bug-report/<sessionId>/<gameId>/<uuid>.<ext>` in the same bucket as `avatar/` and `shop/` (new constants/helpers in `src/lib/game-bug-report-image-upload.ts`). The `<sessionId>/<gameId>/` prefix both scopes delete-ownership (matches the player-avatar-upload pattern) and lets `report-actions.ts` verify an attached image URL actually belongs to the session+game being reported before insert.
+- New upload/delete route `src/app/api/game-bug-report/image/route.ts`: verifies the request's `WOLF_PLAYER_SESSION_COOKIE` belongs to an actual `room_players` row for the given `roomCode`/`gameId` before accepting an upload; enforces the 3-image cap server-side via `listAvatarObjects(prefix)` (not just client-side); reuses `putAvatarObject`/`deleteAvatarObject` from `avatar-storage.ts`.
+- Client compresses to WebP (max 1600px edge, JPEG fallback) in `src/lib/game-bug-report-image.ts` before upload — same approach as `shop-item-image.ts`/`player-avatar-image.ts`.
+- `next.config.ts` `images.remotePatterns` gained a `storage.googleapis.com/weplaytogether-uploads/bug-report/**` entry (project's `images.unoptimized: true` already makes this non-enforcing at runtime on Cloudflare, but kept accurate like the existing `avatar/**` entry).
+- App code tolerates the column being absent (`isMissingImageUrlsColumnError` in `src/lib/supabase/errors.ts`): `submitGameBugReport` retries the insert without `image_urls` on that error, and `listGameBugReports` retries the select without it (backfilling `image_urls: []` on each row) — report submission and the admin list both keep working while this migration is still pending, only new image attachments are inactive until applied.
+- Admin `/admin/reports` detail panel now renders attached images as thumbnails (click-through to full size in a new tab) when present.
 
 ## 202609100001_game_roles.sql
 

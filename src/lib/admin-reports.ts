@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { isMissingTableError } from "@/lib/supabase/errors";
+import { isMissingImageUrlsColumnError, isMissingTableError } from "@/lib/supabase/errors";
 import type { GameBugReportGameKey, GameBugReportRow, GameBugReportStatus } from "@/lib/supabase/types";
 
 export type AdminResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -28,6 +28,11 @@ export const GAME_BUG_REPORT_GAME_LABELS: Record<GameBugReportGameKey, string> =
 };
 
 const GAME_BUG_REPORT_COLUMNS =
+  "id, reporter_user_id, reporter_player_id, reporter_name, game_key, game_id, room_id, room_code, game_phase, report_text, image_urls, game_context, client_context, status, admin_note, resolved_at, created_at, updated_at";
+// Fallback khi migration 202609170001_game_bug_report_images.sql (cột image_urls) chưa được
+// apply thủ công trên remote — phải là literal riêng (không dùng .replace() trên hằng số trên)
+// vì kiểu trả về của PostgrestFilterBuilder.select() phụ thuộc vào kiểu literal của tham số.
+const GAME_BUG_REPORT_COLUMNS_WITHOUT_IMAGES =
   "id, reporter_user_id, reporter_player_id, reporter_name, game_key, game_id, room_id, room_code, game_phase, report_text, game_context, client_context, status, admin_note, resolved_at, created_at, updated_at";
 const NOT_READY_ERROR = "Dữ liệu report chưa được khởi tạo trên Supabase. Hãy chạy migration trước.";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,10 +62,10 @@ function getNextDateIso(dateValue: string) {
   return date.toISOString();
 }
 
-export async function listGameBugReports(filters: GameBugReportFilters = {}): Promise<AdminResult<GameBugReportRow[]>> {
+function buildGameBugReportsQuery<Columns extends string>(columns: Columns, filters: GameBugReportFilters) {
   let query = client()
     .from("game_bug_reports")
-    .select(GAME_BUG_REPORT_COLUMNS)
+    .select(columns)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -99,7 +104,19 @@ export async function listGameBugReports(filters: GameBugReportFilters = {}): Pr
     query = query.or(clauses.join(","));
   }
 
-  const { data, error } = await query;
+  return query;
+}
+
+export async function listGameBugReports(filters: GameBugReportFilters = {}): Promise<AdminResult<GameBugReportRow[]>> {
+  let { data, error } = await buildGameBugReportsQuery(GAME_BUG_REPORT_COLUMNS, filters);
+
+  // Migration 202609170001_game_bug_report_images.sql (image_urls) có thể chưa được apply thủ
+  // công trên remote — thử lại không kèm cột đó để danh sách report vẫn hiển thị được.
+  if (error && isMissingImageUrlsColumnError(error)) {
+    const fallback = await buildGameBugReportsQuery(GAME_BUG_REPORT_COLUMNS_WITHOUT_IMAGES, filters);
+    data = fallback.data?.map((row) => ({ ...row, image_urls: [] })) as typeof data;
+    error = fallback.error;
+  }
 
   if (error) {
     return {
@@ -119,11 +136,13 @@ export async function updateGameBugReportStatus(
     return { data: null, error: "Thông tin report không hợp lệ." };
   }
 
+  // "*" thay vì GAME_BUG_REPORT_COLUMNS: nếu migration image_urls chưa apply trên remote, chỉ
+  // định danh cột image_urls sẽ làm cả update lỗi — "*" tự bỏ qua cột chưa tồn tại.
   const { data, error } = await client()
     .from("game_bug_reports")
     .update({ status })
     .eq("id", reportId)
-    .select(GAME_BUG_REPORT_COLUMNS)
+    .select("*")
     .single();
 
   if (error) {
@@ -148,7 +167,7 @@ export async function updateGameBugReportNote(
     .from("game_bug_reports")
     .update({ admin_note: note.trim() || null })
     .eq("id", reportId)
-    .select(GAME_BUG_REPORT_COLUMNS)
+    .select("*")
     .single();
 
   if (error) {

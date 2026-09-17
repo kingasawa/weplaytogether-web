@@ -185,6 +185,7 @@ export type GameBugReportRow = {
   room_code: string;
   game_phase: string;
   report_text: string;
+  image_urls: string[];
   game_context: Json;
   client_context: Json;
   status: GameBugReportStatus;
@@ -288,6 +289,7 @@ export type Database = {
             | "id"
             | "reporter_user_id"
             | "reporter_player_id"
+            | "image_urls"
             | "game_context"
             | "client_context"
             | "status"

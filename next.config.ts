@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "storage.googleapis.com",
+        pathname: "/weplaytogether-uploads/bug-report/**",
+      },
+      {
+        protocol: "https",
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },

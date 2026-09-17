@@ -1,6 +1,7 @@
 "use client";
 
 import { Bug, Eye, LoaderCircle, Save, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
   GAME_BUG_REPORT_GAME_LABELS,
@@ -347,6 +348,19 @@ export default function AdminReportsScreen() {
 
             <h3 className={styles.reportSectionTitle}>Nội dung report</h3>
             <p className={styles.reportTextBlock}>{selectedReport.report_text}</p>
+
+            {selectedReport.image_urls && selectedReport.image_urls.length > 0 && (
+              <>
+                <h3 className={styles.reportSectionTitle}>Ảnh đính kèm</h3>
+                <div className={styles.reportImageGrid}>
+                  {selectedReport.image_urls.map((imageUrl) => (
+                    <a href={imageUrl} key={imageUrl} rel="noopener noreferrer" target="_blank">
+                      <Image alt="" height={110} src={imageUrl} unoptimized width={110} />
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div className={styles.formGrid}>
               <div className={styles.formField}>

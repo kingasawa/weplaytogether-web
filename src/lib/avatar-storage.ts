@@ -8,7 +8,8 @@ const bucket = storage.bucket(BUCKET_NAME);
 
 // Tên hàm giữ nguyên "Avatar" vì đây là chỗ đầu tiên dùng bucket này (folder "avatar/"), nhưng
 // hàm hoàn toàn generic (chỉ lưu/xoá theo key) nên cũng được dùng cho ảnh vật phẩm shop
-// (folder "shop/", xem src/app/api/admin/shop-items/image/route.ts) — cùng 1 bucket GCS duy nhất.
+// (folder "shop/", xem src/app/api/admin/shop-items/image/route.ts) và ảnh đính kèm report lỗi
+// (folder "bug-report/", xem src/app/api/game-bug-report/image/route.ts) — cùng 1 bucket GCS duy nhất.
 export async function putAvatarObject(key: string, file: File, contentType: string) {
   const buffer = Buffer.from(await file.arrayBuffer());
 

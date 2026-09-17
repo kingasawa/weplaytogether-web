@@ -1,4 +1,4 @@
-﻿<!-- Last updated: 2026-09-10 -->
+﻿<!-- Last updated: 2026-09-17 -->
 
 # Database Schema
 
@@ -40,6 +40,8 @@ On 2026-09-03, local migration `202609030002_game_bug_reports.sql` was created t
 
 On 2026-09-10, local migration `202609100001_game_roles.sql` was created to let admin manage each game role's display name (Việt/Anh) and card image through a new `/admin/game-roles` page, instead of editing `src/lib/wolf-game.ts`/`classic-wolf-game.ts`/`avalon-game.ts` and redeploying. Adds table `game_roles` (public select, admin-only write via `is_shop_admin()`), seeded with the 25 roles' current hardcoded values across `wolf`/`classic_wolf`/`avalon`. App code falls back to the hardcoded constants when the table is missing or a role has no override row, so this migration is optional for the app to keep working.
 
+On 2026-09-17, local migration `202609170001_game_bug_report_images.sql` was created to let players attach up to 3 images to a post-game bug report (`GameBugReportDialog`). Adds `game_bug_reports.image_urls text[] not null default '{}'::text[]` and check constraint `game_bug_reports_image_urls_max_3` (max 3 elements). No RLS change: the column is covered by the existing admin/reporter select policies, and inserts only ever happen server-side via the service role in `report-actions.ts`. Images are uploaded to the same GCS bucket already used for avatars/shop items (`src/lib/avatar-storage.ts`), under a new `bug-report/<sessionId>/<gameId>/<uuid>.<ext>` prefix. App code tolerates the column being absent (`isMissingImageUrlsColumnError` in `src/lib/supabase/errors.ts`): report submission and the admin report list both retry without `image_urls` on that error, so this migration is optional for the app to keep working, but required for the image-attachment feature itself to activate.
+
 On 2026-08-26, local migration `202608260002_rename_shared_game_tables.sql` was created to rename `wolf_rooms` → `rooms`, `wolf_room_players` → `room_players`, `wolf_game_sessions` → `game_sessions`, `wolf_game_cards` → `game_cards`, `wolf_game_actions` → `game_actions`, `wolf_game_votes` → `game_votes`, and `wolf_game_phase_confirmations` → `game_phase_confirmations`. These 7 tables are shared by all 3 games (wolf, wolf-classic, avalon) — the `wolf_` prefix was misleading since only `game_key` on `rooms` distinguishes which game a room belongs to. `classic_wolf_game_states` and `avalon_game_states` were intentionally left unrenamed because those two really are game-specific (per-game JSON state), not shared. `ALTER TABLE ... RENAME` carries over indexes/constraints/triggers/RLS policies/FKs/realtime publication membership automatically; the migration also redefines `cleanup_old_wolf_rooms(...)` and `close_inactive_wolf_rooms(...)` since their plpgsql bodies reference table names as text and don't auto-update. All application code (`src/app/games/{wolf,wolf-classic,avalon}/actions.ts`, `src/lib/player-avatar-frames.ts`, `src/app/api/pusher/auth/route.ts`, `src/lib/supabase/types.ts`) was updated in the same change to use the new table names. **This document (and the tables below) already describe the post-rename names** — see "Remote Apply Notes" below for the same manual-SQL-Editor limitation that applies to this migration.
 
 ## Current Remote State
@@ -70,6 +72,7 @@ Local migration file created in this task and still pending manual remote apply:
 - `supabase/migrations/202609030001_user_level_system.sql`
 - `supabase/migrations/202609030002_game_bug_reports.sql`
 - `supabase/migrations/202609100001_game_roles.sql`
+- `supabase/migrations/202609170001_game_bug_report_images.sql`
 
 ## Intended Schema After Applying Pending Migrations
 
@@ -254,6 +257,7 @@ Báo lỗi sau ván chơi. **Pending apply**: thêm bởi `202609030002_game_bug
 - `room_code text not null`
 - `game_phase text not null`
 - `report_text text not null`, trimmed length 5-1000
+- `image_urls text[] not null default '{}'::text[]`, max 3 phần tử (constraint `game_bug_reports_image_urls_max_3`) — URL ảnh public đã upload lên GCS folder `bug-report/<sessionId>/<gameId>/<uuid>.<ext>`. **Pending apply**: thêm bởi `202609170001_game_bug_report_images.sql`.
 - `game_context jsonb not null default '{}'::jsonb` — context debug server gom từ room/game/players và state riêng từng game
 - `client_context jsonb not null default '{}'::jsonb` — path, viewport, user agent đã giới hạn độ dài
 - `status public.game_bug_report_status not null default 'open'`

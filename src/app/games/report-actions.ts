@@ -2,6 +2,11 @@
 
 import { cookies } from "next/headers";
 import {
+  GAME_BUG_REPORT_IMAGE_MAX_COUNT,
+  isOwnedGameBugReportImageUrl,
+} from "@/lib/game-bug-report-image-upload";
+import {
+  isMissingImageUrlsColumnError,
   isMissingUserIdColumnError,
   isMissingTableError,
 } from "@/lib/supabase/errors";
@@ -13,6 +18,7 @@ type SubmitGameBugReportInput = {
   roomCode: string;
   gameId: string;
   reportText: string;
+  imageUrls?: string[];
   clientContext?: {
     path?: string;
     viewport?: { width: number; height: number };
@@ -158,6 +164,28 @@ function normalizeClientContext(value: unknown): Json {
   return context;
 }
 
+function normalizeImageUrls(value: unknown) {
+  if (value === undefined) {
+    return { ok: true as const, imageUrls: [] as string[] };
+  }
+
+  if (!Array.isArray(value) || value.length > GAME_BUG_REPORT_IMAGE_MAX_COUNT) {
+    return { ok: false as const };
+  }
+
+  const imageUrls: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== "string" || item.length === 0 || item.length > 2048) {
+      return { ok: false as const };
+    }
+
+    imageUrls.push(item);
+  }
+
+  return { ok: true as const, imageUrls };
+}
+
 function parseInput(input: unknown) {
   if (!isRecord(input)) {
     return { ok: false as const, error: "Thông tin report không hợp lệ." };
@@ -181,12 +209,19 @@ function parseInput(input: unknown) {
     };
   }
 
+  const imageUrlsResult = normalizeImageUrls(input.imageUrls);
+
+  if (!imageUrlsResult.ok) {
+    return { ok: false as const, error: "Ảnh đính kèm không hợp lệ." };
+  }
+
   return {
     ok: true as const,
     data: {
       roomCode,
       gameId,
       reportText,
+      imageUrls: imageUrlsResult.imageUrls,
       clientContext: normalizeClientContext(input.clientContext),
     },
   };
@@ -476,6 +511,14 @@ export async function submitGameBugReport(input: SubmitGameBugReportInput): Prom
     return { ok: false, error: "Bạn không còn ở trong ván này." };
   }
 
+  const hasUnownedImageUrl = parsed.data.imageUrls.some(
+    (imageUrl) => !isOwnedGameBugReportImageUrl(imageUrl, sessionId, parsed.data.gameId)
+  );
+
+  if (hasUnownedImageUrl) {
+    return { ok: false, error: "Ảnh đính kèm không hợp lệ." };
+  }
+
   const supabase = createSupabaseAdminClient();
   const { game, error: gameError } = await loadGame(supabase, parsed.data.gameId);
 
@@ -540,23 +583,35 @@ export async function submitGameBugReport(input: SubmitGameBugReportInput): Prom
     phaseCheck.avalonStateRow
   );
 
-  const { data, error: insertError } = await supabase
+  const reportInsertPayload = {
+    reporter_user_id: reporter.user_id,
+    reporter_player_id: reporter.id,
+    reporter_name: reporter.name,
+    game_key: room.game_key,
+    game_id: game.id,
+    room_id: room.id,
+    room_code: room.code,
+    game_phase: phaseCheck.gamePhase,
+    report_text: parsed.data.reportText,
+    game_context: gameContext,
+    client_context: parsed.data.clientContext,
+  };
+
+  let { data, error: insertError } = await supabase
     .from("game_bug_reports")
-    .insert({
-      reporter_user_id: reporter.user_id,
-      reporter_player_id: reporter.id,
-      reporter_name: reporter.name,
-      game_key: room.game_key,
-      game_id: game.id,
-      room_id: room.id,
-      room_code: room.code,
-      game_phase: phaseCheck.gamePhase,
-      report_text: parsed.data.reportText,
-      game_context: gameContext,
-      client_context: parsed.data.clientContext,
-    })
+    .insert({ ...reportInsertPayload, image_urls: parsed.data.imageUrls })
     .select("id")
     .single();
+
+  // Migration 202609170001_game_bug_report_images.sql (image_urls) có thể chưa được apply thủ
+  // công trên remote — thử lại không kèm image_urls để report vẫn gửi được, thay vì chặn hẳn.
+  if (insertError && isMissingImageUrlsColumnError(insertError)) {
+    ({ data, error: insertError } = await supabase
+      .from("game_bug_reports")
+      .insert(reportInsertPayload)
+      .select("id")
+      .single());
+  }
 
   if (insertError) {
     return {

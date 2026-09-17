@@ -192,6 +192,97 @@
   animation: reportSpin 0.9s linear infinite;
 }
 
+.imageGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.imageTile {
+  position: relative;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin: 0.4rem 0.4rem 0 0;
+}
+
+/* Wrapper riêng cho phần bo góc/cắt ảnh — .imageRemoveButton nằm ngoài phần tử này (dù vẫn là
+   con của .imageTile) nên không bị "overflow: hidden" cắt mất khi lệch ra ngoài góc. */
+.imageThumb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 24%, transparent);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--bg-primary) 42%, var(--bg-card));
+}
+
+.imageThumb img {
+  object-fit: cover;
+}
+
+/* 2.75rem (44px) đúng hạn mức touch target tối thiểu — đặt lệch ra góc phải trên để không che
+   quá nhiều ảnh xem trước, giống cách .closeButton của modal này xử lý. */
+.imageRemoveButton {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  z-index: 1;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999rem;
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.imageRemoveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.imageRemoveButton svg {
+  width: 0.9rem;
+  min-width: 0.9rem;
+}
+
+.imageAddButton {
+  display: flex;
+  width: 5.5rem;
+  min-height: 5.5rem;
+  margin-top: 0.4rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  border: 1px dashed color-mix(in srgb, var(--primary-light) 40%, transparent);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.imageAddButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.imageAddButton svg {
+  width: 1.2rem;
+  min-width: 1.2rem;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
 @media (min-width: 768px) {
   .backdrop {
     place-items: center;

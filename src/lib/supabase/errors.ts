@@ -42,6 +42,10 @@ export function isMissingFrameColorColumnError(error: SupabaseErrorLike) {
   return isMissingColumnError(error, "frame_color");
 }
 
+export function isMissingImageUrlsColumnError(error: SupabaseErrorLike) {
+  return isMissingColumnError(error, "image_urls");
+}
+
 // Request bị chặn TRƯỚC KHI tới được Supabase (thường do tiện ích chặn quảng cáo/quyền riêng
 // tư trên trình duyệt chặn/xoá header của request tới *.supabase.co, hoặc do lỗi mạng thật sự).
 // postgrest-js bọc mọi lỗi fetch() (không phải lỗi Postgres/PostgREST) thành error.code rỗng +
