@@ -1386,11 +1386,6 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             <RotateCcw aria-hidden="true" />
           </button>
         )}
-        {isCardRevealPhase && (
-          <p>
-            Hãy xem kĩ lá bài của bạn và ghi nhớ nó
-          </p>
-        )}
         {isNightPhase && (
           <p>
             {isMyNightTurn && nightActionRole

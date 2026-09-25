@@ -3016,25 +3016,6 @@
   user-select: none;
 }
 
-/* Mặt trước (mask) chuyển sang tông xanh đậm: nền --primary-dark phía sau + lớp phủ blend "color"
-   giữ nguyên độ sáng/chi tiết ảnh mask_card nhưng đổi sắc nâu gốc thành xanh đậm. */
-.cardFlipFaceFront {
-  /* isolation: blend của ::before chỉ trộn với ảnh bên trong mặt này (mặt nằm trong khối 3D
-     preserve-3d — không cô lập thì blend trộn với nền trong suốt, ra 1 mảng màu phẳng). */
-  isolation: isolate;
-  background: color-mix(in srgb, var(--primary-dark) 55%, var(--bg-primary));
-}
-
-.cardFlipFaceFront::before {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: color-mix(in srgb, var(--primary-dark) 70%, var(--bg-primary));
-  content: "";
-  mix-blend-mode: color;
-  pointer-events: none;
-}
-
 /* Dòng chữ thông báo dưới lá bài — chữ thường, cùng font với các nút hành động (.primaryButton...
    dùng var(--font-body)), KHÔNG phải dạng nút/pill như trước. */
 .cardFlipHintText {
@@ -4957,6 +4938,15 @@
   aspect-ratio: 1024 / 1408;
   padding: 0;
   border-radius: 0.9rem;
+  /* Nền xanh đậm quanh ảnh role (mặt hiện role sau khi lật) thay cho --bg-card xám xanh. */
+  background: color-mix(in srgb, var(--primary-dark) 55%, var(--bg-primary));
+}
+
+/* Dòng "Chạm vào lá bài để xem/đóng": đẩy xuống khỏi vùng bóng đổ dưới lá bài và sáng hơn một
+   chút so với --text-secondary để đọc rõ trên nền tối. */
+.cardRevealPage .cardFlipHintText {
+  margin-top: 1.25rem;
+  color: color-mix(in srgb, var(--text-secondary) 55%, var(--text));
 }
 
 .classicWolfTheme.cardRevealPage .focusedPlayPanel {
