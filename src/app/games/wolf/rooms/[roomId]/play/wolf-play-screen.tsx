@@ -6,9 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition, type ReactNode } from "react";
 import { GameBugReportDialog } from "@/components/game";
-import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
-import { TypewriterText } from "@/components/motion/typewriter-text";
-import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
+import { CardFlipReveal } from "@/components/motion/card-flip-reveal";import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
 import type { WolfRole } from "@/lib/supabase/types";
@@ -1770,7 +1768,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             </div>
           </div>
         ) : (
-          <TypewriterText styles={styles} text={getWaitingStatusText()} />
+          <span>{getWaitingStatusText()}</span>
         )}
       </section>
 

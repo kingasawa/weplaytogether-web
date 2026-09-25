@@ -20,9 +20,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { GameBugReportDialog } from "@/components/game";
-import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
-import { TypewriterText } from "@/components/motion/typewriter-text";
-import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
+import { CardFlipReveal } from "@/components/motion/card-flip-reveal";import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
   CLASSIC_WOLF_ROLE_CARD_IMAGES,
@@ -1632,7 +1630,7 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
           } ${styles.waitingStatusTextOnly}`}
           aria-live="polite"
         >
-          <TypewriterText styles={styles} text={getWaitingStatusText()} />
+          <span>{getWaitingStatusText()}</span>
         </section>
       )}
 
