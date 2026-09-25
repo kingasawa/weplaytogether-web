@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition, type ReactNode } from "react";
 import { GameBugReportDialog } from "@/components/game";
 import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
+import { TypewriterText } from "@/components/motion/typewriter-text";
 import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import { useWolfRoomPresence } from "@/lib/pusher/use-wolf-room-presence";
@@ -45,6 +46,7 @@ type WolfPlayScreenProps = {
 
 const VOTE_SKIP_KEY = "__skip_vote__";
 const PRIVATE_CARD_COVER_IMAGE_PATH = "/images/ui/mask_card.webp";
+const NIGHT_WAITING_OTHERS_TEXT = "Đang chờ người chơi khác thực hiện nhiệm vụ ban đêm.";
 
 type RevealedCenterCard = Extract<WolfCenterRevealResult, { ok: true }>;
 type RevealedPlayerCard = Extract<WolfPlayerRevealResult, { ok: true }>;
@@ -520,9 +522,9 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         return "Đến lượt bạn thực hiện chức năng.";
       }
 
-      return playState.isNightTurnInProgress
-        ? "Đang chờ người chơi khác"
-        : "Tất cả lượt ban đêm đã hoàn tất.";
+      // Giữa các lượt đêm (kể cả khoảng trống sau lượt cuối, trước khi chuyển phase) luôn chỉ hiện
+      // dòng chờ — không báo "đã hoàn tất" để người chơi không đoán được tiến độ đêm.
+      return NIGHT_WAITING_OTHERS_TEXT;
     }
 
     if (waitingPlayers.length === 0) {
@@ -1395,9 +1397,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
           <p>
             {isMyNightTurn && nightActionRole
               ? WOLF_ROLE_DESCRIPTIONS[nightActionRole]
-              : playState.isNightTurnInProgress
-                ? "Đang chờ người chơi khác thực hiện lượt ban đêm."
-                : "Tất cả lượt ban đêm đã hoàn tất."}
+              : NIGHT_WAITING_OTHERS_TEXT}
           </p>
         )}
         {isNightReviewPhase && (
@@ -1719,7 +1719,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
         className={`${styles.playWaitingStatus} ${
           isCardRevealPhase ? styles.cardRevealWaitingStatus : hasFocusedWaitingStatus ? styles.focusedWaitingStatus : ""
         } ${isNightPhase ? styles.classicWolfNightStatus : ""} ${
-          playState.game.phase === "result" ? styles.playWaitingStatusResult : ""
+          playState.game.phase === "result" ? styles.playWaitingStatusResult : styles.waitingStatusTextOnly
         }`}
         aria-live="polite"
       >
@@ -1770,7 +1770,7 @@ export default function WolfPlayScreen({ initialState, isPreview = false }: Wolf
             </div>
           </div>
         ) : (
-          <span>{getWaitingStatusText()}</span>
+          <TypewriterText styles={styles} text={getWaitingStatusText()} />
         )}
       </section>
 

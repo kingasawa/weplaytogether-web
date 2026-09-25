@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { GameBugReportDialog } from "@/components/game";
 import { CardFlipReveal } from "@/components/motion/card-flip-reveal";
+import { TypewriterText } from "@/components/motion/typewriter-text";
 import { modalBackdropVariants, modalPanelVariants } from "@/components/motion/modal-motion";
 import { getPlayerAvatarSrc } from "@/lib/player-avatars";
 import {
@@ -1628,10 +1629,10 @@ export default function ClassicWolfPlayScreen({ initialState, isPreview = false 
             isCardRevealPhase ? styles.cardRevealWaitingStatus : styles.focusedWaitingStatus
           } ${
             isNightPhase ? styles.classicWolfNightStatus : ""
-          }`}
+          } ${styles.waitingStatusTextOnly}`}
           aria-live="polite"
         >
-          <span>{getWaitingStatusText()}</span>
+          <TypewriterText styles={styles} text={getWaitingStatusText()} />
         </section>
       )}
 

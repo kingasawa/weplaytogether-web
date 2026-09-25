@@ -3016,6 +3016,25 @@
   user-select: none;
 }
 
+/* Mặt trước (mask) chuyển sang tông xanh đậm: nền --primary-dark phía sau + lớp phủ blend "color"
+   giữ nguyên độ sáng/chi tiết ảnh mask_card nhưng đổi sắc nâu gốc thành xanh đậm. */
+.cardFlipFaceFront {
+  /* isolation: blend của ::before chỉ trộn với ảnh bên trong mặt này (mặt nằm trong khối 3D
+     preserve-3d — không cô lập thì blend trộn với nền trong suốt, ra 1 mảng màu phẳng). */
+  isolation: isolate;
+  background: color-mix(in srgb, var(--primary-dark) 55%, var(--bg-primary));
+}
+
+.cardFlipFaceFront::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--primary-dark) 70%, var(--bg-primary));
+  content: "";
+  mix-blend-mode: color;
+  pointer-events: none;
+}
+
 /* Dòng chữ thông báo dưới lá bài — chữ thường, cùng font với các nút hành động (.primaryButton...
    dùng var(--font-body)), KHÔNG phải dạng nút/pill như trước. */
 .cardFlipHintText {
@@ -3803,6 +3822,20 @@
 
 .classicWolfTheme.playPage.focusedPlayPage .playHeader {
   justify-content: center;
+}
+
+/* Màn xem bài: tiêu đề + dòng hướng dẫn canh giữa. Padding 2 bên bằng nhau (cùng khoảng chừa cho
+   nút reset ở bên phải) để chữ nằm đúng giữa màn hình, không lệch trái. */
+.classicWolfTheme.playPage.cardRevealPage .playHeader {
+  align-items: center;
+  padding-inline: clamp(4.75rem, 16vw, 5.75rem);
+  text-align: center;
+}
+
+.classicWolfTheme.playPage.cardRevealPage .playHeader h1,
+.classicWolfTheme.playPage.cardRevealPage .playHeader p {
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 .classicWolfTheme .discussionHeader {
@@ -4885,15 +4918,36 @@
   height: auto;
   aspect-ratio: 1024 / 1408;
   justify-self: center;
-  /* Đổ bóng nhiều lớp (bóng lan toả rộng phía xa + bóng sát viền để "ghim" bài xuống nền, đậm
-     hơn hẳn màu nền ảnh phía sau) + viền sáng mảnh (mô phỏng qua box-shadow 0 0 0 1px, không
-     chiếm layout như border thật) + highlight mép trên (inset, như ánh sáng hắt lên cạnh vật thể
-     nổi) để lá bài trông nổi hẳn lên khỏi nền, có chiều sâu rõ rệt thay vì phẳng dính vào nền. */
+  /* Khung ngoài KHÔNG xoay — không được cắt (overflow) hay đổ bóng ở đây, nếu không viền/bóng
+     đứng yên trong khi lá bài lật bên trong. Bóng + viền nằm trên từng mặt (.cardFlipFaceFront/
+     .cardFlipFaceBack) bên dưới để xoay theo lá bài. */
+  overflow: visible;
+}
+
+/* Đổ bóng nhiều lớp (bóng lan toả rộng phía xa + bóng sát viền để "ghim" bài xuống nền) + viền
+   sáng mảnh (box-shadow 0 0 0 1px, không chiếm layout như border thật) gắn trên TỪNG MẶT của lá
+   bài: xoay cùng mặt đó và ẩn theo backface-visibility, nên viền/bóng luôn đi theo mặt đang hiện
+   khi lật/úp thay vì đứng yên như khi gắn trên .privateRevealBox. */
+.cardRevealPage .cardFlipFaceFront,
+.cardRevealPage .cardFlipFaceBack {
+  border-radius: 1rem;
   box-shadow:
     0 3rem 5rem -0.5rem color-mix(in srgb, var(--bg-primary) 96%, transparent),
     0 1.25rem 2.25rem color-mix(in srgb, var(--bg-primary) 82%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary-light) 30%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--primary-light) 30%, transparent);
+}
+
+/* Highlight mép trên (như ánh sáng hắt lên cạnh vật thể nổi) — vẽ bằng lớp phủ ::after vì inset
+   box-shadow trên mặt sẽ bị ảnh/nội dung bên trong che mất. */
+.cardRevealPage .cardFlipFaceFront::after,
+.cardRevealPage .cardFlipFaceBack::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent);
+  content: "";
+  pointer-events: none;
 }
 
 .cardRevealPage .cardRevealRoleCard {
@@ -6847,6 +6901,56 @@
 .playLoading {
   border: 0;
   box-shadow: none;
+}
+
+/* Dòng trạng thái chờ ở đáy các phase (không phải bảng kết quả): chỉ còn chữ, bỏ hẳn khung/nền/
+   bóng/blur dạng nút. Vẫn giữ vị trí cố định ở đáy (.focusedWaitingStatus) như trước. */
+.page .playWaitingStatus.waitingStatusTextOnly {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.page .playWaitingStatus.waitingStatusTextOnly span {
+  color: var(--text-secondary);
+  text-shadow: 0 0 0.9rem var(--bg-primary);
+}
+
+.typewriterText {
+  position: relative;
+}
+
+.typewriterSrOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Con trỏ nhấp nháy cuối dòng chữ đang gõ. */
+.typewriterCaret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 0.2rem;
+  vertical-align: -0.15em;
+  background: var(--primary-light);
+  animation: typewriterCaretBlink 1s steps(1) infinite;
+}
+
+@keyframes typewriterCaretBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typewriterCaret {
+    animation: none;
+  }
 }
 
 /* Border + bỏ shadow cho box mã phòng và 2 nút copy trong phòng chờ */
