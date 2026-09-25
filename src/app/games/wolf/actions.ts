@@ -2271,8 +2271,46 @@ const NIGHT_TURN_DELAY_MAX_MS = 5000;
 const NIGHT_END_DELAY_MIN_MS = 2000;
 const NIGHT_END_DELAY_MAX_MS = 5000;
 
+// Lượt GIẢ: role có chức năng đêm, có trong ván nhưng chỉ nằm ở bài giữa (không ai cầm) — vẫn "gọi"
+// như thật bằng một khoảng chờ ngẫu nhiên, để số lượt/độ dài đêm không để lộ role nào đang nằm giữa.
+// Ngẫu nhiên (không cố định 5s) để không đếm được số lượt giả qua bội số thời gian chờ.
+const FAKE_NIGHT_TURN_MIN_MS = 4000;
+const FAKE_NIGHT_TURN_MAX_MS = 7000;
+
 function randomDelayMs(minMs: number, maxMs: number) {
   return minMs + Math.random() * (maxMs - minMs);
+}
+
+// Role có chức năng đêm nằm ở bài giữa mà không người chơi nào cầm (theo original_role).
+function getCenterOnlyNightRoles(cards: CardRow[]) {
+  const heldRoles = new Set(cards.filter((card) => card.player_id).map((card) => card.original_role));
+
+  return new Set(
+    cards
+      .filter((card) => card.center_index !== null)
+      .map((card) => card.original_role)
+      .filter((role) => NIGHT_ACTION_ROLES.has(role) && !heldRoles.has(role))
+  );
+}
+
+// Vị trí của lượt trong ROLE_RESOLUTION_ORDER — đúng vòng lặp getActiveNightTurn trả lượt đó ra
+// (Copy Cat copy role X được gọi ở vòng X = activeRole). null = đêm đã hết lượt thật.
+function getNightTurnOrderIndex(turn: NightTurnState | null) {
+  return turn ? ROLE_RESOLUTION_ORDER.indexOf(turn.activeRole) : ROLE_RESOLUTION_ORDER.length;
+}
+
+// Tổng thời gian các lượt giả nằm GIỮA 2 lượt thật liên tiếp (fromIndex = -1 khi mới vào đêm).
+function getFakeNightTurnsDelayMs(cards: CardRow[], fromIndex: number, toIndex: number) {
+  const centerOnlyRoles = getCenterOnlyNightRoles(cards);
+  let totalMs = 0;
+
+  ROLE_RESOLUTION_ORDER.forEach((role, index) => {
+    if (index > fromIndex && index < toIndex && centerOnlyRoles.has(role)) {
+      totalMs += randomDelayMs(FAKE_NIGHT_TURN_MIN_MS, FAKE_NIGHT_TURN_MAX_MS);
+    }
+  });
+
+  return totalMs;
 }
 
 function isMissingNightTurnRevealAtColumnError(error?: DatabaseMutationError | null) {
@@ -2336,6 +2374,26 @@ async function armNightTurnDelay(
   }
 }
 
+// Vừa vào đêm: các lượt giả đứng TRƯỚC lượt thật đầu tiên (vd Copy Cat/Nhân Bản chỉ nằm ở bài giữa)
+// phải "chạy" xong mới lộ lượt thật đầu tiên. Chỉ gọi từ request thắng CAS card_reveal → night.
+async function armNightStartFakeTurnDelay(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  gameId: string,
+  players: PlayerRow[]
+) {
+  const { data: cardsData } = await supabase
+    .from("game_cards")
+    .select("id, game_id, player_id, center_index, original_role, current_role")
+    .eq("game_id", gameId);
+  const cards = (cardsData ?? []) as CardRow[];
+  const firstTurn = getActiveNightTurn(players, cards, []);
+  const delayMs = getFakeNightTurnsDelayMs(cards, -1, getNightTurnOrderIndex(firstTurn));
+
+  if (delayMs > 0) {
+    await armNightTurnDelay(supabase, gameId, null, delayMs);
+  }
+}
+
 // Lượt ban đêm THỰC SỰ nên hiển thị cho client ngay bây giờ: null nếu đang trong thời gian hoãn.
 // Khi hết hạn hoãn và không còn ai để chờ, đêm coi như đã xong — thực sự chuyển sang "discussion"
 // (CAS như mọi điểm chuyển phase khác trong maybeAutoAdvancePhase) ngay tại đây, vì đây là nơi DUY
@@ -2378,7 +2436,9 @@ async function maybeAutoAdvancePhase(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   room: RoomRow,
   players: PlayerRow[],
-  phase: WolfGamePhase
+  phase: WolfGamePhase,
+  /** Lượt đêm vừa được submit/xác nhận (lượt active TRƯỚC request) — để tính lượt giả nằm sau nó. */
+  completedNightTurn?: NightTurnState
 ): Promise<WolfGamePhase> {
   if (!room.current_game_id) {
     return phase;
@@ -2399,11 +2459,16 @@ async function maybeAutoAdvancePhase(
     const confirmations = await getPhaseConfirmations(supabase, room.current_game_id, phase);
 
     if (confirmations.length >= players.length) {
-      await supabase
+      const { data: claimedRows } = await supabase
         .from("game_sessions")
         .update({ phase: "night" })
         .eq("id", room.current_game_id)
-        .eq("phase", "card_reveal");
+        .eq("phase", "card_reveal")
+        .select("id");
+
+      if (claimedRows && claimedRows.length > 0) {
+        await armNightStartFakeTurnDelay(supabase, room.current_game_id, players);
+      }
 
       return "night";
     }
@@ -2426,7 +2491,7 @@ async function maybeAutoAdvancePhase(
     const confirmedNightPlayerIds = new Set(confirmations.map((confirmation) => confirmation.player_id));
 
     // KHÔNG chuyển phase/lộ lượt tiếp theo ngay ở đây nữa — chỉ đặt mốc "được phép lộ" sau một
-    // khoảng trễ ngẫu nhiên (2-5s), để tạo nhịp game tự nhiên và tránh nhiều client dồn request
+    // khoảng trễ ngẫu nhiên (2-5s, cộng thêm thời gian các lượt giả nếu có), để tạo nhịp game tự nhiên và tránh nhiều client dồn request
     // ngay khoảnh khắc chuyển lượt. Việc lộ
     // lượt/thực sự chuyển sang "discussion" diễn ra ở settleNightTurnDelay, gọi từ getWolfPlayState
     // mỗi lần client fetch lại — đây là nơi duy nhất còn được gọi sau khi người chơi cuối cùng đã
@@ -2456,9 +2521,19 @@ async function maybeAutoAdvancePhase(
       return phase;
     }
 
-    const delayMs = rawActiveTurn
-      ? randomDelayMs(NIGHT_TURN_DELAY_MIN_MS, NIGHT_TURN_DELAY_MAX_MS)
-      : randomDelayMs(NIGHT_END_DELAY_MIN_MS, NIGHT_END_DELAY_MAX_MS);
+    // Cộng thêm thời gian các lượt giả nằm giữa lượt thật vừa xong và lượt thật kế tiếp (hoặc cuối
+    // đêm khi rawActiveTurn = null).
+    const fakeTurnsDelayMs = completedNightTurn
+      ? getFakeNightTurnsDelayMs(
+          cards,
+          getNightTurnOrderIndex(completedNightTurn),
+          getNightTurnOrderIndex(rawActiveTurn)
+        )
+      : 0;
+    const delayMs =
+      (rawActiveTurn
+        ? randomDelayMs(NIGHT_TURN_DELAY_MIN_MS, NIGHT_TURN_DELAY_MAX_MS)
+        : randomDelayMs(NIGHT_END_DELAY_MIN_MS, NIGHT_END_DELAY_MAX_MS)) + fakeTurnsDelayMs;
     const currentNightTurnRevealAt = await getNightTurnRevealAt(supabase, room.current_game_id);
     await armNightTurnDelay(supabase, room.current_game_id, currentNightTurnRevealAt, delayMs);
 
@@ -5541,7 +5616,7 @@ export async function submitWolfNightAction(
     }
   }
 
-  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night");
+  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night", activeNightTurn);
   await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterNight);
 
   return { ok: true };
@@ -5619,7 +5694,7 @@ export async function confirmWolfNightActionResult(roomCode: string): Promise<Wo
     return { ok: false, error: "Không thể xác nhận kết quả lượt đêm." };
   }
 
-  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night");
+  const nextPhaseAfterNight = await maybeAutoAdvancePhase(supabase, room, players, "night", activeNightTurn);
   await safeBroadcastWolfPlayUpdate(room.code, nextPhaseAfterNight);
 
   return { ok: true };
@@ -5699,11 +5774,17 @@ export async function advanceWolfPhase(roomCode: string): Promise<WolfMutationRe
   // Cùng nguy cơ đua với maybeAutoAdvancePhase (host bấm "chuyển giai đoạn" ngay lúc auto-advance
   // cũng vừa kích hoạt) — dùng cùng kiểu guard `.eq("phase", <cũ>)` để tránh chạy trùng.
   if (game.phase === "card_reveal") {
-    await supabase
+    const { data: claimedRows } = await supabase
       .from("game_sessions")
       .update({ phase: "night" })
       .eq("id", game.id)
-      .eq("phase", "card_reveal");
+      .eq("phase", "card_reveal")
+      .select("id");
+
+    if (claimedRows && claimedRows.length > 0) {
+      await armNightStartFakeTurnDelay(supabase, game.id, players);
+    }
+
     await safeBroadcastWolfPlayUpdate(room.code, "night");
     return { ok: true };
   }
