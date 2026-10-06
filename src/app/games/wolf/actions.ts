@@ -43,6 +43,9 @@ const ROLE_DECK_ORDER: WolfRole[] = [
 // Theo bảng "Complete Wake Order" chính thức của Bezier Games (Copycat = -8, Doppelganger = -7),
 // Copy Cat thức dậy TRƯỚC Nhân Bản: Copy Cat cần soi lá giữa bàn trước, để nếu lá đó chính là
 // Nhân Bản thì có thể "chờ tới lượt" của Nhân Bản mà không bị lệch thứ tự.
+// Troublemaker thức TRƯỚC Drunk (verify 3 nguồn độc lập: rulespal.com/one-night-ultimate-werewolf-
+// daybreak, rulespal.com/one-night-ultimate-werewolf, + 1 nguồn tổng hợp khác, cùng khớp) — trước đây
+// bị đảo ngược thành Drunk trước Troublemaker (bug, đã sửa 2026-10-06).
 const ROLE_RESOLUTION_ORDER: WolfRole[] = [
   "copycat",
   "doppelganger",
@@ -51,8 +54,8 @@ const ROLE_RESOLUTION_ORDER: WolfRole[] = [
   "seer",
   "robber",
   "witch",
-  "drunk",
   "troublemaker",
+  "drunk",
   "insomniac",
   "villager",
 ];
@@ -1266,6 +1269,17 @@ function needsCopycatCopiedRoleTurn(copiedRole: WolfRole | null) {
   );
 }
 
+// Nhân Bản (trực tiếp hoặc qua Copy Cat) copy trúng Mất Ngủ: theo luật gốc, script là "Doppelgänger,
+// if you viewed the Insomniac card, wake up and look at your card" — bước XEM LẠI BÀI chỉ diễn ra ở
+// CUỐI đêm, NGAY SAU lượt Mất Ngủ thật (xem reference-onuw-night-order trong bộ nhớ). Đây là NGOẠI LỆ
+// duy nhất trong mọi role Nhân Bản copy được (mọi role khác luôn thực hiện NGAY trong lượt Nhân Bản).
+// Vì vậy lượt "chọn người để nhân bản" ban đầu phải hoàn tất NGAY mà KHÔNG cần xác nhận ở đó — xác
+// nhận (và lá bài hiển thị) được dành riêng cho lượt trì hoãn ở cuối đêm, xem getActiveNightTurn
+// (vòng lặp bổ sung sau ROLE_RESOLUTION_ORDER) và computeNightResolution (bước đẩy xuống cuối).
+function isDoppelgangerInsomniacPick(copiedRole: WolfRole | null) {
+  return copiedRole === "insomniac";
+}
+
 // Lượt (slot) trong simulateNightResolution mà hành động của night turn này thực sự chạy — Copy Cat →
 // Nhân Bản được simulate ngay trong lượt Copy Cat (giữa 2 lượt không có ai khác đổi bài).
 function getNightTurnSlotRole(activeRole: WolfRole, isCopycatCopiedRole: boolean): WolfRole {
@@ -1320,13 +1334,23 @@ function doesNightTurnRequireResultConfirmation(
   }
 
   if (activeNightTurn.activeRole === "doppelganger" && activeNightTurn.copiedRole) {
-    if (activeNightTurn.copiedRole === "robber" || activeNightTurn.copiedRole === "insomniac") {
+    if (activeNightTurn.copiedRole === "robber") {
       return true;
     }
 
     if (activeNightTurn.copiedRole === "werewolf_seer") {
       return Boolean(action?.target_player_id_2);
     }
+
+    // Copy trúng Mất Ngủ KHÔNG xác nhận ở lượt chọn người này — xem isDoppelgangerInsomniacPick.
+    // Xác nhận (và lá bài hiển thị) dành riêng cho lượt trì hoãn ở cuối đêm, nhánh ngay dưới đây.
+  }
+
+  // Lượt trì hoãn "xem lại bài" của Nhân Bản/Copy Cat copy trúng Mất Ngủ (xem getActiveNightTurn) —
+  // copiedRole "insomniac" ở đây chỉ xuất hiện cho lượt trì hoãn này (lượt Mất Ngủ thật có
+  // copiedRole: null), nên luôn cần xác nhận riêng, khác lượt chọn người ban đầu.
+  if (activeNightTurn.activeRole === "insomniac" && activeNightTurn.copiedRole === "insomniac") {
+    return true;
   }
 
   return false;
@@ -1375,8 +1399,11 @@ function getActiveNightTurn(
         const isDoppelgangerComplete = copiedRole
           ? isDoppelgangerCopiedRoleComplete(copiedRole, action, cardsAtTurn(player.id, "doppelganger"))
           : false;
+        // Copy trúng Mất Ngủ: lượt CHỌN người hoàn tất ngay, không cần xác nhận ở đây — xem
+        // isDoppelgangerInsomniacPick. Lượt xem lại bài dời xuống cuối đêm (vòng lặp bổ sung bên dưới).
+        const skipsConfirmationHere = isDoppelgangerInsomniacPick(copiedRole);
 
-        if (!isDoppelgangerComplete || !isNightResultConfirmed) {
+        if (!isDoppelgangerComplete || (!isNightResultConfirmed && !skipsConfirmationHere)) {
           return {
             playerId: player.id,
             playerName: player.name,
@@ -1388,7 +1415,31 @@ function getActiveNightTurn(
         }
       }
 
-      if (
+      if (card.original_role === role && card.original_role === "copycat") {
+        // Copy Cat copy trúng Mất Ngủ (trực tiếp hoặc lồng qua Nhân Bản): lượt chọn lá giữa của
+        // CHÍNH Copy Cat cũng không cần xác nhận ở đây — submitWolfNightAction không auto-confirm cho
+        // trường hợp này (để dành cờ xác nhận sạch cho lượt trì hoãn cuối đêm), nên nếu vẫn đòi
+        // isNightResultConfirmed thì lượt của Copy Cat sẽ bị kẹt mãi không qua được.
+        const ownCopiedRole = getCopiedRoleFromAction(cards, action);
+        const ownActiveCopiedRole =
+          ownCopiedRole === "doppelganger" ? getCopycatDoppelgangerCopiedRole(cards, action) : ownCopiedRole;
+        const skipsOwnConfirmationHere =
+          isDoppelgangerInsomniacPick(ownCopiedRole) || isDoppelgangerInsomniacPick(ownActiveCopiedRole);
+
+        if (
+          !isOriginalNightActionComplete(role, action, cardsAtTurn(player.id, role)) ||
+          (!isNightResultConfirmed && !skipsOwnConfirmationHere)
+        ) {
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            originalRole: card.original_role,
+            activeRole: role,
+            copiedRole: null,
+            isCopycatCopiedRole: false,
+          };
+        }
+      } else if (
         card.original_role === role &&
         card.original_role !== "doppelganger" &&
         (!isOriginalNightActionComplete(role, action, cardsAtTurn(player.id, role)) || !isNightResultConfirmed)
@@ -1410,6 +1461,10 @@ function getActiveNightTurn(
       const copiedRole = getCopiedRoleFromAction(cards, action);
       const activeCopiedRole =
         copiedRole === "doppelganger" ? getCopycatDoppelgangerCopiedRole(cards, action) : copiedRole;
+      // Copy Cat → Nhân Bản (lồng) copy trúng Mất Ngủ: cùng ngoại lệ ở trên — lượt chọn người (chạy
+      // trong "lượt doppelganger" của chuỗi copy) hoàn tất ngay, không cần xác nhận ở đây.
+      const skipsConfirmationHere =
+        copiedRole === "doppelganger" && isDoppelgangerInsomniacPick(activeCopiedRole);
 
       if (
         copiedRole === role &&
@@ -1420,7 +1475,7 @@ function getActiveNightTurn(
           cardsAtTurn(player.id, getNightTurnSlotRole(copiedRole, true)),
           cards
         ) ||
-          !isNightResultConfirmed)
+          (!isNightResultConfirmed && !skipsConfirmationHere))
       ) {
         return {
           playerId: player.id,
@@ -1431,6 +1486,62 @@ function getActiveNightTurn(
           isCopycatCopiedRole: true,
         };
       }
+    }
+  }
+
+  // Lượt trì hoãn "xem lại bài" của Nhân Bản (trực tiếp hoặc qua Copy Cat) copy trúng Mất Ngủ — luôn
+  // xét SAU CÙNG (sau mọi role khác trong ROLE_RESOLUTION_ORDER, kể cả Mất Ngủ thật), đúng vị trí
+  // "ngay sau lượt Insomniac thật" theo luật gốc. Lượt chọn người ban đầu đã hoàn tất ở nhánh phía
+  // trên (skipsConfirmationHere) mà không set confirmedNightPlayerIds, nên cờ đó còn "sạch" để dùng
+  // riêng cho xác nhận ở đây.
+  for (const player of players) {
+    const card = playerCardById.get(player.id);
+
+    if (!card) {
+      continue;
+    }
+
+    const action = actionByPlayerId.get(player.id) ?? null;
+    const isNightResultConfirmed = confirmedNightPlayerIds.has(player.id);
+
+    if (card.original_role === "doppelganger") {
+      const copiedRole = getDoppelgangerCopiedRole(cards, action);
+
+      if (isDoppelgangerInsomniacPick(copiedRole) && !isNightResultConfirmed) {
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          originalRole: card.original_role,
+          activeRole: "insomniac" as const,
+          copiedRole: "insomniac" as const,
+          isCopycatCopiedRole: false,
+        };
+      }
+
+      continue;
+    }
+
+    if (card.original_role !== "copycat") {
+      continue;
+    }
+
+    const copiedRole = getCopiedRoleFromAction(cards, action);
+
+    if (copiedRole !== "doppelganger") {
+      continue;
+    }
+
+    const nestedCopiedRole = getCopycatDoppelgangerCopiedRole(cards, action);
+
+    if (isDoppelgangerInsomniacPick(nestedCopiedRole) && !isNightResultConfirmed) {
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        originalRole: card.original_role,
+        activeRole: "insomniac" as const,
+        copiedRole: "insomniac" as const,
+        isCopycatCopiedRole: true,
+      };
     }
   }
 
@@ -2037,9 +2148,10 @@ function getNightReviewRole(
         return immediateRoleRevealByPlayerId.get(currentPlayer.id) ?? null;
       }
 
-      if (copiedRole === "insomniac") {
-        return getInsomniacCurrentRole(currentPlayer, cards, actions, players);
-      }
+      // copiedRole === "insomniac": KHÔNG trả về ở đây — xem lại bài chỉ lộ đúng lúc (cuối đêm, sau
+      // lượt Mất Ngủ thật) qua shouldRevealInsomniacCurrentRole ở getWolfPlayState, không phải qua
+      // hàm này (hàm này được gọi ngay khi action tồn tại, kể cả lúc còn SỚM — sẽ lộ thông tin trước
+      // thời điểm, xem isDoppelgangerInsomniacPick).
     }
   }
 
@@ -2051,9 +2163,7 @@ function getNightReviewRole(
       return immediateRoleRevealByPlayerId.get(currentPlayer.id) ?? null;
     }
 
-    if (copiedRole === "insomniac") {
-      return getInsomniacCurrentRole(currentPlayer, cards, actions, players);
-    }
+    // copiedRole === "insomniac": cùng lý do ở nhánh Copy Cat phía trên — không trả về sớm ở đây.
   }
 
   return null;
@@ -2863,7 +2973,18 @@ function computeNightResolution(
           description: `${actorName} xem chức năng của ${copiedTargetName}, trở thành ${getRoleReviewLabel(copiedRole)} và thực hiện chức năng đó ngay trong lượt Nhân Bản.`,
         });
         stepNumber += 1;
-        attachRole(card, copiedRole);
+
+        // Copy Cat thức dậy TRƯỚC Nhân Bản. Nếu Nhân Bản nhân bản một Copy Cat, luật chính thức
+        // (one-night.fandom.com/wiki/Doppelgänger) là Nhân Bản "không làm gì cả, trở thành ĐÚNG vai
+        // mà Copy Cat đã copy" — chỉ tính PHE/THẮNG THUA, KHÔNG được thực hiện thêm hành động nào của
+        // vai đó (không wake cùng Sói, không tự soi bài — do đó KHÔNG đổi copiedRole/currentRoleByCardId
+        // ở trên, chỉ đổi role gán cho mục đích thắng thua). copiedRoleByCopycatPlayerId đã có giá trị
+        // vì "copycat" luôn đứng trước "doppelganger" trong ROLE_RESOLUTION_ORDER.
+        const winTeamRole =
+          copiedRole === "copycat"
+            ? copiedRoleByCopycatPlayerId.get(action.target_player_id) ?? copiedRole
+            : copiedRole;
+        attachRole(card, winTeamRole);
 
         const copiedPrimaryTargetId = action.target_player_id_2;
         const copiedSecondaryTargetId = action.target_player_id_3;
@@ -2943,17 +3064,8 @@ function computeNightResolution(
           }
         }
 
-        if (copiedRole === "insomniac") {
-          const currentRole = roleOfCard(card);
-
-          steps.push({
-            id: `${role}-${card.player_id}-${stepNumber}`,
-            title: getActionTitle(actorName),
-            logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.insomniac}) xem bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
-            description: `${actorName} nhân bản Mất Ngủ và biết lá mình đang giữ ngay trong lượt Nhân Bản.`,
-          });
-          stepNumber += 1;
-        }
+        // copiedRole === "insomniac": KHÔNG xử lý ở đây nữa — bước "xem bài hiện tại" dời xuống cuối
+        // đêm (sau lượt Insomniac thật), xem khối lệnh riêng ngay sau vòng lặp ROLE_RESOLUTION_ORDER.
 
         if (copiedRole === "werewolf") {
           const werewolfTeammateNames = cards
@@ -3282,17 +3394,8 @@ function computeNightResolution(
             }
           }
 
-          if (nestedCopiedRole === "insomniac") {
-            const currentRole = roleOfCard(card);
-
-            steps.push({
-              id: `${role}-${card.player_id}-doppelganger-${stepNumber}`,
-              title: getActionTitle(actorName),
-              logText: `${actorName} (${WOLF_ROLE_LABELS.copycat} → ${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.insomniac}) xem bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
-              description: `${actorName} thực hiện chức năng ${WOLF_ROLE_LABELS.insomniac} sau khi copy ${WOLF_ROLE_LABELS.doppelganger}.`,
-            });
-            stepNumber += 1;
-          }
+          // nestedCopiedRole === "insomniac": cùng lý do ở nhánh Nhân Bản thật phía trên — dời xuống
+          // cuối đêm, xem khối lệnh riêng ngay sau vòng lặp ROLE_RESOLUTION_ORDER.
 
           if (nestedCopiedRole === "werewolf") {
             const werewolfTeammateNames = cards
@@ -3486,6 +3589,60 @@ function computeNightResolution(
         });
         stepNumber += 1;
       }
+    }
+  }
+
+  // Lượt trì hoãn "xem lại bài" của Nhân Bản (trực tiếp hoặc qua Copy Cat) copy trúng Mất Ngủ — luôn
+  // chạy SAU CÙNG (sau cả lượt Insomniac thật ở trên), đúng luật gốc. Xem thêm getActiveNightTurn
+  // (nhánh gating tương ứng) và isDoppelgangerInsomniacPick.
+  for (const card of cards) {
+    if (!card.player_id) {
+      continue;
+    }
+
+    const action = actionByPlayerId.get(card.player_id);
+    const actorName = getPlayerName(players, card.player_id);
+
+    if (card.original_role === "doppelganger") {
+      const copiedRole = getDoppelgangerCopiedRole(cards, action ?? null);
+
+      if (isDoppelgangerInsomniacPick(copiedRole)) {
+        const currentRole = roleOfCard(card);
+
+        steps.push({
+          id: `doppelinsomniac-${card.player_id}`,
+          title: `Bước ${stepNumber}: ${actorName} xem lại bài sau lượt Mất Ngủ thật`,
+          logText: `${actorName} (${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.insomniac}) xem bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
+          description: `${actorName} đã nhân bản trúng Mất Ngủ — theo luật gốc, chỉ được xem lại bài mình đang giữ ở CUỐI đêm, ngay sau lượt Mất Ngủ thật.`,
+        });
+        stepNumber += 1;
+      }
+
+      continue;
+    }
+
+    if (card.original_role !== "copycat") {
+      continue;
+    }
+
+    const copiedRole = getCopiedRoleFromAction(cards, action ?? null);
+
+    if (copiedRole !== "doppelganger") {
+      continue;
+    }
+
+    const nestedCopiedRole = getCopycatDoppelgangerCopiedRole(cards, action ?? null);
+
+    if (isDoppelgangerInsomniacPick(nestedCopiedRole)) {
+      const currentRole = roleOfCard(card);
+
+      steps.push({
+        id: `doppelinsomniac-${card.player_id}`,
+        title: `Bước ${stepNumber}: ${actorName} xem lại bài sau lượt Mất Ngủ thật`,
+        logText: `${actorName} (${WOLF_ROLE_LABELS.copycat} → ${WOLF_ROLE_LABELS.doppelganger} → ${WOLF_ROLE_LABELS.insomniac}) xem bài hiện tại: ${getRoleReviewLabel(currentRole)}`,
+        description: `${actorName} đã nhân bản trúng Mất Ngủ — theo luật gốc, chỉ được xem lại bài mình đang giữ ở CUỐI đêm, ngay sau lượt Mất Ngủ thật.`,
+      });
+      stepNumber += 1;
     }
   }
 
@@ -5597,7 +5754,25 @@ export async function submitWolfNightAction(
     return { ok: false, error: "Không thể lưu hành động ban đêm." };
   }
 
+  // Lượt chọn người của Nhân Bản (trực tiếp hoặc qua Copy Cat) copy trúng Mất Ngủ: KHÔNG tự xác nhận
+  // ở đây — cờ game_phase_confirmations cần giữ "sạch" (false) để dành riêng cho lượt trì hoãn ở cuối
+  // đêm (xem getActiveNightTurn + isDoppelgangerInsomniacPick). Nếu auto-confirm ở đây, lượt trì hoãn
+  // sẽ không bao giờ kích hoạt vì dùng chung 1 cờ xác nhận với người chơi này.
+  // Tính trực tiếp trên submittedAction (không dựa vào activeNightTurn.activeRole TRƯỚC submit) vì với
+  // Copy Cat → Nhân Bản (lồng), cả bước chọn lá giữa VÀ bước chọn người bị nhân bản luôn được gửi
+  // CHUNG 1 lần submit — lúc đó activeNightTurn.activeRole vẫn còn là "copycat" (chưa kịp đổi sang
+  // "doppelganger"), nên so sánh activeRole sẽ bỏ sót đúng case này.
+  const resolvedCopiedRoleAfterSubmit =
+    originalRole === "doppelganger"
+      ? getDoppelgangerCopiedRole(gameCards, submittedAction)
+      : originalRole === "copycat" &&
+          getCopiedRoleFromAction(gameCards, submittedAction) === "doppelganger"
+        ? getCopycatDoppelgangerCopiedRole(gameCards, submittedAction)
+        : null;
+  const isDoppelgangerInsomniacPickTurn = isDoppelgangerInsomniacPick(resolvedCopiedRoleAfterSubmit);
+
   if (
+    !isDoppelgangerInsomniacPickTurn &&
     !doesNightTurnRequireResultConfirmation(submittedActiveNightTurn, submittedAction, gameCards, gameActions, players)
   ) {
     const { error: confirmationError } = await supabase
