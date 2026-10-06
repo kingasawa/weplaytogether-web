@@ -27,7 +27,7 @@ export const WOLF_ROLE_DESCRIPTIONS: Record<WolfRole, string> = {
   witch: "Mở một lá giữa bàn rồi đổi lá đó với mình hoặc một người chơi khác.",
   drunk: "Đổi bài của mình với một lá giữa bàn nhưng không được xem lá mới.",
   insomniac: "Sau các hành động ban đêm, được biết lá bài hiện tại của mình.",
-  doppelganger: "Đi đầu tiên, chọn một người chơi để nhân bản, xem chức năng của họ rồi thực hiện chức năng đó ngay.",
+  doppelganger: "Đi đầu tiên, chọn một người chơi để nhân bản, xem chức năng của họ rồi thực hiện chức năng đó ngay (riêng nhân bản trúng Mất Ngủ thì phải chờ xem lại bài vào cuối đêm, sau lượt Mất Ngủ thật).",
   copycat: "Chọn một lá giữa bàn rồi thực hiện chức năng của role đó theo đúng lượt trong đêm.",
 };
 

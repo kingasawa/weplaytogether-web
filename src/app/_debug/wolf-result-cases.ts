@@ -494,7 +494,7 @@ export const DEBUG_WOLF_RESULT_CASES: DebugWolfResultCase[] = [
   {
     "key": "doppelganger-copycat",
     "label": "Nhân Bản → Copy Cat",
-    "note": "Trí nhân bản trúng Copy Cat: chỉ ghi nhận vào log, không nhận chức năng nào.",
+    "note": "Trí nhân bản trúng Copy Cat: không được thực hiện thêm hành động nào, nhưng tính PHE/thắng-thua theo đúng chức năng mà Copy Cat đã copy (ở đây là Ma Sói).",
     "roleDeck": [
       "copycat",
       "doppelganger",
@@ -587,7 +587,7 @@ export const DEBUG_WOLF_RESULT_CASES: DebugWolfResultCase[] = [
         "playerName": "Trí",
         "originalRole": "doppelganger",
         "finalRole": "doppelganger",
-        "finalTeamRole": "copycat"
+        "finalTeamRole": "werewolf"
       },
       {
         "playerId": "p4",
